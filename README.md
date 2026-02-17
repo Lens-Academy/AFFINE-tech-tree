@@ -1,31 +1,35 @@
 # AFFINE tech tree
 
-WIP web app for https://affi.ne/ for seminar participants to track understanding of AI Alignment foundation topics.
+WIP web app for https://affi.ne/ seminar participants to track understanding of AI Alignment foundation topics.
 
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
 
-## What's next? How do I make an app with this?
+## Dev
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+```sh
+cp .env.example .env   # then fill in values
+pnpm i
+pnpm dev
+```
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+### Environment variables
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | SQLite connection string (default: `file:./db.sqlite`) |
+| `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production) |
+| `AFFINE_SHEETS_API_KEY` | Google API key with Sheets API enabled — needed by `db:sync` to extract hyperlinks from the spreadsheet |
 
-## Learn More
+To create an `AFFINE_SHEETS_API_KEY`: [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials), enable the **Google Sheets API**, then create an API key.
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+### Database
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+Import data from https://docs.google.com/spreadsheets/d/16BG0Fw7mOOHJykBVLkeqPzlpdxgMMp1_YeSmgaFnKLc
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+```sh
+pnpm db:sync
+```
 
-## How do I deploy this?
+### How do I deploy this?
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+Follow T3 deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.

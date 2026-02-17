@@ -1,31 +1,7 @@
 import { relations, sql } from "drizzle-orm";
-import { index, sqliteTable } from "drizzle-orm/sqlite-core";
+import { index, uniqueIndex, sqliteTable } from "drizzle-orm/sqlite-core";
 
-/**
- * Multi-project schema prefix helper
- */
-
-// Posts example table
-export const posts = sqliteTable(
-  "post",
-  (d) => ({
-    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
-    name: d.text({ length: 256 }),
-    createdById: d
-      .text({ length: 255 })
-      .notNull()
-      .references(() => user.id),
-    createdAt: d
-      .integer({ mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
-    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-  }),
-  (t) => [
-    index("created_by_idx").on(t.createdById),
-    index("name_idx").on(t.name),
-  ]
-);
+import { UNDERSTANDING_LEVELS } from "../../shared/understandingLevels.ts";
 
 // Better Auth core tables
 export const user = sqliteTable("user", (d) => ({
@@ -48,6 +24,14 @@ export const user = sqliteTable("user", (d) => ({
 export const userRelations = relations(user, ({ many }) => ({
   account: many(account),
   session: many(session),
+  userTopicStatus: many(userTopicStatus),
+  resource: many(resource),
+  teachingSessionAsTeacher: many(teachingSession, {
+    relationName: "teacher",
+  }),
+  teachingSessionAsLearner: many(teachingSession, {
+    relationName: "learner",
+  }),
 }));
 
 export const account = sqliteTable(
@@ -132,3 +116,193 @@ export const verification = sqliteTable(
   }),
   (t) => [index("verification_identifier_idx").on(t.identifier)]
 );
+
+// Tech tree tables
+export const topic = sqliteTable(
+  "topic",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    name: d.text({ length: 512 }).notNull().unique(),
+    description: d.text(),
+    rawPrerequisites: d.text(),
+    spreadsheetRow: d.integer({ mode: "number" }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [index("topic_name_idx").on(t.name)]
+);
+
+export const topicLink = sqliteTable(
+  "topic_link",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    title: d.text({ length: 512 }).notNull(),
+    url: d.text({ length: 2048 }),
+    position: d.integer({ mode: "number" }).notNull().default(0),
+  }),
+  (t) => [index("topic_link_topic_idx").on(t.topicId)]
+);
+
+export const tag = sqliteTable("tag", (d) => ({
+  name: d.text({ length: 255 }).notNull().primaryKey(),
+}));
+
+export const topicTag = sqliteTable(
+  "topic_tag",
+  (d) => ({
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    tagName: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => tag.name, { onDelete: "cascade" }),
+  }),
+  (t) => [
+    uniqueIndex("topic_tag_unique").on(t.topicId, t.tagName),
+  ]
+);
+
+export const userTopicStatus = sqliteTable(
+  "user_topic_status",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    level: d.text({ length: 64, enum: UNDERSTANDING_LEVELS }).notNull(),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    uniqueIndex("user_topic_status_unique").on(t.userId, t.topicId),
+    index("user_topic_status_user_idx").on(t.userId),
+    index("user_topic_status_topic_idx").on(t.topicId),
+  ]
+);
+
+export const resource = sqliteTable(
+  "resource",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    title: d.text({ length: 512 }).notNull(),
+    url: d.text({ length: 2048 }).notNull(),
+    type: d.text({ length: 64 }),
+    submittedById: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    approved: d.integer({ mode: "boolean" }).default(false),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [index("resource_topic_idx").on(t.topicId)]
+);
+
+export const teachingSession = sqliteTable(
+  "teaching_session",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    teacherId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    learnerId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    rating: d.integer({ mode: "number" }),
+    feedback: d.text(),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("teaching_session_teacher_idx").on(t.teacherId),
+    index("teaching_session_learner_idx").on(t.learnerId),
+    index("teaching_session_topic_idx").on(t.topicId),
+  ]
+);
+
+// Relations for new tables
+export const topicRelations = relations(topic, ({ many }) => ({
+  topicTags: many(topicTag),
+  topicLinks: many(topicLink),
+  userTopicStatus: many(userTopicStatus),
+  resources: many(resource),
+  teachingSessions: many(teachingSession),
+}));
+
+export const topicLinkRelations = relations(topicLink, ({ one }) => ({
+  topic: one(topic, { fields: [topicLink.topicId], references: [topic.id] }),
+}));
+
+export const tagRelations = relations(tag, ({ many }) => ({
+  topicTags: many(topicTag),
+}));
+
+export const topicTagRelations = relations(topicTag, ({ one }) => ({
+  topic: one(topic, { fields: [topicTag.topicId], references: [topic.id] }),
+  tag: one(tag, { fields: [topicTag.tagName], references: [tag.name] }),
+}));
+
+export const userTopicStatusRelations = relations(userTopicStatus, ({ one }) => ({
+  user: one(user, { fields: [userTopicStatus.userId], references: [user.id] }),
+  topic: one(topic, {
+    fields: [userTopicStatus.topicId],
+    references: [topic.id],
+  }),
+}));
+
+export const resourceRelations = relations(resource, ({ one }) => ({
+  topic: one(topic, { fields: [resource.topicId], references: [topic.id] }),
+  submittedBy: one(user, {
+    fields: [resource.submittedById],
+    references: [user.id],
+  }),
+}));
+
+export const teachingSessionRelations = relations(teachingSession, ({ one }) => ({
+  teacher: one(user, {
+    fields: [teachingSession.teacherId],
+    references: [user.id],
+    relationName: "teacher",
+  }),
+  learner: one(user, {
+    fields: [teachingSession.learnerId],
+    references: [user.id],
+    relationName: "learner",
+  }),
+  topic: one(topic, {
+    fields: [teachingSession.topicId],
+    references: [topic.id],
+  }),
+}));
