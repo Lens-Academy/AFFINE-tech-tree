@@ -1,4 +1,5 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
+import { bookmarkRouter } from "~/server/api/routers/bookmark";
 import { topicRouter } from "~/server/api/routers/topic";
 import { userStatusRouter } from "~/server/api/routers/userStatus";
 
@@ -8,6 +9,7 @@ import { userStatusRouter } from "~/server/api/routers/userStatus";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+  bookmark: bookmarkRouter,
   topic: topicRouter,
   userStatus: userStatusRouter,
 });

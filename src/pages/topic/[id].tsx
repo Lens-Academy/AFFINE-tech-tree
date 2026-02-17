@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 
 import {
   getLevelLabel,
+  isTeacherLevel,
   UNDERSTANDING_LEVEL_LABELS,
   UNDERSTANDING_LEVELS,
   understandingLevelSchema,
 } from "~/shared/understandingLevels";
 import { authClient } from "~/server/better-auth/client";
 import { AuthHeader } from "~/components/AuthHeader";
+import { BookmarkIcon } from "~/components/BookmarkIcon";
 import { api } from "~/utils/api";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 
@@ -32,6 +34,26 @@ export default function TopicPage() {
   const { setStatus, removeStatus } = useTopicStatusMutations(() =>
     setPendingLevel(undefined)
   );
+  const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
+    enabled: !!session?.user,
+  });
+  const [pendingBookmark, setPendingBookmark] = useState<boolean | undefined>();
+  const [bookmarkUpdating, setBookmarkUpdating] = useState(false);
+  const utils = api.useUtils();
+  const bookmarkSet = api.bookmark.set.useMutation();
+  const { data: teachers } = api.topic.getTeachers.useQuery(
+    { topicId: id },
+    { enabled: !!session?.user && !Number.isNaN(id) },
+  );
+
+  const serverBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
+  const isBookmarked = pendingBookmark ?? serverBookmarked;
+
+  useEffect(() => {
+    if (pendingBookmark !== undefined && serverBookmarked === pendingBookmark) {
+      setPendingBookmark(undefined);
+    }
+  }, [pendingBookmark, serverBookmarked]);
 
   const serverLevel =
     topic && statuses
@@ -78,9 +100,42 @@ export default function TopicPage() {
             <AuthHeader />
           </div>
 
-          <h1 className="mb-2 bg-linear-60 from-orange-400 to-5% to-zinc-100 bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
-            {topic.name}
-          </h1>
+          <div className="mb-2 flex items-center gap-3">
+            <h1 className="bg-linear-60 from-orange-400 to-5% to-zinc-100 bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
+              {topic.name}
+            </h1>
+            {session?.user && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (bookmarkUpdating) return;
+                  const current = pendingBookmark ?? serverBookmarked;
+                  const next = !current;
+                  setPendingBookmark(next);
+                  setBookmarkUpdating(true);
+                  bookmarkSet.mutate(
+                    { topicId: topic.id, bookmarked: next },
+                    {
+                      onError: () => {
+                        setPendingBookmark(current);
+                      },
+                      onSettled: () => {
+                        setBookmarkUpdating(false);
+                        void utils.bookmark.getAll.invalidate();
+                      },
+                    },
+                  );
+                }}
+                disabled={bookmarkUpdating}
+                title="I'd like to learn this topic"
+                className={`shrink-0 rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isBookmarked ? "text-orange-400" : "text-zinc-600 hover:text-zinc-400"
+                }`}
+              >
+                <BookmarkIcon filled={isBookmarked} />
+              </button>
+            )}
+          </div>
 
           <div className="mb-4 flex flex-wrap gap-1">
             {topic.topicTags.map((tt) => (
@@ -184,6 +239,27 @@ export default function TopicPage() {
                         {r.type}
                       </span>
                     )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {session?.user && !isTeacherLevel(currentLevel) && teachers && teachers.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-3 text-zinc-100 bg-clip-text text-lg font-semibold">
+                People who can help
+              </h2>
+              <ul className="space-y-2">
+                {teachers.map((t) => (
+                  <li
+                    key={t.userId}
+                    className="flex items-center gap-2 text-sm text-zinc-300"
+                  >
+                    <span>{t.name ?? "Anonymous"}</span>
+                    <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                      {getLevelLabel(t.level)}
+                    </span>
                   </li>
                 ))}
               </ul>

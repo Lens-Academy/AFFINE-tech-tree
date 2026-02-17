@@ -25,6 +25,7 @@ export const userRelations = relations(user, ({ many }) => ({
   account: many(account),
   session: many(session),
   userTopicStatus: many(userTopicStatus),
+  bookmark: many(bookmark),
   resource: many(resource),
   teachingSessionAsTeacher: many(teachingSession, {
     relationName: "teacher",
@@ -252,12 +253,35 @@ export const teachingSession = sqliteTable(
   ]
 );
 
+export const bookmark = sqliteTable(
+  "bookmark",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    uniqueIndex("bookmark_user_topic_unique").on(t.userId, t.topicId),
+  ]
+);
+
 // Relations for new tables
 export const topicRelations = relations(topic, ({ many }) => ({
   topicTags: many(topicTag),
   topicLinks: many(topicLink),
   userTopicStatus: many(userTopicStatus),
   resources: many(resource),
+  bookmarks: many(bookmark),
   teachingSessions: many(teachingSession),
 }));
 
@@ -305,4 +329,9 @@ export const teachingSessionRelations = relations(teachingSession, ({ one }) => 
     fields: [teachingSession.topicId],
     references: [topic.id],
   }),
+}));
+
+export const bookmarkRelations = relations(bookmark, ({ one }) => ({
+  user: one(user, { fields: [bookmark.userId], references: [user.id] }),
+  topic: one(topic, { fields: [bookmark.topicId], references: [topic.id] }),
 }));
