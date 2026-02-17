@@ -141,7 +141,7 @@ export default function TopicPage() {
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300 hover:decoration-orange-300/50"
+                        className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 visited:text-orange-500 hover:text-orange-300 hover:decoration-orange-300/50"
                       >
                         {link.title}
                       </a>
@@ -168,7 +168,7 @@ export default function TopicPage() {
                       href={r.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-orange-400 underline hover:text-orange-300"
+                      className="text-orange-400 underline visited:text-orange-500 hover:text-orange-300"
                     >
                       {r.title}
                     </a>
