@@ -1,13 +1,10 @@
 import { z } from "zod";
 
 export const understandingLevelSchema = z.enum([
-  "not_yet",
-  "want_to_learn",
-  "want_to_learn_next",
-  "in_progress",
-  "backburner",
-  "almost_get_it",
+  "unfamiliar",
+  "vague",
   "can_teach",
+  "advanced_questions_welcome",
 ]);
 
 export type UnderstandingLevel = z.infer<typeof understandingLevelSchema>;
@@ -15,11 +12,15 @@ export type UnderstandingLevel = z.infer<typeof understandingLevelSchema>;
 export const UNDERSTANDING_LEVELS = understandingLevelSchema.options;
 
 export const UNDERSTANDING_LEVEL_LABELS: Record<UnderstandingLevel, string> = {
-  not_yet: "Not yet",
-  want_to_learn: "Want to learn",
-  want_to_learn_next: "Want to learn next",
-  in_progress: "In progress",
-  backburner: "Backburner",
-  almost_get_it: "Almost get it",
-  can_teach: "Understand enough to teach",
+  unfamiliar: "Unfamiliar",
+  vague: "Vague",
+  can_teach: "Can Teach",
+  advanced_questions_welcome: "Advanced Questions Welcome",
 };
+
+/** Returns the label for a level, or the raw DB value if unknown. */
+export function getLevelLabel(level: string): string {
+  return level in UNDERSTANDING_LEVEL_LABELS
+    ? UNDERSTANDING_LEVEL_LABELS[level as UnderstandingLevel]
+    : level;
+}

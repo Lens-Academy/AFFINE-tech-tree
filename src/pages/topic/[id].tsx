@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 import {
+  getLevelLabel,
   UNDERSTANDING_LEVEL_LABELS,
   UNDERSTANDING_LEVELS,
   understandingLevelSchema,
@@ -119,6 +120,12 @@ export default function TopicPage() {
                 className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-100 focus:border-orange-500/50 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
               >
                 <option value="">—</option>
+                {currentLevel &&
+                  !(currentLevel in UNDERSTANDING_LEVEL_LABELS) && (
+                    <option value={currentLevel}>
+                      {getLevelLabel(currentLevel)}
+                    </option>
+                  )}
                 {UNDERSTANDING_LEVELS.map((level) => (
                   <option key={level} value={level}>
                     {UNDERSTANDING_LEVEL_LABELS[level]}

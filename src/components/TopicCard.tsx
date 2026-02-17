@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
+  getLevelLabel,
   UNDERSTANDING_LEVEL_LABELS,
   UNDERSTANDING_LEVELS,
   type UnderstandingLevel,
@@ -32,9 +33,7 @@ export function TopicCard({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [showDropdown]);
 
-  const displayLevel = currentLevel
-    ? UNDERSTANDING_LEVEL_LABELS[currentLevel]
-    : "—";
+  const displayLevel = currentLevel ? getLevelLabel(currentLevel) : "—";
 
   return (
     <li className="group rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 transition hover:border-zinc-700 md:p-5">
