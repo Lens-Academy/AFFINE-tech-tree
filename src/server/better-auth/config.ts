@@ -10,7 +10,7 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: env.NODE_ENV === "production",
+    requireEmailVerification: false, // TODO: env.NODE_ENV === "production",
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
