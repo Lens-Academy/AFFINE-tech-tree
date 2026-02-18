@@ -22,17 +22,18 @@ export default function TopicPage() {
   const [pendingLevel, setPendingLevel] = useState<
     (typeof UNDERSTANDING_LEVELS)[number] | null | undefined
   >();
-  const id = typeof router.query.id === "string" ? Number(router.query.id) : NaN;
+  const id =
+    typeof router.query.id === "string" ? Number(router.query.id) : NaN;
   const { data: topic, isLoading } = api.topic.getById.useQuery(
     { id },
-    { enabled: !Number.isNaN(id) }
+    { enabled: !Number.isNaN(id) },
   );
   const { data: session } = authClient.useSession();
   const { data: statuses } = api.userStatus.getAll.useQuery(undefined, {
     enabled: !!session?.user,
   });
   const { setStatus, removeStatus } = useTopicStatusMutations(() =>
-    setPendingLevel(undefined)
+    setPendingLevel(undefined),
   );
   const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
     enabled: !!session?.user,
@@ -46,7 +47,9 @@ export default function TopicPage() {
     { enabled: !!session?.user && !Number.isNaN(id) },
   );
 
-  const serverBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
+  const serverBookmarked = topic
+    ? (bookmarkedIds ?? []).includes(topic.id)
+    : false;
   const isBookmarked = pendingBookmark ?? serverBookmarked;
 
   useEffect(() => {
@@ -101,7 +104,7 @@ export default function TopicPage() {
           </div>
 
           <div className="mb-2 flex items-center gap-3">
-            <h1 className="bg-linear-60 from-orange-400 to-5% to-zinc-100 bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
+            <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-5% bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
               {topic.name}
             </h1>
             {session?.user && (
@@ -129,7 +132,9 @@ export default function TopicPage() {
                 disabled={bookmarkUpdating}
                 title="I'd like to learn this topic"
                 className={`shrink-0 rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isBookmarked ? "text-orange-400" : "text-zinc-600 hover:text-zinc-400"
+                  isBookmarked
+                    ? "text-orange-400"
+                    : "text-zinc-600 hover:text-zinc-400"
                 }`}
               >
                 <BookmarkIcon filled={isBookmarked} />
@@ -168,11 +173,14 @@ export default function TopicPage() {
                     const parsed = understandingLevelSchema.safeParse(value);
                     if (parsed.success) {
                       setPendingLevel(parsed.data);
-                      setStatus.mutate({ topicId: topic.id, level: parsed.data });
+                      setStatus.mutate({
+                        topicId: topic.id,
+                        level: parsed.data,
+                      });
                     }
                   }
                 }}
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-100 focus:border-orange-500/50 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-100 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none"
               >
                 <option value="">—</option>
                 {currentLevel &&
@@ -192,7 +200,7 @@ export default function TopicPage() {
 
           {topic.topicLinks && topic.topicLinks.length > 0 && (
             <section className="mb-8">
-              <h2 className="mb-3 text-zinc-100 bg-clip-text text-lg font-semibold">
+              <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
                 Resources
               </h2>
               <ul className="space-y-2 text-sm">
@@ -209,7 +217,7 @@ export default function TopicPage() {
                       </a>
                     </li>
                   ) : (
-                    <li key={link.id} className="text-zinc-300 leading-relaxed">
+                    <li key={link.id} className="leading-relaxed text-zinc-300">
                       {link.title}
                     </li>
                   ),
@@ -220,7 +228,7 @@ export default function TopicPage() {
 
           {topic.resources && topic.resources.length > 0 && (
             <section className="mb-8">
-              <h2 className="mb-3 text-zinc-100 bg-clip-text text-lg font-semibold">
+              <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
                 Community resources
               </h2>
               <ul className="space-y-2">
@@ -235,7 +243,7 @@ export default function TopicPage() {
                       {r.title}
                     </a>
                     {r.type && (
-                      <span className="ml-2 text-zinc-500 text-xs">
+                      <span className="ml-2 text-xs text-zinc-500">
                         {r.type}
                       </span>
                     )}
@@ -245,29 +253,31 @@ export default function TopicPage() {
             </section>
           )}
 
-          {session?.user && !isTeacherLevel(currentLevel) && teachers && teachers.length > 0 && (
-            <section className="mb-8">
-              <h2 className="mb-3 text-zinc-100 bg-clip-text text-lg font-semibold">
-                People who can help
-              </h2>
-              <ul className="space-y-2">
-                {teachers.map((t) => (
-                  <li
-                    key={t.userId}
-                    className="flex items-center gap-2 text-sm text-zinc-300"
-                  >
-                    <span>{t.name ?? "Anonymous"}</span>
-                    <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                      {getLevelLabel(t.level)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {session?.user &&
+            !isTeacherLevel(currentLevel) &&
+            teachers &&
+            teachers.length > 0 && (
+              <section className="mb-8">
+                <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                  People who can help
+                </h2>
+                <ul className="space-y-2">
+                  {teachers.map((t) => (
+                    <li
+                      key={t.userId}
+                      className="flex items-center gap-2 text-sm text-zinc-300"
+                    >
+                      <span>{t.name ?? "Anonymous"}</span>
+                      <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                        {getLevelLabel(t.level)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
         </div>
       </main>
     </>
   );
 }
-

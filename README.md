@@ -14,10 +14,10 @@ pnpm dev
 
 ### Environment variables
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | SQLite connection string (default: `file:./db.sqlite`) |
-| `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production) |
+| Variable                | Description                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | SQLite connection string (default: `file:./db.sqlite`)                                                  |
+| `BETTER_AUTH_SECRET`    | Secret for Better Auth sessions (required in production)                                                |
 | `AFFINE_SHEETS_API_KEY` | Google API key with Sheets API enabled — needed by `db:sync` to extract hyperlinks from the spreadsheet |
 
 To create an `AFFINE_SHEETS_API_KEY`: [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials), enable the **Google Sheets API**, then create an API key.
@@ -33,3 +33,15 @@ pnpm db:sync
 ### How do I deploy this?
 
 Follow T3 deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+
+#### Cloudflare Workers
+
+Requires [Wrangler](https://developers.cloudflare.com/workers/wrangler/), a Cloudflare account, and [`sqlite3`](https://sqlite.org/cli.html) CLI (`sudo apt install sqlite3` on Debian/Ubuntu/WSL2).
+
+```sh
+cp wrangler.jsonc.example wrangler.jsonc    # then fill in account_id and database_id
+pnpm wrangler login                         # one-time auth
+pnpm wrangler secret put BETTER_AUTH_SECRET # paste the value from .env
+pnpm db:upload:cf                           # copy local db.sqlite → D1 (replaces everything)
+pnpm deploy:cf                              # build Next.js as a Worker and deploy
+```

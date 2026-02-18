@@ -1,15 +1,15 @@
 import { z } from "zod";
 
-export const understandingLevelSchema = z.enum([
+export const UNDERSTANDING_LEVELS = [
   "unfamiliar",
   "vague",
   "can_teach",
   "advanced_questions_welcome",
-]);
+] as const;
+
+export const understandingLevelSchema = z.enum(UNDERSTANDING_LEVELS);
 
 export type UnderstandingLevel = z.infer<typeof understandingLevelSchema>;
-
-export const UNDERSTANDING_LEVELS = understandingLevelSchema.options;
 
 export const UNDERSTANDING_LEVEL_LABELS: Record<UnderstandingLevel, string> = {
   unfamiliar: "Unfamiliar",

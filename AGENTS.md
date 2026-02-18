@@ -7,9 +7,11 @@ Training material progress tracker for the AFFINE Seminar. Users track their und
 - Next.js 15 (Pages Router)
 - tRPC
 - Drizzle ORM
-- SQLite (libSQL)
+- SQLite — libSQL (local dev) / D1 (Cloudflare Workers)
+- Cloudflare Workers (@opennextjs/cloudflare)
 - Better Auth (email/password)
 - Tailwind CSS 4
+- `sqlite3` CLI required for `pnpm db:upload:cf` (`sudo apt install sqlite3`)
 
 ## Project Principles
 

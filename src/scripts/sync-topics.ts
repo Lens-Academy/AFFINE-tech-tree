@@ -40,7 +40,9 @@ type CellData = {
 type SheetRow = { values?: CellData[] };
 
 /** Extract {title, url} pairs from a cell's text format runs. */
-function extractLinks(cell: CellData | undefined): Array<{ title: string; url: string | null }> {
+function extractLinks(
+  cell: CellData | undefined,
+): Array<{ title: string; url: string | null }> {
   const text = cell?.formattedValue?.trim();
   if (!text) return [];
 
@@ -55,7 +57,10 @@ function extractLinks(cell: CellData | undefined): Array<{ title: string; url: s
   for (let i = 0; i < runs.length; i++) {
     const run = runs[i]!;
     const start = run.startIndex ?? 0;
-    const end = i + 1 < runs.length ? (runs[i + 1]!.startIndex ?? text.length) : text.length;
+    const end =
+      i + 1 < runs.length
+        ? (runs[i + 1]!.startIndex ?? text.length)
+        : text.length;
     const url = run.format?.link?.uri ?? null;
     spans.push({ start, end, url });
   }
@@ -86,7 +91,10 @@ function splitBullets(text: string): string[] {
 }
 
 function cleanTitle(s: string): string {
-  return s.replace(/^[\s*•\-–—]+/, "").replace(/[\s,;]+$/, "").trim();
+  return s
+    .replace(/^[\s*•\-–—]+/, "")
+    .replace(/[\s,;]+$/, "")
+    .trim();
 }
 
 function cellText(row: SheetRow, col: number): string | null {
@@ -95,13 +103,13 @@ function cellText(row: SheetRow, col: number): string | null {
 
 async function main() {
   const url = new URL(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`
+    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`,
   );
   url.searchParams.set("ranges", "Hoja 1");
   url.searchParams.set("includeGridData", "true");
   url.searchParams.set(
     "fields",
-    "sheets.data.rowData.values(formattedValue,textFormatRuns)"
+    "sheets.data.rowData.values(formattedValue,textFormatRuns)",
   );
   url.searchParams.set("key", AFFINE_SHEETS_API_KEY);
 
@@ -110,9 +118,8 @@ async function main() {
     const body = await res.text();
     throw new Error(`Sheets API error ${res.status}: ${body}`);
   }
-  const json = (await res.json()) as {
-    sheets: Array<{ data: Array<{ rowData?: SheetRow[] }> }>;
-  };
+  const json: { sheets: Array<{ data: Array<{ rowData?: SheetRow[] }> }> } =
+    await res.json();
 
   const rows = json.sheets[0]?.data[0]?.rowData ?? [];
   // Skip header row
@@ -159,7 +166,12 @@ async function main() {
       } else {
         const [inserted] = await tx
           .insert(topic)
-          .values({ name, description, rawPrerequisites, spreadsheetRow: rowNum })
+          .values({
+            name,
+            description,
+            rawPrerequisites,
+            spreadsheetRow: rowNum,
+          })
           .returning({ id: topic.id });
         if (!inserted) throw new Error(`Failed to insert topic: ${name}`);
         topicId = inserted.id;
@@ -175,7 +187,9 @@ async function main() {
         await tx
           .insert(topicTag)
           .values({ topicId, tagName })
-          .onConflictDoNothing({ target: [topicTag.topicId, topicTag.tagName] });
+          .onConflictDoNothing({
+            target: [topicTag.topicId, topicTag.tagName],
+          });
       }
 
       // Links
@@ -196,7 +210,7 @@ async function main() {
   });
 
   console.log(
-    `Sync complete: ${upserted} topics upserted, ${linkCount} links, ${skipped} rows skipped`
+    `Sync complete: ${upserted} topics upserted, ${linkCount} links, ${skipped} rows skipped`,
   );
 }
 

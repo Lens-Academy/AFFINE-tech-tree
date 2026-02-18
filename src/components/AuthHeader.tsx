@@ -73,9 +73,7 @@ export function AuthHeader() {
   if (session?.user) {
     return (
       <div className="flex items-center gap-3">
-        <EditableName
-          currentName={session.user.name ?? session.user.email}
-        />
+        <EditableName currentName={session.user.name ?? session.user.email} />
         <button
           type="button"
           onClick={() => {

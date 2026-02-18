@@ -52,7 +52,7 @@ export function TopicCard({
           onClick={onBookmarkToggle}
           disabled={bookmarkDisabled}
           title="I'd like to learn this topic"
-          className={`absolute right-3 top-3 shrink-0 rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 md:right-4 md:top-4 ${
+          className={`absolute top-3 right-3 shrink-0 rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 md:top-4 md:right-4 ${
             bookmarked ? "text-orange-400" : "text-zinc-600 hover:text-zinc-400"
           }`}
         >
@@ -60,7 +60,7 @@ export function TopicCard({
         </button>
       )}
       <Link href={`/topic/${topic.id}`} className="block">
-        <h2 className="-mt-0.5 text-lg font-semibold bg-linear-60 from-orange-400 to-1% to-zinc-100 group-hover:to-100% bg-clip-text text-transparent">
+        <h2 className="-mt-0.5 bg-linear-60 from-orange-400 to-zinc-100 to-1% bg-clip-text text-lg font-semibold text-transparent group-hover:to-100%">
           {topic.name}
         </h2>
         {topic.description && (
@@ -110,10 +110,11 @@ export function TopicCard({
                       onLevelChange(undefined);
                       setShowDropdown(false);
                     }}
-                    className={`block w-full px-3 py-2 text-left text-sm ${currentLevel === undefined
-                      ? "bg-orange-500/15 text-orange-400"
-                      : "text-zinc-300 hover:bg-zinc-800"
-                      }`}
+                    className={`block w-full px-3 py-2 text-left text-sm ${
+                      currentLevel === undefined
+                        ? "bg-orange-500/15 text-orange-400"
+                        : "text-zinc-300 hover:bg-zinc-800"
+                    }`}
                   >
                     —
                   </button>
@@ -130,10 +131,11 @@ export function TopicCard({
                         onLevelChange(level);
                         setShowDropdown(false);
                       }}
-                      className={`block w-full px-3 py-2 text-left text-sm ${currentLevel === level
-                        ? "bg-orange-500/15 text-orange-400"
-                        : "text-zinc-300 hover:bg-zinc-800"
-                        }`}
+                      className={`block w-full px-3 py-2 text-left text-sm ${
+                        currentLevel === level
+                          ? "bg-orange-500/15 text-orange-400"
+                          : "text-zinc-300 hover:bg-zinc-800"
+                      }`}
                     >
                       {UNDERSTANDING_LEVEL_LABELS[level]}
                     </button>

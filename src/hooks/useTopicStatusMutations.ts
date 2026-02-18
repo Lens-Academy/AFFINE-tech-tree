@@ -3,7 +3,7 @@ import { api, type RouterInputs } from "~/utils/api";
 type RemoveStatusInput = RouterInputs["userStatus"]["remove"];
 
 export function useTopicStatusMutations(
-  clearPending: (topicId: number) => void
+  clearPending: (topicId: number) => void,
 ) {
   const utils = api.useUtils();
 

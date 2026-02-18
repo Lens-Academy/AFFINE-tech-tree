@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import { TEACHER_LEVELS } from "~/shared/understandingLevels";
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  publicProcedure,
+} from "~/server/api/trpc";
 
 export const topicRouter = createTRPCRouter({
   listTags: publicProcedure.query(async ({ ctx }) => {

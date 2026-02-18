@@ -62,7 +62,7 @@ export const account = sqliteTable(
       .notNull(),
     updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
   }),
-  (t) => [index("account_user_id_idx").on(t.userId)]
+  (t) => [index("account_user_id_idx").on(t.userId)],
 );
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -91,7 +91,7 @@ export const session = sqliteTable(
       .notNull(),
     updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
   }),
-  (t) => [index("session_user_id_idx").on(t.userId)]
+  (t) => [index("session_user_id_idx").on(t.userId)],
 );
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -115,7 +115,7 @@ export const verification = sqliteTable(
       .notNull(),
     updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
   }),
-  (t) => [index("verification_identifier_idx").on(t.identifier)]
+  (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
 // Tech tree tables
@@ -133,7 +133,7 @@ export const topic = sqliteTable(
       .notNull(),
     updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
   }),
-  (t) => [index("topic_name_idx").on(t.name)]
+  (t) => [index("topic_name_idx").on(t.name)],
 );
 
 export const topicLink = sqliteTable(
@@ -148,7 +148,7 @@ export const topicLink = sqliteTable(
     url: d.text({ length: 2048 }),
     position: d.integer({ mode: "number" }).notNull().default(0),
   }),
-  (t) => [index("topic_link_topic_idx").on(t.topicId)]
+  (t) => [index("topic_link_topic_idx").on(t.topicId)],
 );
 
 export const tag = sqliteTable("tag", (d) => ({
@@ -167,9 +167,7 @@ export const topicTag = sqliteTable(
       .notNull()
       .references(() => tag.name, { onDelete: "cascade" }),
   }),
-  (t) => [
-    uniqueIndex("topic_tag_unique").on(t.topicId, t.tagName),
-  ]
+  (t) => [uniqueIndex("topic_tag_unique").on(t.topicId, t.tagName)],
 );
 
 export const userTopicStatus = sqliteTable(
@@ -195,7 +193,7 @@ export const userTopicStatus = sqliteTable(
     uniqueIndex("user_topic_status_unique").on(t.userId, t.topicId),
     index("user_topic_status_user_idx").on(t.userId),
     index("user_topic_status_topic_idx").on(t.topicId),
-  ]
+  ],
 );
 
 export const resource = sqliteTable(
@@ -220,7 +218,7 @@ export const resource = sqliteTable(
       .notNull(),
     updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
   }),
-  (t) => [index("resource_topic_idx").on(t.topicId)]
+  (t) => [index("resource_topic_idx").on(t.topicId)],
 );
 
 export const teachingSession = sqliteTable(
@@ -250,7 +248,7 @@ export const teachingSession = sqliteTable(
     index("teaching_session_teacher_idx").on(t.teacherId),
     index("teaching_session_learner_idx").on(t.learnerId),
     index("teaching_session_topic_idx").on(t.topicId),
-  ]
+  ],
 );
 
 export const bookmark = sqliteTable(
@@ -270,9 +268,7 @@ export const bookmark = sqliteTable(
       .default(sql`(unixepoch())`)
       .notNull(),
   }),
-  (t) => [
-    uniqueIndex("bookmark_user_topic_unique").on(t.userId, t.topicId),
-  ]
+  (t) => [uniqueIndex("bookmark_user_topic_unique").on(t.userId, t.topicId)],
 );
 
 // Relations for new tables
@@ -298,13 +294,19 @@ export const topicTagRelations = relations(topicTag, ({ one }) => ({
   tag: one(tag, { fields: [topicTag.tagName], references: [tag.name] }),
 }));
 
-export const userTopicStatusRelations = relations(userTopicStatus, ({ one }) => ({
-  user: one(user, { fields: [userTopicStatus.userId], references: [user.id] }),
-  topic: one(topic, {
-    fields: [userTopicStatus.topicId],
-    references: [topic.id],
+export const userTopicStatusRelations = relations(
+  userTopicStatus,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [userTopicStatus.userId],
+      references: [user.id],
+    }),
+    topic: one(topic, {
+      fields: [userTopicStatus.topicId],
+      references: [topic.id],
+    }),
   }),
-}));
+);
 
 export const resourceRelations = relations(resource, ({ one }) => ({
   topic: one(topic, { fields: [resource.topicId], references: [topic.id] }),
@@ -314,22 +316,25 @@ export const resourceRelations = relations(resource, ({ one }) => ({
   }),
 }));
 
-export const teachingSessionRelations = relations(teachingSession, ({ one }) => ({
-  teacher: one(user, {
-    fields: [teachingSession.teacherId],
-    references: [user.id],
-    relationName: "teacher",
+export const teachingSessionRelations = relations(
+  teachingSession,
+  ({ one }) => ({
+    teacher: one(user, {
+      fields: [teachingSession.teacherId],
+      references: [user.id],
+      relationName: "teacher",
+    }),
+    learner: one(user, {
+      fields: [teachingSession.learnerId],
+      references: [user.id],
+      relationName: "learner",
+    }),
+    topic: one(topic, {
+      fields: [teachingSession.topicId],
+      references: [topic.id],
+    }),
   }),
-  learner: one(user, {
-    fields: [teachingSession.learnerId],
-    references: [user.id],
-    relationName: "learner",
-  }),
-  topic: one(topic, {
-    fields: [teachingSession.topicId],
-    references: [topic.id],
-  }),
-}));
+);
 
 export const bookmarkRelations = relations(bookmark, ({ one }) => ({
   user: one(user, { fields: [bookmark.userId], references: [user.id] }),

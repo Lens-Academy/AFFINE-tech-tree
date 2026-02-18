@@ -18,7 +18,7 @@ export const userStatusRouter = createTRPCRouter({
       z.object({
         topicId: z.number(),
         level: understandingLevelSchema,
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       await ctx.db
@@ -45,8 +45,8 @@ export const userStatusRouter = createTRPCRouter({
         .where(
           and(
             eq(userTopicStatus.userId, ctx.session.user.id),
-            eq(userTopicStatus.topicId, input.topicId)
-          )
+            eq(userTopicStatus.topicId, input.topicId),
+          ),
         );
     }),
 });

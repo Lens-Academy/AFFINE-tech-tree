@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "",
+  "main": ".open-next/worker.js",
+  "name": "affine-tech-tree",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DATABASE_URL",
+      "database_name": "",
+      "database_id": ""
+    }
+  ],
+}

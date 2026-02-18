@@ -8,14 +8,18 @@ export const env = createEnv({
    */
   server: {
     BETTER_AUTH_SECRET:
-      process.env.NODE_ENV === "production" ? z.string() : z.string().optional(),
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
     // not using social providers yet
     // BETTER_AUTH_GITHUB_CLIENT_ID: z.string(),
     // BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
     DATABASE_URL: z.string().url(),
     AFFINE_SHEETS_API_KEY: z.string().optional(),
+    // Set by the `build:cf` script — do not add to .env
+    BUILDING_FOR_CF: z.string().optional(),
     NODE_ENV: z
-      .enum(["development", "test", "production"]) 
+      .enum(["development", "test", "production"])
       .default("development"),
   },
 
@@ -38,6 +42,7 @@ export const env = createEnv({
     // BETTER_AUTH_GITHUB_CLIENT_SECRET: process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     AFFINE_SHEETS_API_KEY: process.env.AFFINE_SHEETS_API_KEY,
+    BUILDING_FOR_CF: process.env.BUILDING_FOR_CF,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**

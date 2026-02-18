@@ -25,7 +25,9 @@ export default function Home() {
     enabled: !!session?.user,
   });
   /** Pending bookmark state: true = adding, false = removing, absent = use server */
-  const [pendingBookmarks, setPendingBookmarks] = useState<Record<number, boolean>>({});
+  const [pendingBookmarks, setPendingBookmarks] = useState<
+    Record<number, boolean>
+  >({});
   const [bookmarkUpdatingByTopic, setBookmarkUpdatingByTopic] = useState<
     Record<number, boolean>
   >({});
@@ -39,7 +41,8 @@ export default function Home() {
       return next;
     });
   };
-  const { setStatus, removeStatus } = useTopicStatusMutations(clearPendingLevel);
+  const { setStatus, removeStatus } =
+    useTopicStatusMutations(clearPendingLevel);
 
   const topics = tagFilter
     ? (allTopics ?? []).filter((t) =>
@@ -104,7 +107,7 @@ export default function Home() {
       <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-4xl">
           <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="bg-linear-60 from-orange-400 to-15% to-zinc-100 bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl">
+            <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-15% bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl">
               AFFINE Tech Tree
             </h1>
             <AuthHeader />
@@ -137,14 +140,21 @@ export default function Home() {
                   currentLevel={
                     pendingLevelByTopic[t.id] === null
                       ? undefined
-                      : pendingLevelByTopic[t.id] ?? serverStatusByTopic.get(t.id)
+                      : (pendingLevelByTopic[t.id] ??
+                        serverStatusByTopic.get(t.id))
                   }
                   onLevelChange={(level) => {
                     if (level === undefined) {
-                      setPendingLevelByTopic((old) => ({ ...old, [t.id]: null }));
+                      setPendingLevelByTopic((old) => ({
+                        ...old,
+                        [t.id]: null,
+                      }));
                       removeStatus.mutate({ topicId: t.id });
                     } else {
-                      setPendingLevelByTopic((old) => ({ ...old, [t.id]: level }));
+                      setPendingLevelByTopic((old) => ({
+                        ...old,
+                        [t.id]: level,
+                      }));
                       setStatus.mutate({ topicId: t.id, level });
                     }
                   }}
@@ -152,15 +162,22 @@ export default function Home() {
                   bookmarked={pendingBookmarks[t.id] ?? bookmarkedSet.has(t.id)}
                   onBookmarkToggle={() => {
                     if (bookmarkUpdatingByTopic[t.id]) return;
-                    const current = pendingBookmarks[t.id] ?? bookmarkedSet.has(t.id);
+                    const current =
+                      pendingBookmarks[t.id] ?? bookmarkedSet.has(t.id);
                     const next = !current;
                     setPendingBookmarks((old) => ({ ...old, [t.id]: next }));
-                    setBookmarkUpdatingByTopic((old) => ({ ...old, [t.id]: true }));
+                    setBookmarkUpdatingByTopic((old) => ({
+                      ...old,
+                      [t.id]: true,
+                    }));
                     bookmarkSet.mutate(
                       { topicId: t.id, bookmarked: next },
                       {
                         onError: () => {
-                          setPendingBookmarks((old) => ({ ...old, [t.id]: current }));
+                          setPendingBookmarks((old) => ({
+                            ...old,
+                            [t.id]: current,
+                          }));
                         },
                         onSettled: () => {
                           setBookmarkUpdatingByTopic((old) => {
