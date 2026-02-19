@@ -16,6 +16,7 @@ export const user = sqliteTable("user", (d) => ({
     .$defaultFn(() => crypto.randomUUID()),
   name: d.text({ length: 255 }),
   email: d.text({ length: 255 }).notNull().unique(),
+  isNonUser: d.integer({ mode: "boolean" }).notNull().default(false),
   emailVerified: d.integer({ mode: "boolean" }).default(false),
   image: d.text({ length: 255 }),
   createdAt: d
@@ -41,6 +42,9 @@ export const userRelations = relations(user, ({ many }) => ({
   feedbackItemsAsReferencedUser: many(feedbackItem, {
     relationName: "referencedUser",
   }),
+  roles: many(userRole, { relationName: "roleUser" }),
+  createdRoles: many(userRole, { relationName: "roleCreator" }),
+  adminActions: many(adminActionLog, { relationName: "actorUser" }),
 }));
 
 export const account = sqliteTable(
@@ -335,6 +339,62 @@ export const feedbackItem = sqliteTable(
   (t) => [index("feedback_item_transition_idx").on(t.transitionId)],
 );
 
+export const ADMIN_ROLES = ["admin"] as const;
+
+export const userRole = sqliteTable(
+  "user_role",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: d.text({ length: 32, enum: ADMIN_ROLES }).notNull(),
+    createdByUserId: d
+      .text({ length: 255 })
+      .references(() => user.id, { onDelete: "set null" }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    uniqueIndex("user_role_user_role_unique").on(t.userId, t.role),
+    index("user_role_role_idx").on(t.role),
+  ],
+);
+
+export const adminActionLog = sqliteTable(
+  "admin_action_log",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    actorUserId: d
+      .text({ length: 255 })
+      .references(() => user.id, { onDelete: "set null" }),
+    action: d.text({ length: 128 }).notNull(),
+    targetType: d.text({ length: 128 }).notNull(),
+    targetId: d.text({ length: 255 }),
+    payloadJson: d.text().notNull(),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("admin_action_log_actor_idx").on(t.actorUserId),
+    index("admin_action_log_action_idx").on(t.action),
+  ],
+);
+
+export const appSetting = sqliteTable("app_setting", (d) => ({
+  key: d.text({ length: 128 }).primaryKey(),
+  value: d.text().notNull(),
+  updatedAt: d
+    .integer({ mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+}));
+
 // Relations
 export const topicRelations = relations(topic, ({ many }) => ({
   topicTags: many(topicTag),
@@ -437,3 +497,26 @@ export const feedbackItemRelations = relations(feedbackItem, ({ one }) => ({
     relationName: "referencedUser",
   }),
 }));
+
+export const userRoleRelations = relations(userRole, ({ one }) => ({
+  user: one(user, {
+    fields: [userRole.userId],
+    references: [user.id],
+    relationName: "roleUser",
+  }),
+  createdByUser: one(user, {
+    fields: [userRole.createdByUserId],
+    references: [user.id],
+    relationName: "roleCreator",
+  }),
+}));
+
+export const adminActionLogRelations = relations(adminActionLog, ({ one }) => ({
+  actorUser: one(user, {
+    fields: [adminActionLog.actorUserId],
+    references: [user.id],
+    relationName: "actorUser",
+  }),
+}));
+
+export const appSettingRelations = relations(appSetting, () => ({}));

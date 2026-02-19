@@ -66,6 +66,9 @@ function EditableName({ currentName }: { currentName: string }) {
 export function AuthHeader() {
   const { data: session, isPending } = authClient.useSession();
   const utils = api.useUtils();
+  const adminStatus = api.admin.getAdminStatus.useQuery(undefined, {
+    enabled: !!session?.user,
+  });
 
   if (isPending) {
     return <span className="text-sm text-zinc-500">Loading…</span>;
@@ -75,6 +78,14 @@ export function AuthHeader() {
     return (
       <div className="flex items-center gap-3">
         <EditableName currentName={session.user.name ?? session.user.email} />
+        {adminStatus.data?.isAdmin && (
+          <Link
+            href="/admin"
+            className="rounded px-2 py-1 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            Admin
+          </Link>
+        )}
         <NotificationBell />
         <button
           type="button"

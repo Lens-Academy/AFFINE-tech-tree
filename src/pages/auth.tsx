@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 
 import { authClient } from "~/server/better-auth/client";
+import { api } from "~/utils/api";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function AuthPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const claimNonUserTeacher =
+    api.admin.claimNonUserTeacherAccount.useMutation();
 
   if (session?.user) {
     void router.replace("/");
@@ -33,8 +36,35 @@ export default function AuthPage() {
           name: name || email,
         });
         if (error) {
-          setError(error.message ?? "Sign-up failed");
-          return;
+          const lower = (error.message ?? "").toLowerCase();
+          const mayBeExistingEmail =
+            lower.includes("already exists") ||
+            lower.includes("use another email");
+          if (!mayBeExistingEmail) {
+            setError(error.message ?? "Sign-up failed");
+            return;
+          }
+
+          try {
+            await claimNonUserTeacher.mutateAsync({
+              email,
+              password,
+              name: name || email,
+            });
+            const signIn = await authClient.signIn.email({
+              email,
+              password,
+            });
+            if (signIn.error) {
+              setError(
+                signIn.error.message ?? "Sign-in failed after claiming account",
+              );
+              return;
+            }
+          } catch {
+            setError(error.message ?? "Sign-up failed");
+            return;
+          }
         }
       } else {
         const { error } = await authClient.signIn.email({
