@@ -5,6 +5,7 @@ import {
   HELPFULNESS_RATINGS,
   type HelpfulnessRating,
 } from "~/shared/feedbackTypes";
+import { formatDateYyyyMmDd } from "~/shared/date";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { getLevelLabel } from "~/shared/understandingLevels";
 import { api, type RouterOutputs } from "~/utils/api";
@@ -315,7 +316,7 @@ function TransitionAccordion({
             {transition.toLevel ? getLevelLabel(transition.toLevel) : "-"}
           </div>
           <div className="text-xs text-zinc-500">
-            {new Date(transition.createdAt).toLocaleDateString()}
+            {formatDateYyyyMmDd(transition.createdAt)}
           </div>
         </div>
         <span className="text-zinc-500">{isExpanded ? "▼" : "▶"}</span>
