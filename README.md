@@ -4,6 +4,18 @@ WIP web app for https://affi.ne/ seminar participants to track understanding of 
 
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
 
+## Current Product Features
+
+- Authenticated users can set/remove their understanding level per topic.
+- Every level change is recorded as a transition (`from -> to`), including removals.
+- After changing a level, users get a toast linking to `/topic/{id}#feedback`.
+- Topic detail includes a feedback section:
+  - Latest transition suggests resources and teachers for quick rating/commenting.
+  - Older transitions show only data saved for that transition (historical snapshot behavior).
+  - Rating and comment autosaves are independent to avoid clobbering fast edits.
+  - Free-text feedback items can be added and removed.
+- Header includes a notification bell with recent transitions and pending feedback signal.
+
 ## Dev
 
 ```sh
@@ -28,6 +40,13 @@ Import data from https://docs.google.com/spreadsheets/d/16BG0Fw7mOOHJykBVLkeqPzl
 
 ```sh
 pnpm db:sync
+```
+
+When schema changes are introduced (for example feedback/transition tables), run:
+
+```sh
+pnpm db:generate
+pnpm db:migrate
 ```
 
 ### How do I deploy this?

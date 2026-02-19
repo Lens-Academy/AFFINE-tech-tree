@@ -1,6 +1,8 @@
 import { type AppType } from "next/app";
 import { Geist } from "next/font/google";
 
+import { ToastContainer } from "~/components/Toast";
+import { ToastProvider } from "~/hooks/useToastStore";
 import { api } from "~/utils/api";
 
 import "~/styles/globals.css";
@@ -11,9 +13,12 @@ const geist = Geist({
 
 const MyApp: AppType = ({ Component, pageProps }) => {
   return (
-    <div className={geist.className}>
-      <Component {...pageProps} />
-    </div>
+    <ToastProvider>
+      <div className={geist.className}>
+        <ToastContainer />
+        <Component {...pageProps} />
+      </div>
+    </ToastProvider>
   );
 };
 

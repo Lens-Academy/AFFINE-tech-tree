@@ -13,6 +13,7 @@ import {
 import { authClient } from "~/server/better-auth/client";
 import { AuthHeader } from "~/components/AuthHeader";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
+import { FeedbackSection } from "~/components/FeedbackSection";
 import { api } from "~/utils/api";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 
@@ -32,8 +33,9 @@ export default function TopicPage() {
   const { data: statuses } = api.userStatus.getAll.useQuery(undefined, {
     enabled: !!session?.user,
   });
-  const { setStatus, removeStatus } = useTopicStatusMutations(() =>
-    setPendingLevel(undefined),
+  const { setStatus, removeStatus } = useTopicStatusMutations(
+    () => setPendingLevel(undefined),
+    () => topic?.name,
   );
   const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
     enabled: !!session?.user,
@@ -276,6 +278,10 @@ export default function TopicPage() {
                 </ul>
               </section>
             )}
+
+          {session?.user && !Number.isNaN(id) && (
+            <FeedbackSection topicId={id} />
+          )}
         </div>
       </main>
     </>

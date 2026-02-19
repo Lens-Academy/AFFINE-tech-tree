@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type UnderstandingLevel } from "~/shared/understandingLevels";
 import { authClient } from "~/server/better-auth/client";
@@ -41,8 +41,18 @@ export default function Home() {
       return next;
     });
   };
-  const { setStatus, removeStatus } =
-    useTopicStatusMutations(clearPendingLevel);
+  const topicNameById = useMemo(
+    () => new Map((allTopics ?? []).map((t) => [t.id, t.name])),
+    [allTopics],
+  );
+  const getTopicName = useCallback(
+    (topicId: number) => topicNameById.get(topicId),
+    [topicNameById],
+  );
+  const { setStatus, removeStatus } = useTopicStatusMutations(
+    clearPendingLevel,
+    getTopicName,
+  );
 
   const topics = tagFilter
     ? (allTopics ?? []).filter((t) =>

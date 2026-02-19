@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "build:cf": "BUILDING_FOR_CF=1 opennextjs-cloudflare build",
-    "check": "eslint . && tsc --noEmit",
+    "check": "tsc --noEmit && eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

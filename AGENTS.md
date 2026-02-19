@@ -8,10 +8,9 @@ Training material progress tracker for the AFFINE Seminar. Users track their und
 - tRPC
 - Drizzle ORM
 - SQLite — libSQL (local dev) / D1 (Cloudflare Workers)
-- Cloudflare Workers (@opennextjs/cloudflare)
+- experimenting with Cloudflare Workers (@opennextjs/cloudflare), but deployment provider not chosen yet
 - Better Auth (email/password)
 - Tailwind CSS 4
-- `sqlite3` CLI required for `pnpm db:upload:cf` (`sudo apt install sqlite3`)
 
 ## Project Principles
 
@@ -20,3 +19,4 @@ Training material progress tracker for the AFFINE Seminar. Users track their und
 - **No vendor lock-in**: Use standard APIs and portable abstractions; avoid platform-specific features where a standard exists.
 - **TypeScript conventions**: No `enum` keyword. Use `z.enum()` for discriminated unions; derive types with `z.infer<>`. Infer return types, don't use `as any`.
 - **Testing**: Test non-trivial business logic (parsing, transformations, validation). Don't test what is already type-checked; if types can express a constraint, fix the types instead of adding a test. Don't test things that would fail trivially when rendered (e.g. "component doesn't crash").
+- `pnpm check` and `pnpm format:write` when everything is finished

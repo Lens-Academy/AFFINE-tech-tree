@@ -2,6 +2,10 @@ import { relations, sql } from "drizzle-orm";
 import { index, uniqueIndex, sqliteTable } from "drizzle-orm/sqlite-core";
 
 import { UNDERSTANDING_LEVELS } from "../../shared/understandingLevels.ts";
+import {
+  FEEDBACK_ITEM_TYPES,
+  HELPFULNESS_RATINGS,
+} from "../../shared/feedbackTypes.ts";
 
 // Better Auth core tables
 export const user = sqliteTable("user", (d) => ({
@@ -32,6 +36,10 @@ export const userRelations = relations(user, ({ many }) => ({
   }),
   teachingSessionAsLearner: many(teachingSession, {
     relationName: "learner",
+  }),
+  levelTransitions: many(levelTransition),
+  feedbackItemsAsReferencedUser: many(feedbackItem, {
+    relationName: "referencedUser",
   }),
 }));
 
@@ -271,7 +279,63 @@ export const bookmark = sqliteTable(
   (t) => [uniqueIndex("bookmark_user_topic_unique").on(t.userId, t.topicId)],
 );
 
-// Relations for new tables
+export const levelTransition = sqliteTable(
+  "level_transition",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    fromLevel: d.text({ length: 64, enum: UNDERSTANDING_LEVELS }),
+    toLevel: d.text({ length: 64, enum: UNDERSTANDING_LEVELS }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("level_transition_user_idx").on(t.userId),
+    index("level_transition_topic_idx").on(t.topicId),
+    index("level_transition_user_topic_idx").on(t.userId, t.topicId),
+  ],
+);
+
+export const feedbackItem = sqliteTable(
+  "feedback_item",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    transitionId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => levelTransition.id, { onDelete: "cascade" }),
+    type: d.text({ length: 32, enum: FEEDBACK_ITEM_TYPES }).notNull(),
+    topicLinkId: d
+      .integer({ mode: "number" })
+      .references(() => topicLink.id, { onDelete: "set null" }),
+    referencedUserId: d
+      .text({ length: 255 })
+      .references(() => user.id, { onDelete: "set null" }),
+    freeTextValue: d.text({ length: 1024 }),
+    helpfulnessRating: d.text({
+      length: 32,
+      enum: HELPFULNESS_RATINGS,
+    }),
+    comment: d.text({ length: 2048 }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [index("feedback_item_transition_idx").on(t.transitionId)],
+);
+
+// Relations
 export const topicRelations = relations(topic, ({ many }) => ({
   topicTags: many(topicTag),
   topicLinks: many(topicLink),
@@ -279,10 +343,12 @@ export const topicRelations = relations(topic, ({ many }) => ({
   resources: many(resource),
   bookmarks: many(bookmark),
   teachingSessions: many(teachingSession),
+  levelTransitions: many(levelTransition),
 }));
 
-export const topicLinkRelations = relations(topicLink, ({ one }) => ({
+export const topicLinkRelations = relations(topicLink, ({ one, many }) => ({
   topic: one(topic, { fields: [topicLink.topicId], references: [topic.id] }),
+  feedbackItems: many(feedbackItem),
 }));
 
 export const tagRelations = relations(tag, ({ many }) => ({
@@ -339,4 +405,35 @@ export const teachingSessionRelations = relations(
 export const bookmarkRelations = relations(bookmark, ({ one }) => ({
   user: one(user, { fields: [bookmark.userId], references: [user.id] }),
   topic: one(topic, { fields: [bookmark.topicId], references: [topic.id] }),
+}));
+
+export const levelTransitionRelations = relations(
+  levelTransition,
+  ({ one, many }) => ({
+    user: one(user, {
+      fields: [levelTransition.userId],
+      references: [user.id],
+    }),
+    topic: one(topic, {
+      fields: [levelTransition.topicId],
+      references: [topic.id],
+    }),
+    feedbackItems: many(feedbackItem),
+  }),
+);
+
+export const feedbackItemRelations = relations(feedbackItem, ({ one }) => ({
+  transition: one(levelTransition, {
+    fields: [feedbackItem.transitionId],
+    references: [levelTransition.id],
+  }),
+  topicLink: one(topicLink, {
+    fields: [feedbackItem.topicLinkId],
+    references: [topicLink.id],
+  }),
+  referencedUser: one(user, {
+    fields: [feedbackItem.referencedUserId],
+    references: [user.id],
+    relationName: "referencedUser",
+  }),
 }));

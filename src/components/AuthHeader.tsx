@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { authClient } from "~/server/better-auth/client";
+import { NotificationBell } from "~/components/NotificationBell";
 import { api } from "~/utils/api";
 
 function EditableName({ currentName }: { currentName: string }) {
@@ -74,6 +75,7 @@ export function AuthHeader() {
     return (
       <div className="flex items-center gap-3">
         <EditableName currentName={session.user.name ?? session.user.email} />
+        <NotificationBell />
         <button
           type="button"
           onClick={() => {
