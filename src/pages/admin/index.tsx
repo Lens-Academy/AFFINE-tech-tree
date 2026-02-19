@@ -113,6 +113,14 @@ export default function AdminHomePage() {
                           Manage non-user teachers
                         </Link>
                       </li>
+                      <li>
+                        <Link
+                          href="/admin/feedback-linking"
+                          className="text-orange-400 hover:text-orange-300"
+                        >
+                          Review feedback link candidates
+                        </Link>
+                      </li>
                     </ul>
                   </div>
 

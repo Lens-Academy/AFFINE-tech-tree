@@ -18,6 +18,7 @@ import {
   levelTransition,
   bookmark,
   feedbackItem,
+  topicLink,
   resource,
   teachingSession,
 } from "~/server/db/schema";
@@ -26,6 +27,33 @@ const ADMIN_HONOR_SYSTEM_KEY = "admin_honor_system_enabled";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function normalizeUrl(input: string): string | null {
+  try {
+    const url = new URL(input.trim());
+    const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+    return `${url.protocol}//${url.host}${normalizedPath}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function similarityScore(haystack: string, needle: string): number {
+  const a = haystack.toLowerCase();
+  const b = needle.toLowerCase();
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.includes(b)) return 0.8;
+  if (b.includes(a)) return 0.7;
+  const aTokens = new Set(a.split(/[\s._\-/:]+/).filter(Boolean));
+  const bTokens = new Set(b.split(/[\s._\-/:]+/).filter(Boolean));
+  if (aTokens.size === 0 || bTokens.size === 0) return 0;
+  let overlap = 0;
+  for (const token of aTokens) {
+    if (bTokens.has(token)) overlap++;
+  }
+  return overlap / Math.max(aTokens.size, bTokens.size);
 }
 
 function parseBooleanSetting(raw: string | undefined, fallback: boolean) {
@@ -259,6 +287,413 @@ export const adminRouter = createTRPCRouter({
         payload: { isAdmin: input.isAdmin },
       });
       return { ok: true };
+    }),
+
+  listFeedbackLinkCandidates: protectedProcedure.query(async ({ ctx }) => {
+    await assertAdmin(ctx);
+    const unresolved = await ctx.db.query.feedbackItem.findMany({
+      where: (fi, { and, eq, isNull }) =>
+        and(
+          eq(fi.type, "free_text"),
+          isNull(fi.topicLinkId),
+          isNull(fi.referencedUserId),
+        ),
+      columns: {
+        id: true,
+        freeTextValue: true,
+        createdAt: true,
+      },
+      with: {
+        transition: {
+          columns: { id: true, topicId: true, createdAt: true },
+          with: {
+            topic: { columns: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: (fi, { desc }) => [desc(fi.createdAt)],
+      limit: 200,
+    });
+
+    const topicIds = [...new Set(unresolved.map((r) => r.transition.topicId))];
+    const topicLinks = topicIds.length
+      ? await ctx.db.query.topicLink.findMany({
+          where: (tl, { inArray }) => inArray(tl.topicId, topicIds),
+          columns: { id: true, topicId: true, title: true, url: true },
+        })
+      : [];
+
+    const users = await ctx.db.query.user.findMany({
+      columns: { id: true, name: true, email: true, isNonUser: true },
+    });
+
+    return unresolved.map((item) => {
+      const text = item.freeTextValue?.trim() ?? "";
+      const normalized = normalizeUrl(text);
+      const email = text.toLowerCase();
+      const perTopicLinks = topicLinks.filter(
+        (tl) => tl.topicId === item.transition.topicId,
+      );
+
+      const exactLink = normalized
+        ? perTopicLinks.find(
+            (tl) => tl.url && normalizeUrl(tl.url) === normalized,
+          )
+        : undefined;
+
+      const exactUserByEmail = users.find(
+        (u) => u.email.toLowerCase() === email,
+      );
+      const exactNameMatches = users.filter(
+        (u) => u.name?.trim().toLowerCase() === text.toLowerCase(),
+      );
+      const exactUser =
+        exactUserByEmail ??
+        (exactNameMatches.length === 1 ? exactNameMatches[0] : undefined);
+
+      const fuzzyLinks = perTopicLinks
+        .map((tl) => ({
+          id: tl.id,
+          title: tl.title,
+          url: tl.url,
+          score: Math.max(
+            similarityScore(tl.title, text),
+            similarityScore(tl.url ?? "", text),
+          ),
+        }))
+        .filter((candidate) => candidate.score >= 0.35)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+      const fuzzyUsers = users
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          isNonUser: u.isNonUser,
+          score: Math.max(
+            similarityScore(u.name ?? "", text),
+            similarityScore(u.email, text),
+          ),
+        }))
+        .filter((candidate) => candidate.score >= 0.35)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+      return {
+        id: item.id,
+        freeTextValue: item.freeTextValue,
+        createdAt: item.createdAt,
+        transition: item.transition,
+        exactTopicLink: exactLink
+          ? {
+              id: exactLink.id,
+              title: exactLink.title,
+              url: exactLink.url,
+            }
+          : null,
+        exactUser: exactUser
+          ? {
+              id: exactUser.id,
+              name: exactUser.name,
+              email: exactUser.email,
+              isNonUser: exactUser.isNonUser,
+            }
+          : null,
+        fuzzyTopicLinks: fuzzyLinks,
+        fuzzyUsers,
+      };
+    });
+  }),
+
+  applyFeedbackLinkSuggestion: protectedProcedure
+    .input(
+      z.object({
+        feedbackItemId: z.number(),
+        topicLinkId: z.number().nullable().optional(),
+        referencedUserId: z.string().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      const item = await ctx.db.query.feedbackItem.findFirst({
+        where: (fi, { eq }) => eq(fi.id, input.feedbackItemId),
+        columns: { id: true, type: true, transitionId: true },
+        with: {
+          transition: {
+            columns: { topicId: true },
+          },
+        },
+      });
+      if (!item) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Feedback item not found",
+        });
+      }
+
+      let type = item.type;
+      if (input.topicLinkId) type = "resource";
+      else if (input.referencedUserId) type = "user";
+
+      await ctx.db
+        .update(feedbackItem)
+        .set({
+          topicLinkId: input.topicLinkId ?? null,
+          referencedUserId: input.referencedUserId ?? null,
+          type,
+        })
+        .where(eq(feedbackItem.id, input.feedbackItemId));
+
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "apply_feedback_link_suggestion",
+        targetType: "feedback_item",
+        targetId: String(input.feedbackItemId),
+        payload: {
+          topicLinkId: input.topicLinkId ?? null,
+          referencedUserId: input.referencedUserId ?? null,
+        },
+      });
+      return { ok: true };
+    }),
+
+  manualLinkFeedbackTopicLink: protectedProcedure
+    .input(
+      z.object({
+        feedbackItemId: z.number(),
+        title: z.string().trim().min(1).max(512),
+        url: z.string().trim().max(2048).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      const item = await ctx.db.query.feedbackItem.findFirst({
+        where: (fi, { eq }) => eq(fi.id, input.feedbackItemId),
+        columns: { id: true },
+        with: {
+          transition: {
+            columns: { topicId: true },
+          },
+        },
+      });
+      if (!item) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Feedback item not found",
+        });
+      }
+
+      const rawUrl = input.url?.trim() ?? "";
+      const allTopicLinks = await ctx.db.query.topicLink.findMany({
+        where: (tl, { eq }) => eq(tl.topicId, item.transition.topicId),
+        columns: { id: true, title: true, url: true, position: true },
+      });
+
+      let resolvedTopicLinkId: number | null = null;
+      if (rawUrl) {
+        const normalizedInputUrl = normalizeUrl(rawUrl);
+        if (!normalizedInputUrl) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid URL format",
+          });
+        }
+        const existingByUrl = allTopicLinks.find(
+          (tl) => tl.url && normalizeUrl(tl.url) === normalizedInputUrl,
+        );
+        if (existingByUrl) {
+          resolvedTopicLinkId = existingByUrl.id;
+        } else {
+          const nextPosition = allTopicLinks.reduce(
+            (maxPos, link) => Math.max(maxPos, link.position),
+            -1,
+          );
+          const [created] = await ctx.db
+            .insert(topicLink)
+            .values({
+              topicId: item.transition.topicId,
+              title: input.title,
+              url: rawUrl,
+              position: nextPosition + 1,
+            })
+            .returning({ id: topicLink.id });
+          resolvedTopicLinkId = created?.id ?? null;
+        }
+      } else {
+        const existingByTitle = allTopicLinks.find(
+          (tl) =>
+            tl.title.trim().toLowerCase() === input.title.trim().toLowerCase(),
+        );
+        if (existingByTitle) {
+          resolvedTopicLinkId = existingByTitle.id;
+        } else {
+          const nextPosition = allTopicLinks.reduce(
+            (maxPos, link) => Math.max(maxPos, link.position),
+            -1,
+          );
+          const [created] = await ctx.db
+            .insert(topicLink)
+            .values({
+              topicId: item.transition.topicId,
+              title: input.title,
+              url: null,
+              position: nextPosition + 1,
+            })
+            .returning({ id: topicLink.id });
+          resolvedTopicLinkId = created?.id ?? null;
+        }
+      }
+
+      if (!resolvedTopicLinkId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to resolve topic link",
+        });
+      }
+
+      await ctx.db
+        .update(feedbackItem)
+        .set({
+          type: "resource",
+          topicLinkId: resolvedTopicLinkId,
+          referencedUserId: null,
+        })
+        .where(eq(feedbackItem.id, input.feedbackItemId));
+
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "manual_link_feedback_topic_link",
+        targetType: "feedback_item",
+        targetId: String(input.feedbackItemId),
+        payload: {
+          topicLinkId: resolvedTopicLinkId,
+          title: input.title,
+          hasUrl: !!rawUrl,
+        },
+      });
+
+      return { ok: true, topicLinkId: resolvedTopicLinkId };
+    }),
+
+  manualLinkFeedbackTeacher: protectedProcedure
+    .input(
+      z.object({
+        feedbackItemId: z.number(),
+        name: z.string().trim().min(1).max(255),
+        email: z.string().trim().email().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      const item = await ctx.db.query.feedbackItem.findFirst({
+        where: (fi, { eq }) => eq(fi.id, input.feedbackItemId),
+        columns: { id: true },
+        with: {
+          transition: {
+            columns: { topicId: true },
+          },
+        },
+      });
+      if (!item) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Feedback item not found",
+        });
+      }
+
+      const normalizedEmail = input.email ? normalizeEmail(input.email) : null;
+      let resolvedTeacherId: string | null = null;
+      let createdNonUser = false;
+
+      if (normalizedEmail) {
+        const existingByEmail = await ctx.db.query.user.findFirst({
+          where: (u, { eq }) => eq(u.email, normalizedEmail),
+          columns: { id: true },
+        });
+        if (existingByEmail) {
+          resolvedTeacherId = existingByEmail.id;
+        }
+      }
+
+      if (!resolvedTeacherId) {
+        const allUsers = await ctx.db.query.user.findMany({
+          columns: { id: true, name: true },
+        });
+        const normalizedName = input.name.trim().toLowerCase();
+        const exactNameMatches = allUsers.filter(
+          (u) => u.name?.trim().toLowerCase() === normalizedName,
+        );
+        if (exactNameMatches.length === 1) {
+          resolvedTeacherId = exactNameMatches[0]!.id;
+        } else if (exactNameMatches.length > 1 && !normalizedEmail) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Multiple teachers/users match this name. Provide an email to disambiguate.",
+          });
+        }
+      }
+
+      if (!resolvedTeacherId) {
+        if (!normalizedEmail) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Email is required to create a new non-user teacher",
+          });
+        }
+
+        const [createdUser] = await ctx.db
+          .insert(user)
+          .values({
+            name: input.name.trim(),
+            email: normalizedEmail,
+            isNonUser: true,
+            emailVerified: false,
+          })
+          .returning({ id: user.id });
+        resolvedTeacherId = createdUser?.id ?? null;
+        createdNonUser = true;
+
+        if (!resolvedTeacherId) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create non-user teacher",
+          });
+        }
+
+        await ctx.db.insert(userTopicStatus).values({
+          userId: resolvedTeacherId,
+          topicId: item.transition.topicId,
+          level: "can_teach",
+        });
+      }
+
+      await ctx.db
+        .update(feedbackItem)
+        .set({
+          type: "user",
+          referencedUserId: resolvedTeacherId,
+          topicLinkId: null,
+        })
+        .where(eq(feedbackItem.id, input.feedbackItemId));
+
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "manual_link_feedback_teacher",
+        targetType: "feedback_item",
+        targetId: String(input.feedbackItemId),
+        payload: {
+          referencedUserId: resolvedTeacherId,
+          createdNonUser,
+          hasEmail: !!normalizedEmail,
+        },
+      });
+
+      return { ok: true, referencedUserId: resolvedTeacherId, createdNonUser };
     }),
 
   listNonUserTeachers: protectedProcedure.query(async ({ ctx }) => {

@@ -80,6 +80,7 @@ export default function TopicPage() {
     return (
       <main className="min-h-screen bg-zinc-950 px-4 py-6">
         <div className="mx-auto max-w-2xl">
+          <div id="feedback" />
           <p className="text-zinc-500">
             {isLoading ? "Loading…" : "Topic not found"}
           </p>
@@ -279,6 +280,7 @@ export default function TopicPage() {
               </section>
             )}
 
+          <div id="feedback" />
           {session?.user && !Number.isNaN(id) && (
             <FeedbackSection topicId={id} />
           )}

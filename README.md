@@ -14,12 +14,15 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Older transitions show only data saved for that transition (historical snapshot behavior).
   - Rating and comment autosaves are independent to avoid clobbering fast edits.
   - Free-text feedback items can be added and removed.
+  - Free-text URLs/emails/names are auto-linked when exact matches are found.
+  - Free-text links can be promoted into topic resources and paired.
 - Header includes a notification bell with recent transitions and pending feedback signal.
 - Admin area (`/admin`) supports non-user teacher management:
   - DB-backed admin role checks (no env-based admin list).
   - Bootstrap flow for first admin user.
   - Admin user management (grant/revoke admin role).
   - CRUD for non-user teachers with topic assignments.
+  - Feedback-linking review page with exact/fuzzy suggestions.
   - Optional deletion mode to also purge teaching-status history.
 - Sign-up deduplicates non-user teacher emails by claiming and converting records.
 

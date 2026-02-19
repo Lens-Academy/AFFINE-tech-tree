@@ -8,7 +8,103 @@ import {
   helpfulnessRatingSchema,
 } from "~/shared/feedbackTypes";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { feedbackItem } from "~/server/db/schema";
+import type { Db } from "~/server/db";
+import { feedbackItem, topicLink } from "~/server/db/schema";
+
+function normalizeUrl(input: string): string | null {
+  try {
+    const url = new URL(input.trim());
+    const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+    return `${url.protocol}//${url.host}${normalizedPath}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function extractEmailCandidate(input: string): string | null {
+  const value = input.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null;
+}
+
+async function inferFreeTextLinkTargets(args: {
+  db: Db;
+  topicId: number;
+  freeTextValue: string;
+}) {
+  const raw = args.freeTextValue.trim();
+  const normalizedUrl = normalizeUrl(raw);
+  let matchedTopicLinkId: number | null = null;
+  let matchedUserId: string | null = null;
+  let nextType: "resource" | "user" | "free_text" = "free_text";
+
+  if (normalizedUrl) {
+    const links = await args.db.query.topicLink.findMany({
+      where: (tl, { eq }) => eq(tl.topicId, args.topicId),
+      columns: { id: true, url: true },
+    });
+    const matched = links.find((link) => {
+      if (!link.url) return false;
+      return normalizeUrl(link.url) === normalizedUrl;
+    });
+    if (matched) {
+      matchedTopicLinkId = matched.id;
+      nextType = "resource";
+    }
+  }
+
+  if (!matchedTopicLinkId) {
+    const email = extractEmailCandidate(raw);
+    if (email) {
+      const found = await args.db.query.user.findFirst({
+        where: (u, { eq }) => eq(u.email, email),
+        columns: { id: true },
+      });
+      if (found) {
+        matchedUserId = found.id;
+        nextType = "user";
+      }
+    }
+  }
+
+  if (!matchedTopicLinkId && !matchedUserId) {
+    const lowerName = raw.toLowerCase();
+    const possibleUsers = await args.db.query.user.findMany({
+      where: (u, { eq }) => eq(u.isNonUser, false),
+      columns: { id: true, name: true },
+    });
+    const exactNameMatches = possibleUsers.filter(
+      (u) => u.name?.trim().toLowerCase() === lowerName,
+    );
+    if (exactNameMatches.length === 1) {
+      matchedUserId = exactNameMatches[0]!.id;
+      nextType = "user";
+    }
+  }
+
+  return {
+    topicLinkId: matchedTopicLinkId,
+    referencedUserId: matchedUserId,
+    type: nextType,
+  };
+}
+
+async function assertFeedbackItemOwner(args: {
+  db: Db;
+  feedbackItemId: number;
+  userId: string;
+}) {
+  const item = await args.db.query.feedbackItem.findFirst({
+    where: (fi, { eq }) => eq(fi.id, args.feedbackItemId),
+    with: { transition: true },
+  });
+  if (item?.transition.userId !== args.userId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Feedback item not found or unauthorized",
+    });
+  }
+  return item;
+}
 
 export const feedbackRouter = createTRPCRouter({
   getRecentTransitions: protectedProcedure.query(async ({ ctx }) => {
@@ -123,6 +219,24 @@ export const feedbackRouter = createTRPCRouter({
         })
         .returning({ id: feedbackItem.id });
 
+      if (input.type === "free_text" && input.freeTextValue?.trim()) {
+        const inferred = await inferFreeTextLinkTargets({
+          db: ctx.db,
+          topicId: transition.topicId,
+          freeTextValue: input.freeTextValue,
+        });
+        if (inferred.topicLinkId || inferred.referencedUserId) {
+          await ctx.db
+            .update(feedbackItem)
+            .set({
+              topicLinkId: inferred.topicLinkId,
+              referencedUserId: inferred.referencedUserId,
+              type: inferred.type,
+            })
+            .where(eq(feedbackItem.id, result!.id));
+        }
+      }
+
       return result!;
     }),
 
@@ -142,5 +256,70 @@ export const feedbackRouter = createTRPCRouter({
       }
 
       await ctx.db.delete(feedbackItem).where(eq(feedbackItem.id, input.id));
+    }),
+
+  promoteFreeTextToTopicLink: protectedProcedure
+    .input(
+      z.object({
+        feedbackItemId: z.number(),
+        title: z.string().trim().min(1).max(512).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const item = await assertFeedbackItemOwner({
+        db: ctx.db,
+        feedbackItemId: input.feedbackItemId,
+        userId: ctx.session.user.id,
+      });
+      if (item.type !== "free_text" || !item.freeTextValue) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only free-text items can be promoted",
+        });
+      }
+      const normalized = normalizeUrl(item.freeTextValue);
+      if (!normalized) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Free-text value is not a valid URL",
+        });
+      }
+
+      const existingLinks = await ctx.db.query.topicLink.findMany({
+        where: (tl, { eq }) => eq(tl.topicId, item.transition.topicId),
+        columns: { id: true, url: true, position: true },
+      });
+      const existing = existingLinks.find(
+        (link) => link.url && normalizeUrl(link.url) === normalized,
+      );
+
+      let topicLinkId = existing?.id;
+      if (!topicLinkId) {
+        const nextPosition =
+          existingLinks.reduce(
+            (maxPos, link) => Math.max(maxPos, link.position),
+            0,
+          ) + 1;
+        const [created] = await ctx.db
+          .insert(topicLink)
+          .values({
+            topicId: item.transition.topicId,
+            title: input.title ?? item.freeTextValue,
+            url: normalized,
+            position: nextPosition,
+          })
+          .returning({ id: topicLink.id });
+        topicLinkId = created!.id;
+      }
+
+      await ctx.db
+        .update(feedbackItem)
+        .set({
+          type: "resource",
+          topicLinkId,
+        })
+        .where(eq(feedbackItem.id, input.feedbackItemId));
+
+      return { topicLinkId };
     }),
 });

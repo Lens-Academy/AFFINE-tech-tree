@@ -41,27 +41,31 @@ export const userStatusRouter = createTRPCRouter({
           },
         });
 
-      const [transition] = await ctx.db
-        .insert(levelTransition)
-        .values({
-          userId: ctx.session.user.id,
-          topicId: input.topicId,
-          fromLevel: current?.level ?? null,
-          toLevel: input.level,
-        })
-        .returning({ id: levelTransition.id });
+      // Feedback is only requested for real defined-level changes.
+      // Transitions involving undefined (first set / clear) are skipped.
+      const shouldCreateTransition =
+        !!current && current.level !== input.level;
 
-      return { transitionId: transition?.id, isFirstSet: !current };
+      let transitionId: number | undefined;
+      if (shouldCreateTransition) {
+        const [transition] = await ctx.db
+          .insert(levelTransition)
+          .values({
+            userId: ctx.session.user.id,
+            topicId: input.topicId,
+            fromLevel: current.level,
+            toLevel: input.level,
+          })
+          .returning({ id: levelTransition.id });
+        transitionId = transition?.id;
+      }
+
+      return { transitionId, isFirstSet: !current };
     }),
 
   remove: protectedProcedure
     .input(z.object({ topicId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const current = await ctx.db.query.userTopicStatus.findFirst({
-        where: (s, { and, eq }) =>
-          and(eq(s.userId, ctx.session.user.id), eq(s.topicId, input.topicId)),
-      });
-
       await ctx.db
         .delete(userTopicStatus)
         .where(
@@ -71,13 +75,6 @@ export const userStatusRouter = createTRPCRouter({
           ),
         );
 
-      if (current) {
-        await ctx.db.insert(levelTransition).values({
-          userId: ctx.session.user.id,
-          topicId: input.topicId,
-          fromLevel: current.level,
-          toLevel: null,
-        });
-      }
+      // Clearing understanding should not produce a feedback transition.
     }),
 });

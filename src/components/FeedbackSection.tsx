@@ -24,6 +24,7 @@ type UnifiedItem = {
   helpfulnessRating: HelpfulnessRating | null;
   comment: string | null;
   deletable: boolean;
+  canPromoteToResource?: boolean;
 };
 
 export function FeedbackSection({ topicId }: { topicId: number }) {
@@ -62,6 +63,13 @@ export function FeedbackSection({ topicId }: { topicId: number }) {
       void utils.feedback.getRecentTransitions.invalidate();
     },
   });
+  const promoteMutation = api.feedback.promoteFreeTextToTopicLink.useMutation({
+    onSuccess: () => {
+      void utils.feedback.getTransitionsByTopic.invalidate({ topicId });
+      void utils.feedback.getRecentTransitions.invalidate();
+      void utils.topic.getById.invalidate({ id: topicId });
+    },
+  });
 
   if (!transitions || transitions.length === 0) return null;
 
@@ -75,9 +83,9 @@ export function FeedbackSection({ topicId }: { topicId: number }) {
   };
 
   return (
-    <section id="feedback" className="mb-8">
+    <section className="mb-8">
       <h2 className="mb-3 text-lg font-semibold text-zinc-100">
-        Learning Feedback
+        Learning feedback
       </h2>
       <div className="space-y-3">
         {transitions.map((t, idx) => (
@@ -91,6 +99,9 @@ export function FeedbackSection({ topicId }: { topicId: number }) {
             teachers={teachers ?? []}
             onUpsert={(input) => upsertMutation.mutate(input)}
             onDelete={(id) => deleteMutation.mutate({ id })}
+            onPromote={(feedbackItemId) =>
+              promoteMutation.mutate({ feedbackItemId })
+            }
           />
         ))}
       </div>
@@ -224,6 +235,7 @@ function buildUnifiedItems(
       helpfulnessRating: fi.helpfulnessRating ?? null,
       comment: fi.comment ?? null,
       deletable: true,
+      canPromoteToResource: /^https?:\/\//i.test(fi.freeTextValue ?? ""),
     });
   }
 
@@ -239,6 +251,7 @@ function TransitionAccordion({
   teachers,
   onUpsert,
   onDelete,
+  onPromote,
 }: {
   transition: Transition;
   isLatest: boolean;
@@ -257,6 +270,7 @@ function TransitionAccordion({
     comment?: string | null;
   }) => void;
   onDelete: (id: number) => void;
+  onPromote: (feedbackItemId: number) => void;
 }) {
   const [newFreeText, setNewFreeText] = useState("");
 
@@ -305,6 +319,11 @@ function TransitionAccordion({
               onDelete={
                 item.deletable && item.existingId
                   ? () => onDelete(item.existingId!)
+                  : undefined
+              }
+              onPromote={
+                item.canPromoteToResource && item.existingId
+                  ? () => onPromote(item.existingId!)
                   : undefined
               }
             />
@@ -364,6 +383,7 @@ function UnifiedItemRow({
   item,
   onUpdate,
   onDelete,
+  onPromote,
 }: {
   item: UnifiedItem;
   onUpdate: (patch: {
@@ -371,6 +391,7 @@ function UnifiedItemRow({
     comment?: string | null;
   }) => void;
   onDelete?: () => void;
+  onPromote?: () => void;
 }) {
   const [showComment, setShowComment] = useState(!!item.comment);
   const [rating, setRating] = useState<HelpfulnessRating | null>(
@@ -427,6 +448,16 @@ function UnifiedItemRow({
               title="Remove"
             >
               Remove
+            </button>
+          )}
+          {onPromote && (
+            <button
+              type="button"
+              onClick={onPromote}
+              className="text-xs text-zinc-500 hover:text-orange-300"
+              title="Add this link as a topic resource"
+            >
+              Promote
             </button>
           )}
         </div>
