@@ -5,6 +5,12 @@
   "name": "affine-tech-tree",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "vars": {
+    "BETTER_AUTH_BASE_URL": "https://your-worker.your-subdomain.workers.dev"
+  },
+  "limits": {
+    "cpu_ms": 10000
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
