@@ -3,10 +3,23 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { api, type RouterOutputs } from "~/utils/api";
 
 type Candidate = RouterOutputs["admin"]["listFeedbackLinkCandidates"][number];
+type ApplySuggestionMutationOptions = Exclude<
+  Parameters<typeof api.admin.applyFeedbackLinkSuggestion.useMutation>[0],
+  undefined
+>;
+type ManualTopicLinkMutationOptions = Exclude<
+  Parameters<typeof api.admin.manualLinkFeedbackTopicLink.useMutation>[0],
+  undefined
+>;
+type ManualTeacherMutationOptions = Exclude<
+  Parameters<typeof api.admin.manualLinkFeedbackTeacher.useMutation>[0],
+  undefined
+>;
 
 function isHttpUrl(value: string) {
   try {
@@ -25,10 +38,14 @@ function extractEmail(value: string): string {
 
 export default function FeedbackLinkingAdminPage() {
   const { data: session, isPending } = authClient.useSession();
+  const utils = api.useUtils();
   const [mutationMessage, setMutationMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [busyByCandidateId, setBusyByCandidateId] = useState<
+    Record<number, boolean>
+  >({});
 
   const setSuccess = (text: string) =>
     setMutationMessage({ type: "success", text });
@@ -41,33 +58,102 @@ export default function FeedbackLinkingAdminPage() {
   const candidates = api.admin.listFeedbackLinkCandidates.useQuery(undefined, {
     enabled: !!session?.user && !!status.data?.isAdmin,
   });
-  const applySuggestion = api.admin.applyFeedbackLinkSuggestion.useMutation({
-    onSuccess: async () => {
-      setSuccess("Suggestion applied.");
-      await candidates.refetch();
+  const applySuggestion = useAppMutation(
+    (opts: ApplySuggestionMutationOptions) =>
+      api.admin.applyFeedbackLinkSuggestion.useMutation(opts),
+    {
+      onMutate: (vars) => {
+        const input = vars as { feedbackItemId: number };
+        setBusyByCandidateId((old) => ({
+          ...old,
+          [input.feedbackItemId]: true,
+        }));
+      },
+      onSuccess: () => {
+        setSuccess("Suggestion applied.");
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to apply suggestion.";
+        setError(message);
+      },
+      onSettled: (_data, _error, vars) => {
+        const input = vars as { feedbackItemId: number };
+        setBusyByCandidateId((old) => {
+          const next = { ...old };
+          delete next[input.feedbackItemId];
+          return next;
+        });
+      },
+      refresh: [() => utils.admin.listFeedbackLinkCandidates.invalidate()],
     },
-    onError: (error) => {
-      setError(error.message || "Failed to apply suggestion.");
+  );
+  const manualTopicLink = useAppMutation(
+    (opts: ManualTopicLinkMutationOptions) =>
+      api.admin.manualLinkFeedbackTopicLink.useMutation(opts),
+    {
+      onMutate: (vars) => {
+        const input = vars as { feedbackItemId: number };
+        setBusyByCandidateId((old) => ({
+          ...old,
+          [input.feedbackItemId]: true,
+        }));
+      },
+      onSuccess: () => {
+        setSuccess("Manual resource link saved.");
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to save manual resource link.";
+        setError(message);
+      },
+      onSettled: (_data, _error, vars) => {
+        const input = vars as { feedbackItemId: number };
+        setBusyByCandidateId((old) => {
+          const next = { ...old };
+          delete next[input.feedbackItemId];
+          return next;
+        });
+      },
+      refresh: [() => utils.admin.listFeedbackLinkCandidates.invalidate()],
     },
-  });
-  const manualTopicLink = api.admin.manualLinkFeedbackTopicLink.useMutation({
-    onSuccess: async () => {
-      setSuccess("Manual resource link saved.");
-      await candidates.refetch();
+  );
+  const manualTeacher = useAppMutation(
+    (opts: ManualTeacherMutationOptions) =>
+      api.admin.manualLinkFeedbackTeacher.useMutation(opts),
+    {
+      onMutate: (vars) => {
+        const input = vars as { feedbackItemId: number };
+        setBusyByCandidateId((old) => ({
+          ...old,
+          [input.feedbackItemId]: true,
+        }));
+      },
+      onSuccess: () => {
+        setSuccess("Teacher link updated.");
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to update teacher link.";
+        setError(message);
+      },
+      onSettled: (_data, _error, vars) => {
+        const input = vars as { feedbackItemId: number };
+        setBusyByCandidateId((old) => {
+          const next = { ...old };
+          delete next[input.feedbackItemId];
+          return next;
+        });
+      },
+      refresh: [() => utils.admin.listFeedbackLinkCandidates.invalidate()],
     },
-    onError: (error) => {
-      setError(error.message || "Failed to save manual resource link.");
-    },
-  });
-  const manualTeacher = api.admin.manualLinkFeedbackTeacher.useMutation({
-    onSuccess: async () => {
-      setSuccess("Teacher link updated.");
-      await candidates.refetch();
-    },
-    onError: (error) => {
-      setError(error.message || "Failed to update teacher link.");
-    },
-  });
+  );
 
   return (
     <>
@@ -129,11 +215,7 @@ export default function FeedbackLinkingAdminPage() {
                         applySuggestion={applySuggestion.mutate}
                         manualTopicLink={manualTopicLink.mutate}
                         manualTeacher={manualTeacher.mutate}
-                        busy={
-                          applySuggestion.isPending ||
-                          manualTopicLink.isPending ||
-                          manualTeacher.isPending
-                        }
+                        busy={!!busyByCandidateId[c.id]}
                       />
                     );
                   })}

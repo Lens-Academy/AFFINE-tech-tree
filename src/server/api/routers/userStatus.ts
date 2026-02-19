@@ -43,8 +43,7 @@ export const userStatusRouter = createTRPCRouter({
 
       // Feedback is only requested for real defined-level changes.
       // Transitions involving undefined (first set / clear) are skipped.
-      const shouldCreateTransition =
-        !!current && current.level !== input.level;
+      const shouldCreateTransition = !!current && current.level !== input.level;
 
       let transitionId: number | undefined;
       if (shouldCreateTransition) {

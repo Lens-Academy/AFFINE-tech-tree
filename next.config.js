@@ -27,14 +27,15 @@ const config = {
 
   webpack: (webpackConfig) => {
     if (process.env.BUILDING_FOR_CF) {
-      // Swap db/index (libsql, node-only) for db/cf (D1) at CF build time so
+      // Swap all server db entry specifiers to db/cf at CF build time so
       // the file tracer never sees @libsql/client and esbuild can bundle cleanly.
+      const cfDbEntry = path.resolve(__dirname, "src/server/db/cf.ts");
       webpackConfig.resolve.alias = {
         ...webpackConfig.resolve.alias,
-        [path.resolve(__dirname, "src/server/db/index")]: path.resolve(
-          __dirname,
-          "src/server/db/cf.ts",
-        ),
+        "~/server/db$": cfDbEntry,
+        "~/server/db/index$": cfDbEntry,
+        [`${path.resolve(__dirname, "src/server/db")}$`]: cfDbEntry,
+        [`${path.resolve(__dirname, "src/server/db/index")}$`]: cfDbEntry,
       };
     }
     return webpackConfig;

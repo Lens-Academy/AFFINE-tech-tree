@@ -1,19 +1,20 @@
 import Head from "next/head";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-import { type UnderstandingLevel } from "~/shared/understandingLevels";
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { api } from "~/utils/api";
 import { AuthHeader } from "~/components/AuthHeader";
 import { TopicCard } from "~/components/TopicCard";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 
+type BookmarkMutationOptions = Exclude<
+  Parameters<typeof api.bookmark.set.useMutation>[0],
+  undefined
+>;
+
 export default function Home() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  /** Pending level per topic: level = setting, null = clearing, absent = use server */
-  const [pendingLevelByTopic, setPendingLevelByTopic] = useState<
-    Record<number, UnderstandingLevel | null | undefined>
-  >({});
   const { data: session } = authClient.useSession();
 
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
@@ -24,23 +25,39 @@ export default function Home() {
   const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
     enabled: !!session?.user,
   });
-  /** Pending bookmark state: true = adding, false = removing, absent = use server */
-  const [pendingBookmarks, setPendingBookmarks] = useState<
-    Record<number, boolean>
-  >({});
-  const [bookmarkUpdatingByTopic, setBookmarkUpdatingByTopic] = useState<
-    Record<number, boolean>
-  >({});
+  const [bookmarkUpdatingTopicId, setBookmarkUpdatingTopicId] = useState<
+    number | null
+  >(null);
   const utils = api.useUtils();
-  const bookmarkSet = api.bookmark.set.useMutation();
+  const bookmarkSet = useAppMutation(
+    (opts: BookmarkMutationOptions) => api.bookmark.set.useMutation(opts),
+    {
+      onMutate: async (vars) => {
+        const input = vars as { topicId: number; bookmarked: boolean };
+        setBookmarkUpdatingTopicId(input.topicId);
+        await utils.bookmark.getAll.cancel();
+        const previous = utils.bookmark.getAll.getData();
+        utils.bookmark.getAll.setData(undefined, (old) => {
+          const set = new Set(old ?? []);
+          if (input.bookmarked) set.add(input.topicId);
+          else set.delete(input.topicId);
+          return [...set];
+        });
+        return { previous };
+      },
+      onError: (_error, _vars, ctx) => {
+        const context = ctx as { previous?: number[] } | undefined;
+        if (context?.previous) {
+          utils.bookmark.getAll.setData(undefined, context.previous);
+        }
+      },
+      onSettled: () => {
+        setBookmarkUpdatingTopicId(null);
+      },
+      refresh: [() => utils.bookmark.getAll.invalidate()],
+    },
+  );
 
-  const clearPendingLevel = (topicId: number) => {
-    setPendingLevelByTopic((old) => {
-      const next = { ...old };
-      delete next[topicId];
-      return next;
-    });
-  };
   const topicNameById = useMemo(
     () => new Map((allTopics ?? []).map((t) => [t.id, t.name])),
     [allTopics],
@@ -49,10 +66,7 @@ export default function Home() {
     (topicId: number) => topicNameById.get(topicId),
     [topicNameById],
   );
-  const { setStatus, removeStatus } = useTopicStatusMutations(
-    clearPendingLevel,
-    getTopicName,
-  );
+  const { setStatus, removeStatus } = useTopicStatusMutations(getTopicName);
 
   const topics = tagFilter
     ? (allTopics ?? []).filter((t) =>
@@ -65,44 +79,10 @@ export default function Home() {
     [bookmarkedIds],
   );
 
-  useEffect(() => {
-    setPendingBookmarks((old) => {
-      let changed = false;
-      const next = { ...old };
-      for (const [topicIdStr, pending] of Object.entries(old)) {
-        const topicId = Number(topicIdStr);
-        if (bookmarkedSet.has(topicId) === pending) {
-          delete next[topicId];
-          changed = true;
-        }
-      }
-      return changed ? next : old;
-    });
-  }, [bookmarkedSet]);
-
   const serverStatusByTopic = useMemo(
     () => new Map((statuses ?? []).map((s) => [s.topicId, s.level] as const)),
     [statuses],
   );
-
-  useEffect(() => {
-    setPendingLevelByTopic((old) => {
-      let changed = false;
-      const next = { ...old };
-      for (const [topicIdStr, pendingLevel] of Object.entries(old)) {
-        const topicId = Number(topicIdStr);
-        const serverLevel = serverStatusByTopic.get(topicId);
-        if (
-          serverLevel === pendingLevel ||
-          (pendingLevel === null && serverLevel === undefined)
-        ) {
-          delete next[topicId];
-          changed = true;
-        }
-      }
-      return changed ? next : old;
-    });
-  }, [serverStatusByTopic]);
 
   return (
     <>
@@ -147,61 +127,27 @@ export default function Home() {
                 <TopicCard
                   key={t.id}
                   topic={t}
-                  currentLevel={
-                    pendingLevelByTopic[t.id] === null
-                      ? undefined
-                      : (pendingLevelByTopic[t.id] ??
-                        serverStatusByTopic.get(t.id))
-                  }
+                  currentLevel={serverStatusByTopic.get(t.id)}
                   onLevelChange={(level) => {
                     if (level === undefined) {
-                      setPendingLevelByTopic((old) => ({
-                        ...old,
-                        [t.id]: null,
-                      }));
                       removeStatus.mutate({ topicId: t.id });
                     } else {
-                      setPendingLevelByTopic((old) => ({
-                        ...old,
-                        [t.id]: level,
-                      }));
                       setStatus.mutate({ topicId: t.id, level });
                     }
                   }}
                   canEdit={!!session?.user}
-                  bookmarked={pendingBookmarks[t.id] ?? bookmarkedSet.has(t.id)}
+                  bookmarked={bookmarkedSet.has(t.id)}
                   onBookmarkToggle={() => {
-                    if (bookmarkUpdatingByTopic[t.id]) return;
-                    const current =
-                      pendingBookmarks[t.id] ?? bookmarkedSet.has(t.id);
-                    const next = !current;
-                    setPendingBookmarks((old) => ({ ...old, [t.id]: next }));
-                    setBookmarkUpdatingByTopic((old) => ({
-                      ...old,
-                      [t.id]: true,
-                    }));
-                    bookmarkSet.mutate(
-                      { topicId: t.id, bookmarked: next },
-                      {
-                        onError: () => {
-                          setPendingBookmarks((old) => ({
-                            ...old,
-                            [t.id]: current,
-                          }));
-                        },
-                        onSettled: () => {
-                          setBookmarkUpdatingByTopic((old) => {
-                            const nextState = { ...old };
-                            delete nextState[t.id];
-                            return nextState;
-                          });
-                          void utils.bookmark.getAll.invalidate();
-                        },
-                      },
-                    );
+                    if (bookmarkSet.isPending) return;
+                    bookmarkSet.mutate({
+                      topicId: t.id,
+                      bookmarked: !bookmarkedSet.has(t.id),
+                    });
                   }}
                   canBookmark={!!session?.user}
-                  bookmarkDisabled={!!bookmarkUpdatingByTopic[t.id]}
+                  bookmarkDisabled={
+                    bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
+                  }
                 />
               ))}
             </ul>

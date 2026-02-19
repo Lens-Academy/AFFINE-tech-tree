@@ -5,12 +5,25 @@ import {
   HELPFULNESS_RATINGS,
   type HelpfulnessRating,
 } from "~/shared/feedbackTypes";
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { getLevelLabel } from "~/shared/understandingLevels";
 import { api, type RouterOutputs } from "~/utils/api";
 
 type Transition = RouterOutputs["feedback"]["getTransitionsByTopic"][number];
 
 type ExistingFeedbackItem = Transition["feedbackItems"][number];
+type UpsertFeedbackMutationOptions = Exclude<
+  Parameters<typeof api.feedback.upsertFeedbackItem.useMutation>[0],
+  undefined
+>;
+type DeleteFeedbackMutationOptions = Exclude<
+  Parameters<typeof api.feedback.deleteFeedbackItem.useMutation>[0],
+  undefined
+>;
+type PromoteFeedbackMutationOptions = Exclude<
+  Parameters<typeof api.feedback.promoteFreeTextToTopicLink.useMutation>[0],
+  undefined
+>;
 
 type UnifiedItem = {
   key: string;
@@ -27,59 +40,69 @@ type UnifiedItem = {
   canPromoteToResource?: boolean;
 };
 
-export function FeedbackSection({ topicId }: { topicId: number }) {
+type TopicLink = { id: number; title: string; url: string | null };
+
+export function FeedbackSection({
+  topicId,
+  topicLinks,
+}: {
+  topicId: number;
+  topicLinks: TopicLink[];
+}) {
   const { data: transitions } = api.feedback.getTransitionsByTopic.useQuery({
     topicId,
   });
-  const { data: topic } = api.topic.getById.useQuery({ id: topicId });
   const { data: teachers } = api.topic.getTeachers.useQuery(
     { topicId },
     { enabled: !!transitions && transitions.length > 0 },
   );
 
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const latestTransitionId = transitions?.[0]?.id ?? null;
 
   useEffect(() => {
-    if (transitions?.[0]) {
-      setExpandedIds((prev) => {
-        if (prev.size === 0) return new Set([transitions[0]!.id]);
-        return prev;
-      });
-    }
-  }, [transitions]);
+    setExpandedId(latestTransitionId);
+  }, [latestTransitionId]);
 
   const utils = api.useUtils();
 
-  const upsertMutation = api.feedback.upsertFeedbackItem.useMutation({
-    onSuccess: () => {
-      void utils.feedback.getTransitionsByTopic.invalidate({ topicId });
-      void utils.feedback.getRecentTransitions.invalidate();
+  const upsertMutation = useAppMutation(
+    (opts: UpsertFeedbackMutationOptions) =>
+      api.feedback.upsertFeedbackItem.useMutation(opts),
+    {
+      refresh: [
+        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () => utils.feedback.getRecentTransitions.invalidate(),
+      ],
     },
-  });
+  );
 
-  const deleteMutation = api.feedback.deleteFeedbackItem.useMutation({
-    onSuccess: () => {
-      void utils.feedback.getTransitionsByTopic.invalidate({ topicId });
-      void utils.feedback.getRecentTransitions.invalidate();
+  const deleteMutation = useAppMutation(
+    (opts: DeleteFeedbackMutationOptions) =>
+      api.feedback.deleteFeedbackItem.useMutation(opts),
+    {
+      refresh: [
+        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () => utils.feedback.getRecentTransitions.invalidate(),
+      ],
     },
-  });
-  const promoteMutation = api.feedback.promoteFreeTextToTopicLink.useMutation({
-    onSuccess: () => {
-      void utils.feedback.getTransitionsByTopic.invalidate({ topicId });
-      void utils.feedback.getRecentTransitions.invalidate();
-      void utils.topic.getById.invalidate({ id: topicId });
+  );
+  const promoteMutation = useAppMutation(
+    (opts: PromoteFeedbackMutationOptions) =>
+      api.feedback.promoteFreeTextToTopicLink.useMutation(opts),
+    {
+      refresh: [
+        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () => utils.feedback.getRecentTransitions.invalidate(),
+        () => utils.topic.getById.invalidate({ id: topicId }),
+      ],
     },
-  });
+  );
 
   if (!transitions || transitions.length === 0) return null;
 
   const toggle = (id: number) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setExpandedId((prev) => (prev === id ? null : id));
   };
 
   return (
@@ -93,9 +116,9 @@ export function FeedbackSection({ topicId }: { topicId: number }) {
             key={t.id}
             transition={t}
             isLatest={idx === 0}
-            isExpanded={expandedIds.has(t.id)}
+            isExpanded={expandedId === t.id}
             onToggle={() => toggle(t.id)}
-            topicLinks={topic?.topicLinks ?? []}
+            topicLinks={topicLinks}
             teachers={teachers ?? []}
             onUpsert={(input) => upsertMutation.mutate(input)}
             onDelete={(id) => deleteMutation.mutate({ id })}
@@ -109,7 +132,6 @@ export function FeedbackSection({ topicId }: { topicId: number }) {
   );
 }
 
-type TopicLink = { id: number; title: string; url: string | null };
 type Teacher = { userId: string; name: string | null; level: string };
 
 function buildUnifiedItems(

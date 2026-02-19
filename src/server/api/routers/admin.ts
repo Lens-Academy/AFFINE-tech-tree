@@ -9,6 +9,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
+import { normalizeUrl } from "~/server/urlUtils";
 import {
   adminActionLog,
   appSetting,
@@ -27,16 +28,6 @@ const ADMIN_HONOR_SYSTEM_KEY = "admin_honor_system_enabled";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
-}
-
-function normalizeUrl(input: string): string | null {
-  try {
-    const url = new URL(input.trim());
-    const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
-    return `${url.protocol}//${url.host}${normalizedPath}${url.search}`;
-  } catch {
-    return null;
-  }
 }
 
 function similarityScore(haystack: string, needle: string): number {

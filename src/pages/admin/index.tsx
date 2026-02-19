@@ -3,39 +3,70 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { api } from "~/utils/api";
 
+type BootstrapMutationOptions = Exclude<
+  Parameters<typeof api.admin.bootstrapFirstAdmin.useMutation>[0],
+  undefined
+>;
+type BecomeAdminMutationOptions = Exclude<
+  Parameters<typeof api.admin.becomeAdmin.useMutation>[0],
+  undefined
+>;
+type SetHonorSystemMutationOptions = Exclude<
+  Parameters<typeof api.admin.setHonorSystemEnabled.useMutation>[0],
+  undefined
+>;
+type SetUserAdminMutationOptions = Exclude<
+  Parameters<typeof api.admin.setUserAdmin.useMutation>[0],
+  undefined
+>;
+
 export default function AdminHomePage() {
   const { data: session, isPending } = authClient.useSession();
+  const utils = api.useUtils();
   const status = api.admin.getAdminStatus.useQuery(undefined, {
     enabled: !!session?.user,
   });
   const users = api.admin.listUsersForAdmin.useQuery(undefined, {
     enabled: !!session?.user && !!status.data?.isAdmin,
   });
-  const bootstrap = api.admin.bootstrapFirstAdmin.useMutation({
-    onSuccess: async () => {
-      await status.refetch();
+  const bootstrap = useAppMutation(
+    (opts: BootstrapMutationOptions) =>
+      api.admin.bootstrapFirstAdmin.useMutation(opts),
+    {
+      refresh: [() => utils.admin.getAdminStatus.invalidate()],
     },
-  });
-  const becomeAdmin = api.admin.becomeAdmin.useMutation({
-    onSuccess: async () => {
-      await status.refetch();
-      await users.refetch();
+  );
+  const becomeAdmin = useAppMutation(
+    (opts: BecomeAdminMutationOptions) =>
+      api.admin.becomeAdmin.useMutation(opts),
+    {
+      refresh: [
+        () => utils.admin.getAdminStatus.invalidate(),
+        () => utils.admin.listUsersForAdmin.invalidate(),
+      ],
     },
-  });
-  const setHonorSystem = api.admin.setHonorSystemEnabled.useMutation({
-    onSuccess: async () => {
-      await status.refetch();
+  );
+  const setHonorSystem = useAppMutation(
+    (opts: SetHonorSystemMutationOptions) =>
+      api.admin.setHonorSystemEnabled.useMutation(opts),
+    {
+      refresh: [() => utils.admin.getAdminStatus.invalidate()],
     },
-  });
-  const setUserAdmin = api.admin.setUserAdmin.useMutation({
-    onSuccess: async () => {
-      await users.refetch();
-      await status.refetch();
+  );
+  const setUserAdmin = useAppMutation(
+    (opts: SetUserAdminMutationOptions) =>
+      api.admin.setUserAdmin.useMutation(opts),
+    {
+      refresh: [
+        () => utils.admin.listUsersForAdmin.invalidate(),
+        () => utils.admin.getAdminStatus.invalidate(),
+      ],
     },
-  });
+  );
   const [manageError, setManageError] = useState<string | null>(null);
 
   return (

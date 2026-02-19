@@ -3,13 +3,27 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { api } from "~/utils/api";
 
 type TopicOption = { id: number; name: string };
+type CreateTeacherMutationOptions = Exclude<
+  Parameters<typeof api.admin.createNonUserTeacher.useMutation>[0],
+  undefined
+>;
+type UpdateTeacherMutationOptions = Exclude<
+  Parameters<typeof api.admin.updateNonUserTeacher.useMutation>[0],
+  undefined
+>;
+type DeleteTeacherMutationOptions = Exclude<
+  Parameters<typeof api.admin.deleteNonUserTeacher.useMutation>[0],
+  undefined
+>;
 
 export default function NonUserTeachersAdminPage() {
   const { data: session, isPending } = authClient.useSession();
+  const utils = api.useUtils();
   const adminStatus = api.admin.getAdminStatus.useQuery(undefined, {
     enabled: !!session?.user,
   });
@@ -24,24 +38,32 @@ export default function NonUserTeachersAdminPage() {
     Record<string, boolean>
   >({});
 
-  const createTeacher = api.admin.createNonUserTeacher.useMutation({
-    onSuccess: async () => {
-      setName("");
-      setEmail("");
-      setSelectedTopicIds([]);
-      await teachers.refetch();
+  const createTeacher = useAppMutation(
+    (opts: CreateTeacherMutationOptions) =>
+      api.admin.createNonUserTeacher.useMutation(opts),
+    {
+      onSuccess: () => {
+        setName("");
+        setEmail("");
+        setSelectedTopicIds([]);
+      },
+      refresh: [() => utils.admin.listNonUserTeachers.invalidate()],
     },
-  });
-  const updateTeacher = api.admin.updateNonUserTeacher.useMutation({
-    onSuccess: async () => {
-      await teachers.refetch();
+  );
+  const updateTeacher = useAppMutation(
+    (opts: UpdateTeacherMutationOptions) =>
+      api.admin.updateNonUserTeacher.useMutation(opts),
+    {
+      refresh: [() => utils.admin.listNonUserTeachers.invalidate()],
     },
-  });
-  const deleteTeacher = api.admin.deleteNonUserTeacher.useMutation({
-    onSuccess: async () => {
-      await teachers.refetch();
+  );
+  const deleteTeacher = useAppMutation(
+    (opts: DeleteTeacherMutationOptions) =>
+      api.admin.deleteNonUserTeacher.useMutation(opts),
+    {
+      refresh: [() => utils.admin.listNonUserTeachers.invalidate()],
     },
-  });
+  );
 
   const topicMap = api.topic.list.useQuery();
   const allTopics = useMemo<TopicOption[]>(

@@ -1,7 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useCallback } from "react";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
 
 import {
   getLevelLabel,
@@ -10,6 +10,7 @@ import {
   UNDERSTANDING_LEVELS,
   understandingLevelSchema,
 } from "~/shared/understandingLevels";
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { AuthHeader } from "~/components/AuthHeader";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
@@ -17,12 +18,13 @@ import { FeedbackSection } from "~/components/FeedbackSection";
 import { api } from "~/utils/api";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 
+type BookmarkMutationOptions = Exclude<
+  Parameters<typeof api.bookmark.set.useMutation>[0],
+  undefined
+>;
+
 export default function TopicPage() {
   const router = useRouter();
-  /** null = clearing in progress, undefined = use server, level = setting */
-  const [pendingLevel, setPendingLevel] = useState<
-    (typeof UNDERSTANDING_LEVELS)[number] | null | undefined
-  >();
   const id =
     typeof router.query.id === "string" ? Number(router.query.id) : NaN;
   const { data: topic, isLoading } = api.topic.getById.useQuery(
@@ -33,48 +35,51 @@ export default function TopicPage() {
   const { data: statuses } = api.userStatus.getAll.useQuery(undefined, {
     enabled: !!session?.user,
   });
-  const { setStatus, removeStatus } = useTopicStatusMutations(
-    () => setPendingLevel(undefined),
-    () => topic?.name,
+  const getTopicName = useCallback(
+    (topicId: number) => (topicId === id ? topic?.name : undefined),
+    [id, topic],
   );
+  const { setStatus, removeStatus } = useTopicStatusMutations(getTopicName);
   const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
     enabled: !!session?.user,
   });
-  const [pendingBookmark, setPendingBookmark] = useState<boolean | undefined>();
-  const [bookmarkUpdating, setBookmarkUpdating] = useState(false);
   const utils = api.useUtils();
-  const bookmarkSet = api.bookmark.set.useMutation();
+  const bookmarkSet = useAppMutation(
+    (opts: BookmarkMutationOptions) => api.bookmark.set.useMutation(opts),
+    {
+      onMutate: async (vars) => {
+        const input = vars as { topicId: number; bookmarked: boolean };
+        await utils.bookmark.getAll.cancel();
+        const previous = utils.bookmark.getAll.getData();
+        utils.bookmark.getAll.setData(undefined, (old) => {
+          const set = new Set(old ?? []);
+          if (input.bookmarked) set.add(input.topicId);
+          else set.delete(input.topicId);
+          return [...set];
+        });
+        return { previous };
+      },
+      onError: (_error, _vars, ctx) => {
+        const context = ctx as { previous?: number[] } | undefined;
+        if (context?.previous) {
+          utils.bookmark.getAll.setData(undefined, context.previous);
+        }
+      },
+      refresh: [() => utils.bookmark.getAll.invalidate()],
+    },
+  );
   const { data: teachers } = api.topic.getTeachers.useQuery(
     { topicId: id },
     { enabled: !!session?.user && !Number.isNaN(id) },
   );
 
-  const serverBookmarked = topic
-    ? (bookmarkedIds ?? []).includes(topic.id)
-    : false;
-  const isBookmarked = pendingBookmark ?? serverBookmarked;
-
-  useEffect(() => {
-    if (pendingBookmark !== undefined && serverBookmarked === pendingBookmark) {
-      setPendingBookmark(undefined);
-    }
-  }, [pendingBookmark, serverBookmarked]);
+  const isBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
 
   const serverLevel =
     topic && statuses
       ? statuses.find((s) => s.topicId === topic.id)?.level
       : undefined;
-  const currentLevel =
-    pendingLevel === null ? undefined : (pendingLevel ?? serverLevel);
-
-  useEffect(() => {
-    if (
-      (pendingLevel && serverLevel === pendingLevel) ||
-      (pendingLevel === null && serverLevel === undefined)
-    ) {
-      setPendingLevel(undefined);
-    }
-  }, [pendingLevel, serverLevel]);
+  const currentLevel = serverLevel;
 
   if (isLoading || !topic) {
     return (
@@ -114,25 +119,13 @@ export default function TopicPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (bookmarkUpdating) return;
-                  const current = pendingBookmark ?? serverBookmarked;
-                  const next = !current;
-                  setPendingBookmark(next);
-                  setBookmarkUpdating(true);
-                  bookmarkSet.mutate(
-                    { topicId: topic.id, bookmarked: next },
-                    {
-                      onError: () => {
-                        setPendingBookmark(current);
-                      },
-                      onSettled: () => {
-                        setBookmarkUpdating(false);
-                        void utils.bookmark.getAll.invalidate();
-                      },
-                    },
-                  );
+                  if (bookmarkSet.isPending) return;
+                  bookmarkSet.mutate({
+                    topicId: topic.id,
+                    bookmarked: !isBookmarked,
+                  });
                 }}
-                disabled={bookmarkUpdating}
+                disabled={bookmarkSet.isPending}
                 title="I'd like to learn this topic"
                 className={`shrink-0 rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
                   isBookmarked
@@ -170,12 +163,10 @@ export default function TopicPage() {
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === "") {
-                    setPendingLevel(null);
                     removeStatus.mutate({ topicId: topic.id });
                   } else {
                     const parsed = understandingLevelSchema.safeParse(value);
                     if (parsed.success) {
-                      setPendingLevel(parsed.data);
                       setStatus.mutate({
                         topicId: topic.id,
                         level: parsed.data,
@@ -282,7 +273,7 @@ export default function TopicPage() {
 
           <div id="feedback" />
           {session?.user && !Number.isNaN(id) && (
-            <FeedbackSection topicId={id} />
+            <FeedbackSection topicId={id} topicLinks={topic.topicLinks ?? []} />
           )}
         </div>
       </main>

@@ -10,16 +10,7 @@ import {
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
 import { feedbackItem, topicLink } from "~/server/db/schema";
-
-function normalizeUrl(input: string): string | null {
-  try {
-    const url = new URL(input.trim());
-    const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
-    return `${url.protocol}//${url.host}${normalizedPath}${url.search}`;
-  } catch {
-    return null;
-  }
-}
+import { normalizeUrl } from "~/server/urlUtils";
 
 function extractEmailCandidate(input: string): string | null {
   const value = input.trim().toLowerCase();
@@ -298,7 +289,7 @@ export const feedbackRouter = createTRPCRouter({
         const nextPosition =
           existingLinks.reduce(
             (maxPos, link) => Math.max(maxPos, link.position),
-            0,
+            -1,
           ) + 1;
         const [created] = await ctx.db
           .insert(topicLink)

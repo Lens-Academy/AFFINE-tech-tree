@@ -1,10 +1,16 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { api } from "~/utils/api";
+
+type ClaimNonUserMutationOptions = Exclude<
+  Parameters<typeof api.admin.claimNonUserTeacherAccount.useMutation>[0],
+  undefined
+>;
 
 export default function AuthPage() {
   const router = useRouter();
@@ -15,13 +21,18 @@ export default function AuthPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const claimNonUserTeacher =
-    api.admin.claimNonUserTeacherAccount.useMutation();
+  const claimNonUserTeacher = useAppMutation(
+    (opts: ClaimNonUserMutationOptions) =>
+      api.admin.claimNonUserTeacherAccount.useMutation(opts),
+  );
 
-  if (session?.user) {
-    void router.replace("/");
-    return null;
-  }
+  useEffect(() => {
+    if (session?.user) {
+      void router.replace("/");
+    }
+  }, [router, session?.user]);
+
+  if (session?.user) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,8 +72,15 @@ export default function AuthPage() {
               );
               return;
             }
-          } catch {
-            setError(error.message ?? "Sign-up failed");
+          } catch (claimError) {
+            const claimMsg =
+              claimError instanceof Error ? claimError.message : null;
+            // No claimable non-user record → regular registered user; prompt sign-in.
+            setError(
+              claimMsg?.toLowerCase().includes("no claimable")
+                ? "This email is already registered. Please sign in instead."
+                : (claimMsg ?? error.message ?? "Sign-up failed"),
+            );
             return;
           }
         }
