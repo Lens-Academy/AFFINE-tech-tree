@@ -43,6 +43,13 @@ type UnifiedItem = {
 
 type TopicLink = { id: number; title: string; url: string | null };
 
+function getMutationErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export function FeedbackSection({
   topicId,
   topicLinks,
@@ -66,11 +73,20 @@ export function FeedbackSection({
   }, [latestTransitionId]);
 
   const utils = api.useUtils();
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const upsertMutation = useAppMutation(
     (opts: UpsertFeedbackMutationOptions) =>
       api.feedback.upsertFeedbackItem.useMutation(opts),
     {
+      onMutate: () => {
+        setFeedbackError(null);
+      },
+      onError: (error) => {
+        setFeedbackError(
+          getMutationErrorMessage(error, "Failed to save feedback item."),
+        );
+      },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
         () => utils.feedback.getRecentTransitions.invalidate(),
@@ -82,6 +98,14 @@ export function FeedbackSection({
     (opts: DeleteFeedbackMutationOptions) =>
       api.feedback.deleteFeedbackItem.useMutation(opts),
     {
+      onMutate: () => {
+        setFeedbackError(null);
+      },
+      onError: (error) => {
+        setFeedbackError(
+          getMutationErrorMessage(error, "Failed to delete feedback item."),
+        );
+      },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
         () => utils.feedback.getRecentTransitions.invalidate(),
@@ -92,6 +116,17 @@ export function FeedbackSection({
     (opts: PromoteFeedbackMutationOptions) =>
       api.feedback.promoteFreeTextToTopicLink.useMutation(opts),
     {
+      onMutate: () => {
+        setFeedbackError(null);
+      },
+      onError: (error) => {
+        setFeedbackError(
+          getMutationErrorMessage(
+            error,
+            "Failed to promote this item to a topic resource.",
+          ),
+        );
+      },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
         () => utils.feedback.getRecentTransitions.invalidate(),
@@ -111,6 +146,11 @@ export function FeedbackSection({
       <h2 className="mb-3 text-lg font-semibold text-zinc-100">
         Learning feedback
       </h2>
+      {feedbackError && (
+        <p className="mb-3 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          {feedbackError}
+        </p>
+      )}
       <div className="space-y-3">
         {transitions.map((t, idx) => (
           <TransitionAccordion
@@ -428,14 +468,6 @@ function UnifiedItemRow({
       ? "Show comment"
       : "Add comment";
 
-  useEffect(() => {
-    setRating(item.helpfulnessRating);
-  }, [item.helpfulnessRating]);
-
-  useEffect(() => {
-    setComment(item.comment ?? "");
-  }, [item.comment]);
-
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -450,7 +482,9 @@ function UnifiedItemRow({
               {item.label}
             </a>
           ) : (
-            <span className="block truncate whitespace-nowrap">{item.label}</span>
+            <span className="block truncate whitespace-nowrap">
+              {item.label}
+            </span>
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -465,10 +499,11 @@ function UnifiedItemRow({
             <button
               type="button"
               onClick={() => setShowComment((v) => !v)}
-              className={`w-6 shrink-0 rounded p-1 transition ${hasComment
+              className={`w-6 shrink-0 rounded p-1 transition ${
+                hasComment
                   ? "text-orange-300 hover:bg-zinc-700/60"
                   : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                }`}
+              }`}
               title={commentTooltip}
             >
               <CommentIcon filled={hasComment} />

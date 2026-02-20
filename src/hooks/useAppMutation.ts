@@ -1,3 +1,5 @@
+import { getErrorMessage, showGlobalErrorToast } from "~/lib/globalErrorToast";
+
 type MaybePromise<T> = T | Promise<T>;
 
 type MutationCallbacks<TData, TError, TVariables, TContext> = {
@@ -30,6 +32,7 @@ type AppMutationConfig<TData, TError, TVariables, TContext> = MutationCallbacks<
 > & {
   refresh?: RefreshTask[];
   refreshOn?: "success" | "settled";
+  disableDefaultErrorToast?: boolean;
 };
 
 async function runRefreshTasks(tasks: RefreshTask[] | undefined) {
@@ -128,6 +131,9 @@ export function useAppMutation<TOptions, TReturn>(
       ctx: TContext | undefined,
     ) => {
       await config.onError?.(error, vars, ctx);
+      if (!config.onError && !config.disableDefaultErrorToast) {
+        showGlobalErrorToast(getErrorMessage(error, "Something went wrong."));
+      }
     },
     onSettled: async (
       data: TData | undefined,
