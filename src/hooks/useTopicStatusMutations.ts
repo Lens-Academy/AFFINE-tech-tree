@@ -1,4 +1,3 @@
-import { useToasts } from "~/hooks/useToastStore";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { api, type RouterInputs, type RouterOutputs } from "~/utils/api";
 
@@ -14,11 +13,8 @@ type RemoveStatusMutationOptions = Exclude<
   undefined
 >;
 
-export function useTopicStatusMutations(
-  getTopicName: (topicId: number) => string | undefined,
-) {
+export function useTopicStatusMutations() {
   const utils = api.useUtils();
-  const { addToast } = useToasts();
 
   const setStatus = useAppMutation(
     (opts: SetStatusMutationOptions) => api.userStatus.set.useMutation(opts),
@@ -52,15 +48,6 @@ export function useTopicStatusMutations(
         });
 
         return { previous };
-      },
-      onSuccess: (data, vars) => {
-        const result = data as { isFirstSet: boolean };
-        const input = vars as SetStatusInput;
-        if (result.isFirstSet) return;
-        const name = getTopicName(input.topicId);
-        if (name) {
-          addToast({ topicId: input.topicId, topicName: name });
-        }
       },
       onError: (_err, _vars, ctx) => {
         const context = ctx as { previous?: StatusRow[] } | undefined;

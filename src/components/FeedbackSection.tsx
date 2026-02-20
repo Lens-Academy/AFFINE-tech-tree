@@ -5,10 +5,10 @@ import {
   HELPFULNESS_RATINGS,
   type HelpfulnessRating,
 } from "~/shared/feedbackTypes";
-import { formatDateYyyyMmDd } from "~/shared/date";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { getLevelLabel } from "~/shared/understandingLevels";
 import { api, type RouterOutputs } from "~/utils/api";
+import { CommentIcon } from "~/components/CommentIcon";
 
 type Transition = RouterOutputs["feedback"]["getTransitionsByTopic"][number];
 
@@ -307,7 +307,7 @@ function TransitionAccordion({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between p-4 text-left hover:bg-zinc-800/80"
+        className="flex w-full items-center justify-between p-2 text-left hover:bg-zinc-800/80 lg:p-4"
       >
         <div className="flex-1">
           <div className="text-sm text-zinc-300">
@@ -316,14 +316,14 @@ function TransitionAccordion({
             {transition.toLevel ? getLevelLabel(transition.toLevel) : "-"}
           </div>
           <div className="text-xs text-zinc-500">
-            {formatDateYyyyMmDd(transition.createdAt)}
+            {transition.createdAt.toLocaleString("sv-SE")}
           </div>
         </div>
         <span className="text-zinc-500">{isExpanded ? "▼" : "▶"}</span>
       </button>
 
       {isExpanded && (
-        <div className="space-y-4 border-t border-zinc-700 p-4">
+        <div className="space-y-3 border-t border-zinc-700 p-2 lg:p-4">
           {unifiedItems.map((item) => (
             <UnifiedItemRow
               key={item.key}
@@ -353,7 +353,7 @@ function TransitionAccordion({
           ))}
 
           {isLatest && (
-            <div className="flex gap-2 border-t border-zinc-700 pt-4">
+            <div className="flex gap-2 border-t border-zinc-700 pt-2 lg:pt-4">
               <input
                 type="text"
                 placeholder="Add resource URL, person, or note..."
@@ -390,7 +390,7 @@ function TransitionAccordion({
                     setNewFreeText("");
                   }
                 }}
-                className="rounded bg-orange-500/20 px-4 py-2 text-sm text-orange-400 hover:bg-orange-500/30"
+                className="rounded bg-orange-500/20 px-3 py-1.5 text-sm text-orange-400 hover:bg-orange-500/30"
               >
                 Add
               </button>
@@ -421,6 +421,12 @@ function UnifiedItemRow({
     item.helpfulnessRating,
   );
   const [comment, setComment] = useState(item.comment ?? "");
+  const hasComment = comment.trim().length > 0;
+  const commentTooltip = showComment
+    ? "Hide comment"
+    : hasComment
+      ? "Show comment"
+      : "Add comment";
 
   useEffect(() => {
     setRating(item.helpfulnessRating);
@@ -432,57 +438,62 @@ function UnifiedItemRow({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1 text-sm text-zinc-300">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex-1 text-sm text-zinc-300">
           {item.linkUrl ? (
             <a
               href={item.linkUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300"
+              className="block truncate whitespace-nowrap text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300"
             >
               {item.label}
             </a>
           ) : (
-            <span>{item.label}</span>
+            <span className="block truncate whitespace-nowrap">{item.label}</span>
           )}
         </div>
-        <HelpfulnessSelect
-          value={rating}
-          onChange={(nextRating) => {
-            setRating(nextRating);
-            onUpdate({ helpfulnessRating: nextRating });
-          }}
-        />
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setShowComment((v) => !v)}
-            className="text-xs text-zinc-500 hover:text-zinc-300"
-            title="Add comment"
-          >
-            {showComment ? "Hide" : "Comment"}
-          </button>
-          {onDelete && (
+        <div className="ml-auto flex items-center gap-2">
+          <HelpfulnessSelect
+            value={rating}
+            onChange={(nextRating) => {
+              setRating(nextRating);
+              onUpdate({ helpfulnessRating: nextRating });
+            }}
+          />
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={onDelete}
-              className="text-xs text-zinc-500 hover:text-red-400"
-              title="Remove"
+              onClick={() => setShowComment((v) => !v)}
+              className={`w-6 shrink-0 rounded p-1 transition ${hasComment
+                  ? "text-orange-300 hover:bg-zinc-700/60"
+                  : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                }`}
+              title={commentTooltip}
             >
-              Remove
+              <CommentIcon filled={hasComment} />
             </button>
-          )}
-          {onPromote && (
-            <button
-              type="button"
-              onClick={onPromote}
-              className="text-xs text-zinc-500 hover:text-orange-300"
-              title="Add this link as a topic resource"
-            >
-              Promote
-            </button>
-          )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="text-xs text-zinc-500 hover:text-red-400"
+                title="Remove"
+              >
+                Remove
+              </button>
+            )}
+            {onPromote && (
+              <button
+                type="button"
+                onClick={onPromote}
+                className="text-xs text-zinc-500 hover:text-orange-300"
+                title="Add this link as a topic resource"
+              >
+                Promote
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {showComment && (
