@@ -72,5 +72,6 @@ cp wrangler.jsonc.example wrangler.jsonc    # then fill in account_id and databa
 pnpm wrangler login                         # one-time auth
 pnpm wrangler secret put BETTER_AUTH_SECRET # paste the value from .env
 pnpm db:upload:cf                           # copy local db.sqlite → D1 (replaces everything)
+pnpm db:download:cf                         # copy D1 → local db.sqlite (replaces local file)
 pnpm deploy:cf                              # build Next.js as a Worker and deploy
 ```
