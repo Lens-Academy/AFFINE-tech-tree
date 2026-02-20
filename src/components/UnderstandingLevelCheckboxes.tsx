@@ -7,9 +7,11 @@ import {
 export function UnderstandingLevelCheckboxes({
   currentLevel,
   onLevelChange,
+  isActive,
 }: {
   currentLevel?: UnderstandingLevel;
   onLevelChange: (level: UnderstandingLevel | undefined) => void;
+  isActive?: boolean;
 }) {
   return (
     <fieldset>
@@ -24,11 +26,12 @@ export function UnderstandingLevelCheckboxes({
           return (
             <label
               key={level}
-              className={`flex items-center gap-1.5 rounded-lg border px-1 py-1 transition ${
-                checked
+              className={`flex items-center gap-1.5 rounded-lg border px-1 py-1 transition ${checked
+                ? isActive
                   ? "border-orange-500/50 bg-orange-500/10 text-orange-300"
-                  : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"
-              } text-[11px]`}
+                  : "border-zinc-700 bg-zinc-800 text-orange-300 group-hover:border-orange-500/50 group-hover:bg-orange-500/10"
+                : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700"
+                } text-[11px]`}
             >
               <input
                 type="checkbox"
@@ -38,11 +41,12 @@ export function UnderstandingLevelCheckboxes({
               />
               <span
                 aria-hidden
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
-                  checked
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${checked
+                  ? isActive
                     ? "border-orange-500 bg-orange-500/20"
-                    : "border-zinc-500 bg-zinc-900"
-                }`}
+                    : "border-zinc-500 bg-zinc-900 group-hover:border-orange-500 group-hover:bg-orange-500/20"
+                  : "border-zinc-500 bg-zinc-900"
+                  }`}
               >
                 {checked && (
                   <span className="h-2 w-2 rounded-sm bg-orange-300" />

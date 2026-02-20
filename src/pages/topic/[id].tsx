@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useState } from "react";
 
 import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
 import { useAppMutation } from "~/hooks/useAppMutation";
@@ -13,6 +14,10 @@ import { api } from "~/utils/api";
 
 type BookmarkMutationOptions = Exclude<
   Parameters<typeof api.bookmark.set.useMutation>[0],
+  undefined
+>;
+type SubmitTopicSuggestionMutationOptions = Exclude<
+  Parameters<typeof api.feedback.submitTopicFreeTextSuggestion.useMutation>[0],
   undefined
 >;
 
@@ -59,6 +64,40 @@ export default function TopicPage() {
   const { data: teachers } = api.topic.getTeachers.useQuery(
     { topicId: id },
     { enabled: !!session?.user && !Number.isNaN(id) },
+  );
+  const [resourceSuggestionInput, setResourceSuggestionInput] = useState("");
+  const [resourceSuggestionMessage, setResourceSuggestionMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const submitTopicSuggestion = useAppMutation(
+    (opts: SubmitTopicSuggestionMutationOptions) =>
+      api.feedback.submitTopicFreeTextSuggestion.useMutation(opts),
+    {
+      onMutate: () => {
+        setResourceSuggestionMessage(null);
+      },
+      onSuccess: () => {
+        setResourceSuggestionInput("");
+        setResourceSuggestionMessage({
+          type: "success",
+          text: "Added to review queue.",
+        });
+      },
+      onError: (error) => {
+        setResourceSuggestionMessage({
+          type: "error",
+          text:
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "Failed to add this suggestion.",
+        });
+      },
+      refresh: [
+        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId: id }),
+        () => utils.feedback.getRecentTransitions.invalidate(),
+      ],
+    },
   );
   const isBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
 
@@ -188,6 +227,83 @@ export default function TopicPage() {
                         </ul>
                       </section>
                     )}
+
+                    <section className="mb-8">
+                      <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                        Add resource for review
+                      </h2>
+                      {resourceSuggestionMessage && (
+                        <p
+                          className={`mb-3 rounded border px-3 py-2 text-sm ${
+                            resourceSuggestionMessage.type === "error"
+                              ? "border-red-500/30 bg-red-500/10 text-red-300"
+                              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                          }`}
+                        >
+                          {resourceSuggestionMessage.text}
+                        </p>
+                      )}
+                      {!session?.user && (
+                        <p className="mb-2 text-sm text-zinc-500">
+                          Sign in to submit a resource for review.
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Add resource URL, person, or note..."
+                          value={resourceSuggestionInput}
+                          onChange={(e) =>
+                            setResourceSuggestionInput(e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            const value = resourceSuggestionInput.trim();
+                            if (
+                              !session?.user ||
+                              !value ||
+                              submitTopicSuggestion.isPending ||
+                              Number.isNaN(id)
+                            ) {
+                              return;
+                            }
+                            submitTopicSuggestion.mutate({
+                              topicId: id,
+                              value,
+                            });
+                          }}
+                          disabled={!session?.user}
+                          className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                        <button
+                          type="button"
+                          disabled={
+                            !session?.user ||
+                            submitTopicSuggestion.isPending ||
+                            !resourceSuggestionInput.trim()
+                          }
+                          onClick={() => {
+                            const value = resourceSuggestionInput.trim();
+                            if (
+                              !session?.user ||
+                              !value ||
+                              submitTopicSuggestion.isPending ||
+                              Number.isNaN(id)
+                            ) {
+                              return;
+                            }
+                            submitTopicSuggestion.mutate({
+                              topicId: id,
+                              value,
+                            });
+                          }}
+                          className="rounded bg-orange-500/20 px-3 py-1.5 text-sm text-orange-400 hover:bg-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </section>
 
                     {topic.resources && topic.resources.length > 0 && (
                       <section className="mb-8">

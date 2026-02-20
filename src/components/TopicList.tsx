@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 import { authClient } from "~/server/better-auth/client";
+import { type UnderstandingLevel } from "~/shared/understandingLevels";
 import { api } from "~/utils/api";
 import { TopicCard } from "./TopicCard";
 
@@ -20,18 +21,23 @@ export function TopicList() {
       ? Number(router.query.id)
       : undefined;
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [topicOrder, setTopicOrder] = useState<number[]>([]);
+  const [lastAppliedSortKey, setLastAppliedSortKey] = useState("");
+  const [initialSortApplied, setInitialSortApplied] = useState(false);
   const [bookmarkUpdatingTopicId, setBookmarkUpdatingTopicId] = useState<
     number | null
   >(null);
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
   const { data: tags } = api.topic.listTags.useQuery();
-  const { data: statuses } = api.userStatus.getAll.useQuery(undefined, {
-    enabled: !!session?.user,
-  });
-  const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
-    enabled: !!session?.user,
-  });
+  const { data: statuses, isFetched: statusesFetched } =
+    api.userStatus.getAll.useQuery(undefined, {
+      enabled: !!session?.user,
+    });
+  const { data: bookmarkedIds, isFetched: bookmarksFetched } =
+    api.bookmark.getAll.useQuery(undefined, {
+      enabled: !!session?.user,
+    });
   const utils = api.useUtils();
   const bookmarkSet = useAppMutation(
     (opts: BookmarkMutationOptions) => api.bookmark.set.useMutation(opts),
@@ -64,11 +70,15 @@ export function TopicList() {
 
   const { setStatus, removeStatus } = useTopicStatusMutations();
 
-  const topics = tagFilter
-    ? (allTopics ?? []).filter((t) =>
-        t.topicTags.some((tt) => tt.tag.name === tagFilter),
-      )
-    : (allTopics ?? []);
+  const topics = useMemo(
+    () =>
+      tagFilter
+        ? (allTopics ?? []).filter((t) =>
+          t.topicTags.some((tt) => tt.tag.name === tagFilter),
+        )
+        : (allTopics ?? []),
+    [allTopics, tagFilter],
+  );
 
   const bookmarkedSet = useMemo(
     () => new Set(bookmarkedIds ?? []),
@@ -78,16 +88,70 @@ export function TopicList() {
     () => new Map((statuses ?? []).map((s) => [s.topicId, s.level] as const)),
     [statuses],
   );
+  const currentSortKey = useMemo(
+    () =>
+      topics
+        .map((topic) => {
+          const bookmarked = bookmarkedSet.has(topic.id) ? "1" : "0";
+          const level = serverStatusByTopic.get(topic.id) ?? "unknown";
+          return `${topic.id}:${bookmarked}:${level}`;
+        })
+        .join("|"),
+    [topics, bookmarkedSet, serverStatusByTopic],
+  );
+  const initialSortReady =
+    !isLoading && (!session?.user || (statusesFetched && bookmarksFetched));
+  useEffect(() => {
+    if (!session?.user) {
+      setInitialSortApplied(false);
+      return;
+    }
+    if (!initialSortReady || initialSortApplied) return;
+    const initialOrder = sortTopicsByBookmarkAndUnderstanding(
+      topics,
+      bookmarkedSet,
+      serverStatusByTopic,
+    ).map((topic) => topic.id);
+    setTopicOrder(initialOrder);
+    setLastAppliedSortKey(currentSortKey);
+    setInitialSortApplied(true);
+  }, [
+    initialSortReady,
+    initialSortApplied,
+    session?.user,
+    topics,
+    bookmarkedSet,
+    serverStatusByTopic,
+    currentSortKey,
+  ]);
+  const sortDirty = initialSortApplied && currentSortKey !== lastAppliedSortKey;
+  const shouldHoldForInitialSort =
+    sessionPending || (!!session?.user && !initialSortApplied);
+  const topicsById = useMemo(
+    () => new Map(topics.map((topic) => [topic.id, topic])),
+    [topics],
+  );
+  const orderedTopics = useMemo(() => {
+    if (topicOrder.length === 0) return topics;
+    const ordered = topicOrder
+      .map((topicId) => topicsById.get(topicId))
+      .filter((topic) => topic !== undefined);
+    const visibleIds = new Set(ordered.map((topic) => topic.id));
+    const missing = topics.filter((topic) => !visibleIds.has(topic.id));
+    return [...ordered, ...missing];
+  }, [topicOrder, topicsById, topics]);
+  const applySort = () => {
+    const sorted = sortTopicsByBookmarkAndUnderstanding(
+      topics,
+      bookmarkedSet,
+      serverStatusByTopic,
+    ).map((topic) => topic.id);
+    setTopicOrder(sorted);
+    setLastAppliedSortKey(currentSortKey);
+  };
 
   return (
     <>
-      {isTopicRoute && (
-        <div className="pt-2 lg:pt-4">
-          <p className="text-xs tracking-wide text-zinc-500 uppercase">
-            Topics
-          </p>
-        </div>
-      )}
       <div
         className={
           isTopicRoute
@@ -110,6 +174,9 @@ export function TopicList() {
             onClick={() => setTagFilter(t.name)}
           />
         ))}
+        {sortDirty && (
+          <SortLinkButton dense={isTopicRoute} onClick={applySort} />
+        )}
       </div>
 
       <div
@@ -119,7 +186,7 @@ export function TopicList() {
             : undefined
         }
       >
-        {isLoading ? (
+        {isLoading || shouldHoldForInitialSort ? (
           isTopicRoute ? (
             <TopicListSkeleton />
           ) : (
@@ -127,7 +194,7 @@ export function TopicList() {
           )
         ) : (
           <ul className="space-y-4">
-            {topics.map((t) => (
+            {orderedTopics.map((t) => (
               <TopicCard
                 key={t.id}
                 topic={t}
@@ -160,6 +227,37 @@ export function TopicList() {
       </div>
     </>
   );
+}
+
+const LEVEL_SORT_WEIGHT: Record<UnderstandingLevel, number> = {
+  unfamiliar: 0,
+  vague: 1,
+  can_teach: 2,
+  advanced_questions_welcome: 3,
+};
+
+function sortTopicsByBookmarkAndUnderstanding<
+  T extends { id: number; name: string },
+>(
+  topics: T[],
+  bookmarkedSet: Set<number>,
+  levelByTopic: Map<number, UnderstandingLevel>,
+): T[] {
+  return [...topics].sort((left, right) => {
+    const bookmarkDelta =
+      Number(bookmarkedSet.has(right.id)) - Number(bookmarkedSet.has(left.id));
+    if (bookmarkDelta !== 0) return bookmarkDelta;
+
+    const leftWeight = levelByTopic.has(left.id)
+      ? LEVEL_SORT_WEIGHT[levelByTopic.get(left.id)!]
+      : Number.MAX_SAFE_INTEGER;
+    const rightWeight = levelByTopic.has(right.id)
+      ? LEVEL_SORT_WEIGHT[levelByTopic.get(right.id)!]
+      : Number.MAX_SAFE_INTEGER;
+    if (leftWeight !== rightWeight) return leftWeight - rightWeight;
+
+    return left.name.localeCompare(right.name);
+  });
 }
 
 function TopicListSkeleton() {
@@ -210,6 +308,29 @@ function TagFilterButton({
       }
     >
       {label}
+    </button>
+  );
+}
+
+function SortLinkButton({
+  dense,
+  onClick,
+}: {
+  dense: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Sort by learning level"
+      className={
+        dense
+          ? "px-1 py-1.5 text-xs text-orange-400 underline decoration-orange-400/40 underline-offset-2 transition hover:text-orange-300"
+          : "px-1 py-2 text-sm text-orange-400 underline decoration-orange-400/40 underline-offset-2 transition hover:text-orange-300"
+      }
+    >
+      Sort
     </button>
   );
 }
