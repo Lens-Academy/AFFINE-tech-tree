@@ -17,7 +17,7 @@ type BookmarkMutationOptions = Exclude<
   undefined
 >;
 type SubmitTopicSuggestionMutationOptions = Exclude<
-  Parameters<typeof api.feedback.submitTopicFreeTextSuggestion.useMutation>[0],
+  Parameters<typeof api.topic.submitTopicFreeTextSuggestion.useMutation>[0],
   undefined
 >;
 
@@ -72,7 +72,7 @@ export default function TopicPage() {
   } | null>(null);
   const submitTopicSuggestion = useAppMutation(
     (opts: SubmitTopicSuggestionMutationOptions) =>
-      api.feedback.submitTopicFreeTextSuggestion.useMutation(opts),
+      api.topic.submitTopicFreeTextSuggestion.useMutation(opts),
     {
       onMutate: () => {
         setResourceSuggestionMessage(null);
@@ -131,14 +131,14 @@ export default function TopicPage() {
           </div>
         </header>
 
-        <div className="mx-auto h-[calc(100%-4rem)] max-w-7xl px-4 md:px-2 lg:px-4">
+        <div className="mx-auto h-[calc(100%-4rem)] max-w-7xl pl-4 md:pl-2 lg:pl-4">
           <div className="grid h-full min-h-0 md:grid-cols-2 md:gap-2 lg:gap-4">
-            <section className="hidden min-h-0 flex-col border-r border-zinc-800/80 pr-2 transition-[opacity,transform] duration-300 ease-out md:flex lg:pr-4">
+            <section className="hidden min-h-0 flex-col border-r border-zinc-800/80 transition-[opacity,transform] duration-300 ease-out md:flex">
               <TopicList />
             </section>
 
-            <section className="min-h-0 overflow-y-auto pt-2 pb-2 lg:pt-4 lg:pb-4">
-              <div className="mx-auto max-w-3xl">
+            <section className="min-h-0 overflow-y-auto pt-2 pb-2 [scrollbar-gutter:stable] lg:pt-4 lg:pb-4">
+              <div className="mx-auto max-w-3xl pr-2 lg:pr-3">
                 {isTopicLoading && <p className="text-zinc-500">Loading…</p>}
 
                 {isTopicMissing && (
@@ -228,6 +228,57 @@ export default function TopicPage() {
                       </section>
                     )}
 
+                    {topic.resources && topic.resources.length > 0 && (
+                      <section className="mb-8">
+                        <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                          Community resources
+                        </h2>
+                        <ul className="space-y-2">
+                          {topic.resources.map((r) => (
+                            <li key={r.id}>
+                              <a
+                                href={r.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-orange-400 underline visited:text-orange-500 hover:text-orange-300"
+                              >
+                                {r.title}
+                              </a>
+                              {r.type && (
+                                <span className="ml-2 text-xs text-zinc-500">
+                                  {r.type}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+
+                    {session?.user &&
+                      !isTeacherLevel(currentLevel) &&
+                      teachers &&
+                      teachers.length > 0 && (
+                        <section className="mb-8">
+                          <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                            People who can help
+                          </h2>
+                          <ul className="space-y-2">
+                            {teachers.map((t) => (
+                              <li
+                                key={t.userId}
+                                className="flex items-center gap-2 text-sm text-zinc-300"
+                              >
+                                <span>{t.name ?? "Anonymous"}</span>
+                                <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                                  {getLevelLabel(t.level)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      )}
+
                     <section className="mb-8">
                       <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
                         Add resource for review
@@ -304,57 +355,6 @@ export default function TopicPage() {
                         </button>
                       </div>
                     </section>
-
-                    {topic.resources && topic.resources.length > 0 && (
-                      <section className="mb-8">
-                        <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                          Community resources
-                        </h2>
-                        <ul className="space-y-2">
-                          {topic.resources.map((r) => (
-                            <li key={r.id}>
-                              <a
-                                href={r.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-orange-400 underline visited:text-orange-500 hover:text-orange-300"
-                              >
-                                {r.title}
-                              </a>
-                              {r.type && (
-                                <span className="ml-2 text-xs text-zinc-500">
-                                  {r.type}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
-
-                    {session?.user &&
-                      !isTeacherLevel(currentLevel) &&
-                      teachers &&
-                      teachers.length > 0 && (
-                        <section className="mb-8">
-                          <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                            People who can help
-                          </h2>
-                          <ul className="space-y-2">
-                            {teachers.map((t) => (
-                              <li
-                                key={t.userId}
-                                className="flex items-center gap-2 text-sm text-zinc-300"
-                              >
-                                <span>{t.name ?? "Anonymous"}</span>
-                                <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                                  {getLevelLabel(t.level)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </section>
-                      )}
                   </>
                 )}
               </div>

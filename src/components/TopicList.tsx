@@ -70,14 +70,15 @@ export function TopicList() {
 
   const { setStatus, removeStatus } = useTopicStatusMutations();
 
-  const topics = useMemo(
+  const allTopicsList = allTopics ?? [];
+  const visibleTopics = useMemo(
     () =>
       tagFilter
-        ? (allTopics ?? []).filter((t) =>
-          t.topicTags.some((tt) => tt.tag.name === tagFilter),
-        )
-        : (allTopics ?? []),
-    [allTopics, tagFilter],
+        ? allTopicsList.filter((t) =>
+            t.topicTags.some((tt) => tt.tag.name === tagFilter),
+          )
+        : allTopicsList,
+    [allTopicsList, tagFilter],
   );
 
   const bookmarkedSet = useMemo(
@@ -89,15 +90,8 @@ export function TopicList() {
     [statuses],
   );
   const currentSortKey = useMemo(
-    () =>
-      topics
-        .map((topic) => {
-          const bookmarked = bookmarkedSet.has(topic.id) ? "1" : "0";
-          const level = serverStatusByTopic.get(topic.id) ?? "unknown";
-          return `${topic.id}:${bookmarked}:${level}`;
-        })
-        .join("|"),
-    [topics, bookmarkedSet, serverStatusByTopic],
+    () => createSortKey(allTopicsList, bookmarkedSet, serverStatusByTopic),
+    [allTopicsList, bookmarkedSet, serverStatusByTopic],
   );
   const initialSortReady =
     !isLoading && (!session?.user || (statusesFetched && bookmarksFetched));
@@ -108,7 +102,7 @@ export function TopicList() {
     }
     if (!initialSortReady || initialSortApplied) return;
     const initialOrder = sortTopicsByBookmarkAndUnderstanding(
-      topics,
+      allTopicsList,
       bookmarkedSet,
       serverStatusByTopic,
     ).map((topic) => topic.id);
@@ -119,7 +113,7 @@ export function TopicList() {
     initialSortReady,
     initialSortApplied,
     session?.user,
-    topics,
+    allTopicsList,
     bookmarkedSet,
     serverStatusByTopic,
     currentSortKey,
@@ -128,26 +122,33 @@ export function TopicList() {
   const shouldHoldForInitialSort =
     sessionPending || (!!session?.user && !initialSortApplied);
   const topicsById = useMemo(
-    () => new Map(topics.map((topic) => [topic.id, topic])),
-    [topics],
+    () => new Map(allTopicsList.map((topic) => [topic.id, topic])),
+    [allTopicsList],
   );
   const orderedTopics = useMemo(() => {
-    if (topicOrder.length === 0) return topics;
+    if (topicOrder.length === 0) return visibleTopics;
+    const visibleIds = new Set(visibleTopics.map((topic) => topic.id));
     const ordered = topicOrder
       .map((topicId) => topicsById.get(topicId))
-      .filter((topic) => topic !== undefined);
-    const visibleIds = new Set(ordered.map((topic) => topic.id));
-    const missing = topics.filter((topic) => !visibleIds.has(topic.id));
-    return [...ordered, ...missing];
-  }, [topicOrder, topicsById, topics]);
+      .filter((topic) => topic !== undefined && visibleIds.has(topic.id));
+    const orderedIds = new Set(ordered.map((topic) => topic.id));
+    const missingVisible = visibleTopics.filter(
+      (topic) => !orderedIds.has(topic.id),
+    );
+    return [...ordered, ...missingVisible];
+  }, [topicOrder, topicsById, visibleTopics]);
   const applySort = () => {
     const sorted = sortTopicsByBookmarkAndUnderstanding(
-      topics,
+      allTopicsList,
       bookmarkedSet,
       serverStatusByTopic,
     ).map((topic) => topic.id);
     setTopicOrder(sorted);
     setLastAppliedSortKey(currentSortKey);
+  };
+  const handleTagFilterChange = (nextTagFilter: string | null) => {
+    if (tagFilter === nextTagFilter) return;
+    setTagFilter(nextTagFilter);
   };
 
   return (
@@ -163,7 +164,7 @@ export function TopicList() {
           label="All"
           dense={isTopicRoute}
           selected={tagFilter === null}
-          onClick={() => setTagFilter(null)}
+          onClick={() => handleTagFilterChange(null)}
         />
         {(tags ?? []).map((t) => (
           <TagFilterButton
@@ -171,7 +172,7 @@ export function TopicList() {
             label={t.name}
             dense={isTopicRoute}
             selected={tagFilter === t.name}
-            onClick={() => setTagFilter(t.name)}
+            onClick={() => handleTagFilterChange(t.name)}
           />
         ))}
         {sortDirty && (
@@ -182,48 +183,50 @@ export function TopicList() {
       <div
         className={
           isTopicRoute
-            ? "min-h-0 flex-1 overflow-y-auto pb-2 lg:pb-4"
+            ? "min-h-0 flex-1 overflow-y-auto pb-2 [scrollbar-gutter:stable] lg:pb-4"
             : undefined
         }
       >
-        {isLoading || shouldHoldForInitialSort ? (
-          isTopicRoute ? (
-            <TopicListSkeleton />
+        <div className={isTopicRoute ? "pr-2 lg:pr-4" : undefined}>
+          {isLoading || shouldHoldForInitialSort ? (
+            isTopicRoute ? (
+              <TopicListSkeleton />
+            ) : (
+              <p className="text-zinc-500">Loading topics…</p>
+            )
           ) : (
-            <p className="text-zinc-500">Loading topics…</p>
-          )
-        ) : (
-          <ul className="space-y-4">
-            {orderedTopics.map((t) => (
-              <TopicCard
-                key={t.id}
-                topic={t}
-                currentLevel={serverStatusByTopic.get(t.id)}
-                onLevelChange={(level) => {
-                  if (level === undefined) {
-                    removeStatus.mutate({ topicId: t.id });
-                  } else {
-                    setStatus.mutate({ topicId: t.id, level });
+            <ul className="space-y-4">
+              {orderedTopics.map((t) => (
+                <TopicCard
+                  key={t.id}
+                  topic={t}
+                  currentLevel={serverStatusByTopic.get(t.id)}
+                  onLevelChange={(level) => {
+                    if (level === undefined) {
+                      removeStatus.mutate({ topicId: t.id });
+                    } else {
+                      setStatus.mutate({ topicId: t.id, level });
+                    }
+                  }}
+                  canEdit={!!session?.user}
+                  bookmarked={bookmarkedSet.has(t.id)}
+                  onBookmarkToggle={() => {
+                    if (bookmarkSet.isPending) return;
+                    bookmarkSet.mutate({
+                      topicId: t.id,
+                      bookmarked: !bookmarkedSet.has(t.id),
+                    });
+                  }}
+                  canBookmark={!!session?.user}
+                  bookmarkDisabled={
+                    bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
                   }
-                }}
-                canEdit={!!session?.user}
-                bookmarked={bookmarkedSet.has(t.id)}
-                onBookmarkToggle={() => {
-                  if (bookmarkSet.isPending) return;
-                  bookmarkSet.mutate({
-                    topicId: t.id,
-                    bookmarked: !bookmarkedSet.has(t.id),
-                  });
-                }}
-                canBookmark={!!session?.user}
-                bookmarkDisabled={
-                  bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
-                }
-                isActive={activeTopicId === t.id}
-              />
-            ))}
-          </ul>
-        )}
+                  isActive={activeTopicId === t.id}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </>
   );
@@ -258,6 +261,20 @@ function sortTopicsByBookmarkAndUnderstanding<
 
     return left.name.localeCompare(right.name);
   });
+}
+
+function createSortKey(
+  topics: { id: number }[],
+  bookmarkedSet: Set<number>,
+  levelByTopic: Map<number, UnderstandingLevel>,
+) {
+  return topics
+    .map((topic) => {
+      const bookmarked = bookmarkedSet.has(topic.id) ? "1" : "0";
+      const level = levelByTopic.get(topic.id) ?? "unknown";
+      return `${topic.id}:${bookmarked}:${level}`;
+    })
+    .join("|");
 }
 
 function TopicListSkeleton() {

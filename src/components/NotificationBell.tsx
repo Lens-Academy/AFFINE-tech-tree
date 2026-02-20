@@ -48,7 +48,7 @@ export function NotificationBell() {
           />
         </svg>
         {pendingCount > 0 && (
-          <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+          <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-orange-400 text-[10px] font-bold text-white">
             {pendingCount > 9 ? "9+" : pendingCount}
           </span>
         )}
@@ -78,7 +78,7 @@ export function NotificationBell() {
                         {hasFeedback ? (
                           <span className="text-green-400">&#10003;</span>
                         ) : (
-                          <span className="text-zinc-600">&#9675;</span>
+                          <span className="text-orange-400">&#9675;</span>
                         )}
                       </span>
                       <div className="min-w-0 flex-1">

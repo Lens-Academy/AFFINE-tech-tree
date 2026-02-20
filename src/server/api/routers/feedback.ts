@@ -9,8 +9,10 @@ import {
 } from "~/shared/feedbackTypes";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
-import { feedbackItem, levelTransition, topicLink } from "~/server/db/schema";
+import { feedbackItem, topicLink } from "~/server/db/schema";
 import { normalizeUrl } from "~/server/urlUtils";
+
+const SKIP_FEEDBACK_SENTINEL = "__skip_feedback__";
 
 function extractEmailCandidate(input: string): string | null {
   const value = input.trim().toLowerCase();
@@ -130,56 +132,6 @@ export const feedbackRouter = createTRPCRouter({
       });
     }),
 
-  submitTopicFreeTextSuggestion: protectedProcedure
-    .input(
-      z.object({
-        topicId: z.number(),
-        value: z.string().trim().min(1).max(1024),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const latestTransition = await ctx.db.query.levelTransition.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.userId, ctx.session.user.id), eq(t.topicId, input.topicId)),
-        orderBy: (t, { desc }) => [desc(t.createdAt), desc(t.id)],
-        columns: { id: true },
-      });
-
-      let transitionId = latestTransition?.id;
-      if (!transitionId) {
-        const [createdTransition] = await ctx.db
-          .insert(levelTransition)
-          .values({
-            userId: ctx.session.user.id,
-            topicId: input.topicId,
-            fromLevel: null,
-            toLevel: null,
-          })
-          .returning({ id: levelTransition.id });
-        transitionId = createdTransition?.id;
-      }
-
-      if (!transitionId) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create transition for feedback suggestion",
-        });
-      }
-
-      const [result] = await ctx.db
-        .insert(feedbackItem)
-        .values({
-          transitionId,
-          type: "free_text",
-          freeTextValue: input.value,
-          helpfulnessRating: null,
-          comment: null,
-        })
-        .returning({ id: feedbackItem.id });
-
-      return result!;
-    }),
-
   upsertFeedbackItem: protectedProcedure
     .input(
       z.object({
@@ -277,6 +229,45 @@ export const feedbackRouter = createTRPCRouter({
             .where(eq(feedbackItem.id, result!.id));
         }
       }
+
+      return result!;
+    }),
+
+  skipTransitionFeedback: protectedProcedure
+    .input(z.object({ transitionId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const transition = await ctx.db.query.levelTransition.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.id, input.transitionId), eq(t.userId, ctx.session.user.id)),
+        columns: { id: true },
+      });
+      if (!transition) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Transition not found or unauthorized",
+        });
+      }
+
+      const existingItem = await ctx.db.query.feedbackItem.findFirst({
+        where: (fi, { eq }) => eq(fi.transitionId, input.transitionId),
+        columns: { id: true },
+      });
+      if (existingItem) {
+        return { id: existingItem.id };
+      }
+
+      const [result] = await ctx.db
+        .insert(feedbackItem)
+        .values({
+          transitionId: input.transitionId,
+          type: "free_text",
+          topicLinkId: null,
+          referencedUserId: null,
+          freeTextValue: SKIP_FEEDBACK_SENTINEL,
+          helpfulnessRating: null,
+          comment: null,
+        })
+        .returning({ id: feedbackItem.id });
 
       return result!;
     }),

@@ -34,15 +34,18 @@ export function TopicCard({
 
   return (
     <li
-      className={`group relative rounded-xl border bg-zinc-900/50 transition ${isTopicRoute ? "p-3 lg:p-4" : "p-4 md:p-5"
-        } ${isActive ? "border-orange-500" : "border-zinc-800 hover:border-zinc-700"
-        }`}
+      className={`group relative rounded-xl border bg-zinc-900/50 transition ${
+        isTopicRoute ? "p-3 lg:p-4" : "p-4 md:p-5"
+      } ${
+        isActive ? "border-orange-500" : "border-zinc-800 hover:border-zinc-700"
+      }`}
     >
       <div className="flex items-start gap-2">
         <Link href={`/topic/${topic.id}`} className="block min-w-0 flex-1">
           <h2
-            className={`-mt-0.5 bg-linear-60 from-orange-400 to-zinc-100 bg-clip-text text-lg font-semibold text-transparent ${isActive ? "to-200%" : "to-1% group-hover:to-100%"
-              }`}
+            className={`-mt-0.5 bg-linear-60 from-orange-400 to-zinc-100 bg-clip-text text-lg font-semibold text-transparent ${
+              isActive ? "to-200%" : "to-1% group-hover:to-100%"
+            }`}
           >
             {topic.name}
           </h2>
@@ -58,12 +61,13 @@ export function TopicCard({
             onClick={onBookmarkToggle}
             disabled={bookmarkDisabled}
             title="I'd like to learn this topic"
-            className={`-mt-1 -mr-1.5 shrink-0 rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${bookmarked
-              ? isActive
-                ? "text-orange-400"
-                : "text-zinc-600 group-hover:text-orange-400"
-              : "text-zinc-600 hover:text-orange-400"
-              }`}
+            className={`-mt-1 -mr-1.5 shrink-0 rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+              bookmarked
+                ? isActive
+                  ? "text-orange-400"
+                  : "text-zinc-600 group-hover:text-orange-400"
+                : "text-zinc-600 hover:text-orange-400"
+            }`}
           >
             <BookmarkIcon filled={!!bookmarked} />
           </button>

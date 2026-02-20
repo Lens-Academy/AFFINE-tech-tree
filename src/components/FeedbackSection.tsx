@@ -25,6 +25,12 @@ type PromoteFeedbackMutationOptions = Exclude<
   Parameters<typeof api.feedback.promoteFreeTextToTopicLink.useMutation>[0],
   undefined
 >;
+type SkipTransitionFeedbackMutationOptions = Exclude<
+  Parameters<typeof api.feedback.skipTransitionFeedback.useMutation>[0],
+  undefined
+>;
+
+const SKIP_FEEDBACK_SENTINEL = "__skip_feedback__";
 
 type UnifiedItem = {
   key: string;
@@ -39,6 +45,7 @@ type UnifiedItem = {
   comment: string | null;
   deletable: boolean;
   canPromoteToResource?: boolean;
+  isSkipPlaceholder?: boolean;
 };
 
 type TopicLink = { id: number; title: string; url: string | null };
@@ -134,6 +141,24 @@ export function FeedbackSection({
       ],
     },
   );
+  const skipTransitionMutation = useAppMutation(
+    (opts: SkipTransitionFeedbackMutationOptions) =>
+      api.feedback.skipTransitionFeedback.useMutation(opts),
+    {
+      onMutate: () => {
+        setFeedbackError(null);
+      },
+      onError: (error) => {
+        setFeedbackError(
+          getMutationErrorMessage(error, "Failed to skip feedback."),
+        );
+      },
+      refresh: [
+        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () => utils.feedback.getRecentTransitions.invalidate(),
+      ],
+    },
+  );
 
   if (!transitions || transitions.length === 0) return null;
 
@@ -152,11 +177,10 @@ export function FeedbackSection({
         </p>
       )}
       <div className="space-y-3">
-        {transitions.map((t, idx) => (
+        {transitions.map((t) => (
           <TransitionAccordion
             key={t.id}
             transition={t}
-            isLatest={idx === 0}
             isExpanded={expandedId === t.id}
             onToggle={() => toggle(t.id)}
             topicLinks={topicLinks}
@@ -166,6 +190,7 @@ export function FeedbackSection({
             onPromote={(feedbackItemId) =>
               promoteMutation.mutate({ feedbackItemId })
             }
+            onSkip={() => skipTransitionMutation.mutate({ transitionId: t.id })}
           />
         ))}
       </div>
@@ -179,7 +204,6 @@ function buildUnifiedItems(
   transition: Transition,
   topicLinks: TopicLink[],
   teachers: Teacher[],
-  isLatest: boolean,
 ): UnifiedItem[] {
   const items: UnifiedItem[] = [];
 
@@ -187,8 +211,23 @@ function buildUnifiedItems(
   const byResourceId = new Map<number, ExistingFeedbackItem>();
   const byUserId = new Map<string, ExistingFeedbackItem>();
   const freeTextItems: ExistingFeedbackItem[] = [];
+  const skipPlaceholderItems: ExistingFeedbackItem[] = [];
 
   for (const fi of transition.feedbackItems) {
+    const isLegacySkipPlaceholder =
+      fi.type === "resource" &&
+      fi.topicLinkId == null &&
+      fi.referencedUserId == null &&
+      fi.freeTextValue == null &&
+      fi.helpfulnessRating == null &&
+      (fi.comment == null || fi.comment.trim().length === 0);
+    const isSentinelSkipPlaceholder =
+      fi.type === "free_text" && fi.freeTextValue === SKIP_FEEDBACK_SENTINEL;
+    if (isLegacySkipPlaceholder || isSentinelSkipPlaceholder) {
+      skipPlaceholderItems.push(fi);
+      continue;
+    }
+
     if (fi.type === "resource" && fi.topicLinkId != null) {
       byResourceId.set(fi.topicLinkId, fi);
     } else if (fi.type === "user" && fi.referencedUserId != null) {
@@ -198,94 +237,63 @@ function buildUnifiedItems(
     }
   }
 
-  if (isLatest) {
-    // Latest transition shows all suggestions so users can fill them quickly.
-    for (const link of topicLinks) {
-      const existing = byResourceId.get(link.id);
-      items.push({
-        key: `resource-${link.id}`,
-        existingId: existing?.id,
-        type: "resource",
-        label: link.title,
-        linkUrl: link.url,
-        topicLinkId: link.id,
-        helpfulnessRating: existing?.helpfulnessRating ?? null,
-        comment: existing?.comment ?? null,
-        deletable: false,
-      });
-      byResourceId.delete(link.id);
-    }
+  // Every transition can be edited, including historical ones.
+  for (const link of topicLinks) {
+    const existing = byResourceId.get(link.id);
+    items.push({
+      key: `resource-${link.id}`,
+      existingId: existing?.id,
+      type: "resource",
+      label: link.title,
+      linkUrl: link.url,
+      topicLinkId: link.id,
+      helpfulnessRating: existing?.helpfulnessRating ?? null,
+      comment: existing?.comment ?? null,
+      deletable: false,
+    });
+    byResourceId.delete(link.id);
+  }
 
-    for (const teacher of teachers) {
-      const existing = byUserId.get(teacher.userId);
-      items.push({
-        key: `user-${teacher.userId}`,
-        existingId: existing?.id,
-        type: "user",
-        label: teacher.name ?? "Anonymous",
-        referencedUserId: teacher.userId,
-        helpfulnessRating: existing?.helpfulnessRating ?? null,
-        comment: existing?.comment ?? null,
-        deletable: false,
-      });
-      byUserId.delete(teacher.userId);
-    }
+  for (const teacher of teachers) {
+    const existing = byUserId.get(teacher.userId);
+    items.push({
+      key: `user-${teacher.userId}`,
+      existingId: existing?.id,
+      type: "user",
+      label: teacher.name ?? "Anonymous",
+      referencedUserId: teacher.userId,
+      helpfulnessRating: existing?.helpfulnessRating ?? null,
+      comment: existing?.comment ?? null,
+      deletable: false,
+    });
+    byUserId.delete(teacher.userId);
+  }
 
-    // Keep already-saved items visible even if current suggestions no longer include them.
-    for (const fi of byResourceId.values()) {
-      items.push({
-        key: `resource-existing-${fi.id}`,
-        existingId: fi.id,
-        type: "resource",
-        label: fi.topicLink?.title ?? "Resource",
-        linkUrl: fi.topicLink?.url ?? null,
-        topicLinkId: fi.topicLinkId ?? undefined,
-        helpfulnessRating: fi.helpfulnessRating ?? null,
-        comment: fi.comment ?? null,
-        deletable: false,
-      });
-    }
-    for (const fi of byUserId.values()) {
-      items.push({
-        key: `user-existing-${fi.id}`,
-        existingId: fi.id,
-        type: "user",
-        label: fi.referencedUser?.name ?? fi.referencedUser?.email ?? "Person",
-        referencedUserId: fi.referencedUserId ?? undefined,
-        helpfulnessRating: fi.helpfulnessRating ?? null,
-        comment: fi.comment ?? null,
-        deletable: false,
-      });
-    }
-  } else {
-    // Historical transitions should only render saved data, unchanged over time.
-    for (const fi of transition.feedbackItems) {
-      if (fi.type === "resource") {
-        items.push({
-          key: `resource-existing-${fi.id}`,
-          existingId: fi.id,
-          type: "resource",
-          label: fi.topicLink?.title ?? "Resource",
-          linkUrl: fi.topicLink?.url ?? null,
-          topicLinkId: fi.topicLinkId ?? undefined,
-          helpfulnessRating: fi.helpfulnessRating ?? null,
-          comment: fi.comment ?? null,
-          deletable: false,
-        });
-      } else if (fi.type === "user") {
-        items.push({
-          key: `user-existing-${fi.id}`,
-          existingId: fi.id,
-          type: "user",
-          label:
-            fi.referencedUser?.name ?? fi.referencedUser?.email ?? "Person",
-          referencedUserId: fi.referencedUserId ?? undefined,
-          helpfulnessRating: fi.helpfulnessRating ?? null,
-          comment: fi.comment ?? null,
-          deletable: false,
-        });
-      }
-    }
+  // Keep already-saved items visible even if current suggestions no longer include them.
+  for (const fi of byResourceId.values()) {
+    items.push({
+      key: `resource-existing-${fi.id}`,
+      existingId: fi.id,
+      type: "resource",
+      label: fi.topicLink?.title ?? "Resource",
+      linkUrl: fi.topicLink?.url ?? null,
+      topicLinkId: fi.topicLinkId ?? undefined,
+      helpfulnessRating: fi.helpfulnessRating ?? null,
+      comment: fi.comment ?? null,
+      deletable: false,
+    });
+  }
+  for (const fi of byUserId.values()) {
+    items.push({
+      key: `user-existing-${fi.id}`,
+      existingId: fi.id,
+      type: "user",
+      label: fi.referencedUser?.name ?? fi.referencedUser?.email ?? "Person",
+      referencedUserId: fi.referencedUserId ?? undefined,
+      helpfulnessRating: fi.helpfulnessRating ?? null,
+      comment: fi.comment ?? null,
+      deletable: false,
+    });
   }
 
   for (const fi of freeTextItems) {
@@ -301,13 +309,25 @@ function buildUnifiedItems(
       canPromoteToResource: /^https?:\/\//i.test(fi.freeTextValue ?? ""),
     });
   }
+  for (const fi of skipPlaceholderItems) {
+    items.push({
+      key: `skip-${fi.id}`,
+      existingId: fi.id,
+      type: "free_text",
+      label: "Skipped for now",
+      freeTextValue: SKIP_FEEDBACK_SENTINEL,
+      helpfulnessRating: null,
+      comment: null,
+      deletable: true,
+      isSkipPlaceholder: true,
+    });
+  }
 
   return items;
 }
 
 function TransitionAccordion({
   transition,
-  isLatest,
   isExpanded,
   onToggle,
   topicLinks,
@@ -315,9 +335,9 @@ function TransitionAccordion({
   onUpsert,
   onDelete,
   onPromote,
+  onSkip,
 }: {
   transition: Transition;
-  isLatest: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   topicLinks: TopicLink[];
@@ -334,16 +354,20 @@ function TransitionAccordion({
   }) => void;
   onDelete: (id: number) => void;
   onPromote: (feedbackItemId: number) => void;
+  onSkip: () => void;
 }) {
-  const [newFreeText, setNewFreeText] = useState("");
-
   const unifiedItems = useMemo(
-    () => buildUnifiedItems(transition, topicLinks, teachers, isLatest),
-    [transition, topicLinks, teachers, isLatest],
+    () => buildUnifiedItems(transition, topicLinks, teachers),
+    [transition, topicLinks, teachers],
   );
+  const isDone = transition.feedbackItems.length > 0;
 
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-800/50">
+    <div
+      className={`overflow-hidden rounded-lg border bg-zinc-800/50 ${
+        isDone ? "border-zinc-700" : "border-orange-500"
+      }`}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -359,7 +383,10 @@ function TransitionAccordion({
             {transition.createdAt.toLocaleString("sv-SE")}
           </div>
         </div>
-        <span className="text-zinc-500">{isExpanded ? "▼" : "▶"}</span>
+        <div className="ml-3 flex items-center gap-2">
+          {isDone && <span className="text-sm text-emerald-400">✓</span>}
+          <span className="text-zinc-500">{isExpanded ? "▼" : "▶"}</span>
+        </div>
       </button>
 
       {isExpanded && (
@@ -391,48 +418,14 @@ function TransitionAccordion({
               }
             />
           ))}
-
-          {isLatest && (
-            <div className="flex gap-2 border-t border-zinc-700 pt-2 lg:pt-4">
-              <input
-                type="text"
-                placeholder="Add resource URL, person, or note..."
-                value={newFreeText}
-                onChange={(e) => setNewFreeText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const value = newFreeText.trim();
-                    if (value) {
-                      onUpsert({
-                        transitionId: transition.id,
-                        type: "free_text",
-                        freeTextValue: value,
-                        helpfulnessRating: null,
-                      });
-                      setNewFreeText("");
-                    }
-                  }
-                }}
-                className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none"
-              />
+          {!isDone && (
+            <div className="border-t border-zinc-700 pt-2 lg:pt-4">
               <button
                 type="button"
-                onClick={() => {
-                  const value = newFreeText.trim();
-                  if (value) {
-                    onUpsert({
-                      transitionId: transition.id,
-                      type: "free_text",
-                      freeTextValue: value,
-                      helpfulnessRating: null,
-                    });
-                    setNewFreeText("");
-                  }
-                }}
-                className="rounded bg-orange-500/20 px-3 py-1.5 text-sm text-orange-400 hover:bg-orange-500/30"
+                onClick={onSkip}
+                className="text-sm text-zinc-500 underline decoration-zinc-600 underline-offset-2 hover:text-zinc-300"
               >
-                Add
+                Skip
               </button>
             </div>
           )}
@@ -467,6 +460,24 @@ function UnifiedItemRow({
     : hasComment
       ? "Show comment"
       : "Add comment";
+
+  if (item.isSkipPlaceholder) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded border border-zinc-700/80 bg-zinc-900/40 px-2 py-1.5">
+        <span className="text-sm text-zinc-400">{item.label}</span>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="text-xs text-zinc-500 hover:text-red-400"
+            title="Undo skip"
+          >
+            Undo skip
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
