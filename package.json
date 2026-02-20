@@ -15,7 +15,7 @@
     "db:upload:cf": "(echo 'PRAGMA foreign_keys=OFF;' && sqlite3 db.sqlite \"SELECT 'DROP TABLE IF EXISTS \\\"' || name || '\\\"' || ';' FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid DESC;\" && sqlite3 db.sqlite .dump | grep -Ev '^(BEGIN TRANSACTION|COMMIT|PRAGMA foreign_keys)') > /tmp/affine-dump.sql && wrangler d1 execute DATABASE_URL --remote --file /tmp/affine-dump.sql",
     "db:download:cf": "wrangler d1 export DATABASE_URL --remote --output /tmp/affine-backup.sql && rm -f db.sqlite && sqlite3 db.sqlite < /tmp/affine-backup.sql",
     "deploy:cf": "BUILDING_FOR_CF=1 opennextjs-cloudflare build && wrangler deploy",
-    "dev": "next dev --turbo",
+    "dev": "next dev",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "lint": "eslint .",
