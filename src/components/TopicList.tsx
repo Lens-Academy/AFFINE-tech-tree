@@ -70,7 +70,7 @@ export function TopicList() {
 
   const { setStatus, removeStatus } = useTopicStatusMutations();
 
-  const allTopicsList = allTopics ?? [];
+  const allTopicsList = useMemo(() => allTopics ?? [], [allTopics]);
   const visibleTopics = useMemo(
     () =>
       tagFilter
@@ -98,6 +98,7 @@ export function TopicList() {
   useEffect(() => {
     if (!session?.user) {
       setInitialSortApplied(false);
+      setTopicOrder([]);
       return;
     }
     if (!initialSortReady || initialSortApplied) return;
@@ -128,9 +129,13 @@ export function TopicList() {
   const orderedTopics = useMemo(() => {
     if (topicOrder.length === 0) return visibleTopics;
     const visibleIds = new Set(visibleTopics.map((topic) => topic.id));
-    const ordered = topicOrder
-      .map((topicId) => topicsById.get(topicId))
-      .filter((topic) => topic !== undefined && visibleIds.has(topic.id));
+    const ordered = topicOrder.reduce<typeof visibleTopics>((acc, topicId) => {
+      const topic = topicsById.get(topicId);
+      if (!topic) return acc;
+      if (!visibleIds.has(topic.id)) return acc;
+      acc.push(topic);
+      return acc;
+    }, []);
     const orderedIds = new Set(ordered.map((topic) => topic.id));
     const missingVisible = visibleTopics.filter(
       (topic) => !orderedIds.has(topic.id),

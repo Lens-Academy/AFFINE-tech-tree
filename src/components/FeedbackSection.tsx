@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HELPFULNESS_RATING_LABELS,
   HELPFULNESS_RATINGS,
+  SKIP_FEEDBACK_SENTINEL,
   type HelpfulnessRating,
 } from "~/shared/feedbackTypes";
 import { useAppMutation } from "~/hooks/useAppMutation";
@@ -29,8 +30,6 @@ type SkipTransitionFeedbackMutationOptions = Exclude<
   Parameters<typeof api.feedback.skipTransitionFeedback.useMutation>[0],
   undefined
 >;
-
-const SKIP_FEEDBACK_SENTINEL = "__skip_feedback__";
 
 type UnifiedItem = {
   key: string;
@@ -86,7 +85,7 @@ export function FeedbackSection({
     (opts: UpsertFeedbackMutationOptions) =>
       api.feedback.upsertFeedbackItem.useMutation(opts),
     {
-      onMutate: () => {
+      onSuccess: () => {
         setFeedbackError(null);
       },
       onError: (error) => {
@@ -105,7 +104,7 @@ export function FeedbackSection({
     (opts: DeleteFeedbackMutationOptions) =>
       api.feedback.deleteFeedbackItem.useMutation(opts),
     {
-      onMutate: () => {
+      onSuccess: () => {
         setFeedbackError(null);
       },
       onError: (error) => {
@@ -123,7 +122,7 @@ export function FeedbackSection({
     (opts: PromoteFeedbackMutationOptions) =>
       api.feedback.promoteFreeTextToTopicLink.useMutation(opts),
     {
-      onMutate: () => {
+      onSuccess: () => {
         setFeedbackError(null);
       },
       onError: (error) => {
@@ -145,7 +144,7 @@ export function FeedbackSection({
     (opts: SkipTransitionFeedbackMutationOptions) =>
       api.feedback.skipTransitionFeedback.useMutation(opts),
     {
-      onMutate: () => {
+      onSuccess: () => {
         setFeedbackError(null);
       },
       onError: (error) => {
@@ -436,7 +435,7 @@ function TransitionAccordion({
 }
 
 function UnifiedItemRow({
-  item,
+  item: initialItem,
   onUpdate,
   onDelete,
   onPromote,
@@ -449,11 +448,13 @@ function UnifiedItemRow({
   onDelete?: () => void;
   onPromote?: () => void;
 }) {
-  const [showComment, setShowComment] = useState(!!item.comment);
+  // Local draft is authoritative once the user starts editing this row.
+  // We intentionally do not resync from server props to avoid clobbering input.
+  const [showComment, setShowComment] = useState(!!initialItem.comment);
   const [rating, setRating] = useState<HelpfulnessRating | null>(
-    item.helpfulnessRating,
+    initialItem.helpfulnessRating,
   );
-  const [comment, setComment] = useState(item.comment ?? "");
+  const [comment, setComment] = useState(initialItem.comment ?? "");
   const hasComment = comment.trim().length > 0;
   const commentTooltip = showComment
     ? "Hide comment"
@@ -461,10 +462,10 @@ function UnifiedItemRow({
       ? "Show comment"
       : "Add comment";
 
-  if (item.isSkipPlaceholder) {
+  if (initialItem.isSkipPlaceholder) {
     return (
       <div className="flex items-center justify-between gap-2 rounded border border-zinc-700/80 bg-zinc-900/40 px-2 py-1.5">
-        <span className="text-sm text-zinc-400">{item.label}</span>
+        <span className="text-sm text-zinc-400">{initialItem.label}</span>
         {onDelete && (
           <button
             type="button"
@@ -483,18 +484,18 @@ function UnifiedItemRow({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex-1 text-sm text-zinc-300">
-          {item.linkUrl ? (
+          {initialItem.linkUrl ? (
             <a
-              href={item.linkUrl}
+              href={initialItem.linkUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="block truncate whitespace-nowrap text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300"
             >
-              {item.label}
+              {initialItem.label}
             </a>
           ) : (
             <span className="block truncate whitespace-nowrap">
-              {item.label}
+              {initialItem.label}
             </span>
           )}
         </div>

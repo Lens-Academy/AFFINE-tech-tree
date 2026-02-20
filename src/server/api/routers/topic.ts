@@ -76,6 +76,14 @@ export const topicRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const topic = await ctx.db.query.topic.findFirst({
+        where: (t, { eq }) => eq(t.id, input.topicId),
+        columns: { id: true },
+      });
+      if (!topic) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Topic not found" });
+      }
+
       const latestTransition = await ctx.db.query.levelTransition.findFirst({
         where: (t, { and, eq }) =>
           and(eq(t.userId, ctx.session.user.id), eq(t.topicId, input.topicId)),

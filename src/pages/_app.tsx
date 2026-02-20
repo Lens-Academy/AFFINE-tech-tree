@@ -18,7 +18,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
   );
 
   useEffect(() => {
-    return registerGlobalErrorToast((message) => {
+    const unregister = registerGlobalErrorToast((message) => {
       setErrorToast(message);
       if (hideToastTimeoutRef.current) {
         clearTimeout(hideToastTimeoutRef.current);
@@ -28,10 +28,8 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         hideToastTimeoutRef.current = null;
       }, 4500);
     });
-  }, []);
-
-  useEffect(() => {
     return () => {
+      unregister();
       if (hideToastTimeoutRef.current) {
         clearTimeout(hideToastTimeoutRef.current);
       }

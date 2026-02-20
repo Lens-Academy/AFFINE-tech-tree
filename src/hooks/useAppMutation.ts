@@ -131,6 +131,8 @@ export function useAppMutation<TOptions, TReturn>(
       ctx: TContext | undefined,
     ) => {
       await config.onError?.(error, vars, ctx);
+      // Providing onError opts out of the global toast - callers that supply
+      // their own onError are responsible for surfacing errors to the user.
       if (!config.onError && !config.disableDefaultErrorToast) {
         showGlobalErrorToast(getErrorMessage(error, "Something went wrong."));
       }

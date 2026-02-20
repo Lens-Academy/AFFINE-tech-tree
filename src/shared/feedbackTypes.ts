@@ -23,3 +23,9 @@ export const FEEDBACK_ITEM_TYPES = ["resource", "user", "free_text"] as const;
 
 export const feedbackItemTypeSchema = z.enum(FEEDBACK_ITEM_TYPES);
 export type FeedbackItemType = z.infer<typeof feedbackItemTypeSchema>;
+
+/**
+ * Sentinel value stored as freeTextValue when a user skips feedback for a
+ * transition. Kept in shared/ so client and server always agree on the value.
+ */
+export const SKIP_FEEDBACK_SENTINEL = "__skip_feedback__";

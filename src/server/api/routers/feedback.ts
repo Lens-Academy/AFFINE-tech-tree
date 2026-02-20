@@ -6,13 +6,12 @@ import { TRPCError } from "@trpc/server";
 import {
   feedbackItemTypeSchema,
   helpfulnessRatingSchema,
+  SKIP_FEEDBACK_SENTINEL,
 } from "~/shared/feedbackTypes";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
 import { feedbackItem, topicLink } from "~/server/db/schema";
 import { normalizeUrl } from "~/server/urlUtils";
-
-const SKIP_FEEDBACK_SENTINEL = "__skip_feedback__";
 
 function extractEmailCandidate(input: string): string | null {
   const value = input.trim().toLowerCase();
