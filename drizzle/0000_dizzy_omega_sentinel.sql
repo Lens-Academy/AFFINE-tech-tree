@@ -16,6 +16,71 @@ CREATE TABLE `account` (
 );
 --> statement-breakpoint
 CREATE INDEX `account_user_id_idx` ON `account` (`userId`);--> statement-breakpoint
+CREATE TABLE `admin_action_log` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`actorUserId` text(255),
+	`action` text(128) NOT NULL,
+	`targetType` text(128) NOT NULL,
+	`targetId` text(255),
+	`payloadJson` text NOT NULL,
+	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`actorUserId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `admin_action_log_actor_idx` ON `admin_action_log` (`actorUserId`);--> statement-breakpoint
+CREATE INDEX `admin_action_log_action_idx` ON `admin_action_log` (`action`);--> statement-breakpoint
+CREATE TABLE `app_setting` (
+	`key` text(128) PRIMARY KEY NOT NULL,
+	`value` text NOT NULL,
+	`updatedAt` integer DEFAULT (unixepoch()) NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `bookmark` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`userId` text(255) NOT NULL,
+	`topicId` integer NOT NULL,
+	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`userId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`topicId`) REFERENCES `topic`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `bookmark_user_topic_unique` ON `bookmark` (`userId`,`topicId`);--> statement-breakpoint
+CREATE TABLE `feedback_item` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`userId` text(255) NOT NULL,
+	`topicId` integer NOT NULL,
+	`transitionId` integer,
+	`type` text(32) NOT NULL,
+	`topicLinkId` integer,
+	`referencedUserId` text(255),
+	`freeTextValue` text(1024),
+	`helpfulnessRating` text(32),
+	`comment` text(2048),
+	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
+	`updatedAt` integer,
+	FOREIGN KEY (`userId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`topicId`) REFERENCES `topic`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`transitionId`) REFERENCES `level_transition`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`topicLinkId`) REFERENCES `topic_link`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`referencedUserId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `feedback_item_transition_idx` ON `feedback_item` (`transitionId`);--> statement-breakpoint
+CREATE INDEX `feedback_item_user_topic_idx` ON `feedback_item` (`userId`,`topicId`);--> statement-breakpoint
+CREATE TABLE `level_transition` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`userId` text(255) NOT NULL,
+	`topicId` integer NOT NULL,
+	`fromLevel` text(64),
+	`toLevel` text(64),
+	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`userId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`topicId`) REFERENCES `topic`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `level_transition_user_idx` ON `level_transition` (`userId`);--> statement-breakpoint
+CREATE INDEX `level_transition_topic_idx` ON `level_transition` (`topicId`);--> statement-breakpoint
+CREATE INDEX `level_transition_user_topic_idx` ON `level_transition` (`userId`,`topicId`);--> statement-breakpoint
 CREATE TABLE `resource` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`topicId` integer NOT NULL,
@@ -99,6 +164,7 @@ CREATE TABLE `user` (
 	`id` text(255) PRIMARY KEY NOT NULL,
 	`name` text(255),
 	`email` text(255) NOT NULL,
+	`isNonUser` integer DEFAULT false NOT NULL,
 	`emailVerified` integer DEFAULT false,
 	`image` text(255),
 	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
@@ -106,6 +172,18 @@ CREATE TABLE `user` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint
+CREATE TABLE `user_role` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`userId` text(255) NOT NULL,
+	`role` text(32) NOT NULL,
+	`createdByUserId` text(255),
+	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`userId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`createdByUserId`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `user_role_user_role_unique` ON `user_role` (`userId`,`role`);--> statement-breakpoint
+CREATE INDEX `user_role_role_idx` ON `user_role` (`role`);--> statement-breakpoint
 CREATE TABLE `user_topic_status` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` text(255) NOT NULL,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 import {
@@ -87,9 +87,8 @@ async function assertFeedbackItemOwner(args: {
 }) {
   const item = await args.db.query.feedbackItem.findFirst({
     where: (fi, { eq }) => eq(fi.id, args.feedbackItemId),
-    with: { transition: true },
   });
-  if (item?.transition.userId !== args.userId) {
+  if (item?.userId !== args.userId) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Feedback item not found or unauthorized",
@@ -99,6 +98,25 @@ async function assertFeedbackItemOwner(args: {
 }
 
 export const feedbackRouter = createTRPCRouter({
+  getAdHocFeedbackByTopic: protectedProcedure
+    .input(z.object({ topicId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.query.feedbackItem.findMany({
+        where: (fi, { eq: e }) =>
+          and(
+            e(fi.userId, ctx.session.user.id),
+            e(fi.topicId, input.topicId),
+            isNull(fi.transitionId),
+          ),
+        with: {
+          topicLink: true,
+          referencedUser: {
+            columns: { id: true, name: true, email: true },
+          },
+        },
+      });
+    }),
+
   getRecentTransitions: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.query.levelTransition.findMany({
       where: (t, { eq }) => eq(t.userId, ctx.session.user.id),
@@ -135,7 +153,8 @@ export const feedbackRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.number().optional(),
-        transitionId: z.number(),
+        topicId: z.number(),
+        transitionId: z.number().nullable().optional(),
         type: feedbackItemTypeSchema,
         topicLinkId: z.number().nullable().optional(),
         referencedUserId: z.string().nullable().optional(),
@@ -145,43 +164,55 @@ export const feedbackRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const transition = await ctx.db.query.levelTransition.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.id, input.transitionId), eq(t.userId, ctx.session.user.id)),
-      });
+      const baseScope = {
+        userId: ctx.session.user.id,
+        topicId: input.topicId,
+        transitionId: input.transitionId ?? null,
+      };
 
-      if (!transition) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Transition not found or unauthorized",
+      if (input.transitionId) {
+        const transition = await ctx.db.query.levelTransition.findFirst({
+          where: (t, { and, eq }) =>
+            and(
+              eq(t.id, input.transitionId!),
+              eq(t.userId, ctx.session.user.id),
+            ),
         });
+        if (!transition) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Transition not found or unauthorized",
+          });
+        }
       }
 
       const itemId = input.id;
+      const updateData: Partial<typeof feedbackItem.$inferInsert> = {};
+      if (input.helpfulnessRating !== undefined) {
+        updateData.helpfulnessRating = input.helpfulnessRating;
+      }
+      if (input.comment !== undefined) {
+        updateData.comment = input.comment;
+      }
+
       if (itemId != null) {
         const existing = await ctx.db.query.feedbackItem.findFirst({
           where: (fi, { eq }) => eq(fi.id, itemId),
-          with: { transition: true },
         });
-        if (existing?.transition.userId !== ctx.session.user.id) {
+        if (existing?.userId !== ctx.session.user.id) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Feedback item not found or unauthorized",
           });
         }
-        if (existing.transitionId !== input.transitionId) {
+        if (
+          input.transitionId &&
+          existing.transitionId !== input.transitionId
+        ) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Feedback item transition mismatch",
           });
-        }
-
-        const updateData: Partial<typeof feedbackItem.$inferInsert> = {};
-        if (input.helpfulnessRating !== undefined) {
-          updateData.helpfulnessRating = input.helpfulnessRating;
-        }
-        if (input.comment !== undefined) {
-          updateData.comment = input.comment;
         }
         if (Object.keys(updateData).length === 0) {
           throw new TRPCError({
@@ -198,10 +229,64 @@ export const feedbackRouter = createTRPCRouter({
         return { id: itemId };
       }
 
+      // UI can trigger multiple saves before it receives the freshly created id.
+      // For resource/user feedback rows, treat those saves as updates to one row.
+      if (input.type === "resource" && input.topicLinkId != null) {
+        const existing = await ctx.db.query.feedbackItem.findFirst({
+          where: (fi, { and, eq, isNull }) =>
+            and(
+              eq(fi.userId, baseScope.userId),
+              eq(fi.topicId, baseScope.topicId),
+              baseScope.transitionId == null
+                ? isNull(fi.transitionId)
+                : eq(fi.transitionId, baseScope.transitionId),
+              eq(fi.type, "resource"),
+              eq(fi.topicLinkId, input.topicLinkId!),
+            ),
+          columns: { id: true },
+        });
+        if (existing) {
+          if (Object.keys(updateData).length > 0) {
+            await ctx.db
+              .update(feedbackItem)
+              .set(updateData)
+              .where(eq(feedbackItem.id, existing.id));
+          }
+          return { id: existing.id };
+        }
+      }
+
+      if (input.type === "user" && input.referencedUserId != null) {
+        const existing = await ctx.db.query.feedbackItem.findFirst({
+          where: (fi, { and, eq, isNull }) =>
+            and(
+              eq(fi.userId, baseScope.userId),
+              eq(fi.topicId, baseScope.topicId),
+              baseScope.transitionId == null
+                ? isNull(fi.transitionId)
+                : eq(fi.transitionId, baseScope.transitionId),
+              eq(fi.type, "user"),
+              eq(fi.referencedUserId, input.referencedUserId!),
+            ),
+          columns: { id: true },
+        });
+        if (existing) {
+          if (Object.keys(updateData).length > 0) {
+            await ctx.db
+              .update(feedbackItem)
+              .set(updateData)
+              .where(eq(feedbackItem.id, existing.id));
+          }
+          return { id: existing.id };
+        }
+      }
+
       const [result] = await ctx.db
         .insert(feedbackItem)
         .values({
-          transitionId: input.transitionId,
+          userId: ctx.session.user.id,
+          topicId: input.topicId,
+          transitionId: input.transitionId ?? null,
           type: input.type,
           topicLinkId: input.topicLinkId ?? null,
           referencedUserId: input.referencedUserId ?? null,
@@ -214,7 +299,7 @@ export const feedbackRouter = createTRPCRouter({
       if (input.type === "free_text" && input.freeTextValue?.trim()) {
         const inferred = await inferFreeTextLinkTargets({
           db: ctx.db,
-          topicId: transition.topicId,
+          topicId: input.topicId,
           freeTextValue: input.freeTextValue,
         });
         if (inferred.topicLinkId || inferred.referencedUserId) {
@@ -238,7 +323,7 @@ export const feedbackRouter = createTRPCRouter({
       const transition = await ctx.db.query.levelTransition.findFirst({
         where: (t, { and, eq }) =>
           and(eq(t.id, input.transitionId), eq(t.userId, ctx.session.user.id)),
-        columns: { id: true },
+        columns: { id: true, userId: true, topicId: true },
       });
       if (!transition) {
         throw new TRPCError({
@@ -258,6 +343,8 @@ export const feedbackRouter = createTRPCRouter({
       const [result] = await ctx.db
         .insert(feedbackItem)
         .values({
+          userId: transition.userId,
+          topicId: transition.topicId,
           transitionId: input.transitionId,
           type: "free_text",
           topicLinkId: null,
@@ -276,10 +363,9 @@ export const feedbackRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const item = await ctx.db.query.feedbackItem.findFirst({
         where: (fi, { eq }) => eq(fi.id, input.id),
-        with: { transition: true },
       });
 
-      if (item?.transition.userId !== ctx.session.user.id) {
+      if (item?.userId !== ctx.session.user.id) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Feedback item not found or unauthorized",
@@ -317,7 +403,7 @@ export const feedbackRouter = createTRPCRouter({
       }
 
       const existingLinks = await ctx.db.query.topicLink.findMany({
-        where: (tl, { eq }) => eq(tl.topicId, item.transition.topicId),
+        where: (tl, { eq }) => eq(tl.topicId, item.topicId),
         columns: { id: true, url: true, position: true },
       });
       const existing = existingLinks.find(
@@ -334,7 +420,7 @@ export const feedbackRouter = createTRPCRouter({
         const [created] = await ctx.db
           .insert(topicLink)
           .values({
-            topicId: item.transition.topicId,
+            topicId: item.topicId,
             title: input.title ?? item.freeTextValue,
             url: normalized,
             position: nextPosition,

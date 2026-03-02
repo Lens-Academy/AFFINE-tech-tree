@@ -293,22 +293,18 @@ export const adminRouter = createTRPCRouter({
         ),
       columns: {
         id: true,
+        topicId: true,
         freeTextValue: true,
         createdAt: true,
       },
       with: {
-        transition: {
-          columns: { id: true, topicId: true, createdAt: true },
-          with: {
-            topic: { columns: { id: true, name: true } },
-          },
-        },
+        topic: { columns: { id: true, name: true } },
       },
       orderBy: (fi, { desc }) => [desc(fi.createdAt)],
       limit: 200,
     });
 
-    const topicIds = [...new Set(unresolved.map((r) => r.transition.topicId))];
+    const topicIds = [...new Set(unresolved.map((r) => r.topicId))];
     const topicLinks = topicIds.length
       ? await ctx.db.query.topicLink.findMany({
           where: (tl, { inArray }) => inArray(tl.topicId, topicIds),
@@ -325,7 +321,7 @@ export const adminRouter = createTRPCRouter({
       const normalized = normalizeUrl(text);
       const email = text.toLowerCase();
       const perTopicLinks = topicLinks.filter(
-        (tl) => tl.topicId === item.transition.topicId,
+        (tl) => tl.topicId === item.topicId,
       );
 
       const exactLink = normalized
@@ -377,7 +373,7 @@ export const adminRouter = createTRPCRouter({
         id: item.id,
         freeTextValue: item.freeTextValue,
         createdAt: item.createdAt,
-        transition: item.transition,
+        topic: item.topic,
         exactTopicLink: exactLink
           ? {
               id: exactLink.id,
@@ -411,12 +407,7 @@ export const adminRouter = createTRPCRouter({
       await assertAdmin(ctx);
       const item = await ctx.db.query.feedbackItem.findFirst({
         where: (fi, { eq }) => eq(fi.id, input.feedbackItemId),
-        columns: { id: true, type: true, transitionId: true },
-        with: {
-          transition: {
-            columns: { topicId: true },
-          },
-        },
+        columns: { id: true, type: true, topicId: true },
       });
       if (!item) {
         throw new TRPCError({
@@ -464,12 +455,7 @@ export const adminRouter = createTRPCRouter({
       await assertAdmin(ctx);
       const item = await ctx.db.query.feedbackItem.findFirst({
         where: (fi, { eq }) => eq(fi.id, input.feedbackItemId),
-        columns: { id: true },
-        with: {
-          transition: {
-            columns: { topicId: true },
-          },
-        },
+        columns: { id: true, topicId: true },
       });
       if (!item) {
         throw new TRPCError({
@@ -480,7 +466,7 @@ export const adminRouter = createTRPCRouter({
 
       const rawUrl = input.url?.trim() ?? "";
       const allTopicLinks = await ctx.db.query.topicLink.findMany({
-        where: (tl, { eq }) => eq(tl.topicId, item.transition.topicId),
+        where: (tl, { eq }) => eq(tl.topicId, item.topicId),
         columns: { id: true, title: true, url: true, position: true },
       });
 
@@ -506,7 +492,7 @@ export const adminRouter = createTRPCRouter({
           const [created] = await ctx.db
             .insert(topicLink)
             .values({
-              topicId: item.transition.topicId,
+              topicId: item.topicId,
               title: input.title,
               url: rawUrl,
               position: nextPosition + 1,
@@ -529,7 +515,7 @@ export const adminRouter = createTRPCRouter({
           const [created] = await ctx.db
             .insert(topicLink)
             .values({
-              topicId: item.transition.topicId,
+              topicId: item.topicId,
               title: input.title,
               url: null,
               position: nextPosition + 1,
@@ -583,12 +569,7 @@ export const adminRouter = createTRPCRouter({
       await assertAdmin(ctx);
       const item = await ctx.db.query.feedbackItem.findFirst({
         where: (fi, { eq }) => eq(fi.id, input.feedbackItemId),
-        columns: { id: true },
-        with: {
-          transition: {
-            columns: { topicId: true },
-          },
-        },
+        columns: { id: true, topicId: true },
       });
       if (!item) {
         throw new TRPCError({
@@ -659,7 +640,7 @@ export const adminRouter = createTRPCRouter({
 
         await ctx.db.insert(userTopicStatus).values({
           userId: resolvedTeacherId,
-          topicId: item.transition.topicId,
+          topicId: item.topicId,
           level: "can_teach",
         });
       }
@@ -797,7 +778,7 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ topicId: z.number() }))
     .query(async ({ ctx, input }) => {
       await assertAdmin(ctx);
-      return ctx.db.query.levelTransition.findMany({
+      const transitions = await ctx.db.query.levelTransition.findMany({
         where: (t, { eq }) => eq(t.topicId, input.topicId),
         orderBy: (t, { desc }) => [desc(t.createdAt)],
         with: {
@@ -812,6 +793,19 @@ export const adminRouter = createTRPCRouter({
           },
         },
       });
+      const adHocItems = await ctx.db.query.feedbackItem.findMany({
+        where: (fi, { and, eq, isNull }) =>
+          and(eq(fi.topicId, input.topicId), isNull(fi.transitionId)),
+        orderBy: (fi, { desc }) => [desc(fi.createdAt)],
+        with: {
+          author: { columns: { id: true, name: true, email: true } },
+          topicLink: true,
+          referencedUser: {
+            columns: { id: true, name: true, email: true },
+          },
+        },
+      });
+      return { transitions, adHocItems };
     }),
 
   createNonUserTeacher: protectedProcedure
@@ -1063,6 +1057,10 @@ export const adminRouter = createTRPCRouter({
         .update(levelTransition)
         .set({ userId: createdUserId })
         .where(eq(levelTransition.userId, existing.id));
+      await ctx.db
+        .update(feedbackItem)
+        .set({ userId: createdUserId })
+        .where(eq(feedbackItem.userId, existing.id));
       await ctx.db
         .update(feedbackItem)
         .set({ referencedUserId: createdUserId })

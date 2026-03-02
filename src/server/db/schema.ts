@@ -39,6 +39,9 @@ export const userRelations = relations(user, ({ many }) => ({
     relationName: "learner",
   }),
   levelTransitions: many(levelTransition),
+  feedbackItemsAsAuthor: many(feedbackItem, {
+    relationName: "feedbackAuthor",
+  }),
   feedbackItemsAsReferencedUser: many(feedbackItem, {
     relationName: "referencedUser",
   }),
@@ -313,10 +316,17 @@ export const feedbackItem = sqliteTable(
   "feedback_item",
   (d) => ({
     id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
-    transitionId: d
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: d
       .integer({ mode: "number" })
       .notNull()
-      .references(() => levelTransition.id, { onDelete: "cascade" }),
+      .references(() => topic.id, { onDelete: "cascade" }),
+    transitionId: d
+      .integer({ mode: "number" })
+      .references(() => levelTransition.id, { onDelete: "set null" }),
     type: d.text({ length: 32, enum: FEEDBACK_ITEM_TYPES }).notNull(),
     topicLinkId: d
       .integer({ mode: "number" })
@@ -336,7 +346,10 @@ export const feedbackItem = sqliteTable(
       .notNull(),
     updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
   }),
-  (t) => [index("feedback_item_transition_idx").on(t.transitionId)],
+  (t) => [
+    index("feedback_item_transition_idx").on(t.transitionId),
+    index("feedback_item_user_topic_idx").on(t.userId, t.topicId),
+  ],
 );
 
 export const ADMIN_ROLES = ["admin"] as const;
@@ -483,6 +496,15 @@ export const levelTransitionRelations = relations(
 );
 
 export const feedbackItemRelations = relations(feedbackItem, ({ one }) => ({
+  author: one(user, {
+    fields: [feedbackItem.userId],
+    references: [user.id],
+    relationName: "feedbackAuthor",
+  }),
+  topic: one(topic, {
+    fields: [feedbackItem.topicId],
+    references: [topic.id],
+  }),
   transition: one(levelTransition, {
     fields: [feedbackItem.transitionId],
     references: [levelTransition.id],

@@ -272,8 +272,7 @@ function CandidateRow({
     <li className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
       <div className="mb-3">
         <p className="text-sm text-zinc-200">
-          <span className="text-zinc-500">Topic:</span>{" "}
-          {candidate.transition.topic.name}
+          <span className="text-zinc-500">Topic:</span> {candidate.topic.name}
         </p>
         <p className="mt-1 text-sm text-zinc-300">{candidate.freeTextValue}</p>
       </div>

@@ -21,8 +21,13 @@ const ADMIN_FEEDBACK_SIDEBAR_COLLAPSED_KEY =
   "affine.admin-feedback.sidebar-collapsed";
 
 type TopicStats = RouterOutputs["admin"]["adminFeedbackTopicStats"][number];
-type Transition = RouterOutputs["admin"]["adminFeedbackByTopic"][number];
+type AdminFeedbackByTopic = RouterOutputs["admin"]["adminFeedbackByTopic"];
+type Transition = AdminFeedbackByTopic["transitions"][number];
 type FeedbackItem = Transition["feedbackItems"][number];
+type AdHocItem = AdminFeedbackByTopic["adHocItems"][number];
+type TimelineEvent =
+  | { kind: "transition"; transition: Transition }
+  | { kind: "ad_hoc"; item: AdHocItem };
 
 function LevelStatBox({
   level,
@@ -106,8 +111,8 @@ function AdminTopicRow({
       onClick={onSelect}
       className={`w-full rounded-lg px-2 py-2 text-left transition ${
         isSelected
-          ? "bg-orange-500/20 text-orange-200 ring-1 ring-orange-500/40"
-          : "text-zinc-200 hover:bg-zinc-800/80"
+          ? "border border-orange-500/40 bg-orange-500/20 text-orange-200"
+          : "border border-transparent text-zinc-200 hover:bg-zinc-800/80"
       }`}
     >
       <div className="text-sm font-medium">{t.name}</div>
@@ -261,6 +266,54 @@ function AdminTransitionEmpty({ transition }: { transition: Transition }) {
   );
 }
 
+function AdminAdHocFeedbackRow({ item }: { item: AdHocItem }) {
+  const userName = item.author.name ?? item.author.email ?? "Anonymous";
+  const label = item.topicLink
+    ? item.topicLink.title
+    : item.referencedUser
+      ? (item.referencedUser.name ?? item.referencedUser.email ?? "Person")
+      : (item.freeTextValue?.trim() ?? "-");
+  const url = item.topicLink?.url ?? null;
+  const ratingLabel =
+    item.helpfulnessRating &&
+    item.helpfulnessRating in HELPFULNESS_RATING_LABELS
+      ? HELPFULNESS_RATING_LABELS[item.helpfulnessRating]
+      : null;
+  const hasComment = item.comment != null && item.comment.trim().length > 0;
+  const timestamp = item.createdAt.toLocaleString("sv-SE");
+
+  return (
+    <div className="space-y-0.5 rounded border border-zinc-700/80 bg-zinc-900/40 px-2 py-1">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-zinc-400">{userName}</span>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300"
+          >
+            {label}
+          </a>
+        ) : (
+          <span className="text-zinc-300">{label}</span>
+        )}
+        <span
+          className={ratingLabel ? "text-zinc-400" : "text-zinc-500 italic"}
+        >
+          {ratingLabel ?? "no rating"}
+        </span>
+        <span className="text-xs text-zinc-500">{timestamp}</span>
+      </div>
+      {hasComment && (
+        <p className="text-xs whitespace-pre-wrap text-zinc-400">
+          {item.comment!.trim()}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function AdminFeedbackPage() {
   const router = useRouter();
   const topicIdParam =
@@ -306,9 +359,33 @@ export default function AdminFeedbackPage() {
 
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const transitionList = useMemo(
-    () => transitions.data ?? [],
+    () => transitions.data?.transitions ?? [],
     [transitions.data],
   );
+  const adHocItems = useMemo(
+    () => transitions.data?.adHocItems ?? [],
+    [transitions.data],
+  );
+  const timelineEvents = useMemo<TimelineEvent[]>(() => {
+    const merged: TimelineEvent[] = [
+      ...transitionList.map((transition) => ({
+        kind: "transition" as const,
+        transition,
+      })),
+      ...adHocItems.map((item) => ({ kind: "ad_hoc" as const, item })),
+    ];
+    return merged.sort((a, b) => {
+      const aTime =
+        a.kind === "transition"
+          ? a.transition.createdAt.getTime()
+          : a.item.createdAt.getTime();
+      const bTime =
+        b.kind === "transition"
+          ? b.transition.createdAt.getTime()
+          : b.item.createdAt.getTime();
+      return bTime - aTime;
+    });
+  }, [transitionList, adHocItems]);
   useEffect(() => {
     if (transitionList.length > 0) {
       setExpandedIds(new Set(transitionList.map((t) => t.id)));
@@ -444,23 +521,32 @@ export default function AdminFeedbackPage() {
                           )?.name ?? "Topic"}
                         </h2>
                         <div className="space-y-2">
-                          {transitionList.map((t) => {
+                          {timelineEvents.map((event) => {
+                            if (event.kind === "ad_hoc") {
+                              return (
+                                <AdminAdHocFeedbackRow
+                                  key={`ad-hoc-${event.item.id}`}
+                                  item={event.item}
+                                />
+                              );
+                            }
+                            const transition = event.transition;
                             const hasRated =
-                              t.feedbackItems.some(hasRatedFeedback);
+                              transition.feedbackItems.some(hasRatedFeedback);
                             if (!hasRated) {
                               return (
                                 <AdminTransitionEmpty
-                                  key={t.id}
-                                  transition={t}
+                                  key={`transition-empty-${transition.id}`}
+                                  transition={transition}
                                 />
                               );
                             }
                             return (
                               <AdminTransitionAccordion
-                                key={t.id}
-                                transition={t}
-                                isExpanded={expandedIds.has(t.id)}
-                                onToggle={() => toggleExpanded(t.id)}
+                                key={`transition-${transition.id}`}
+                                transition={transition}
+                                isExpanded={expandedIds.has(transition.id)}
+                                onToggle={() => toggleExpanded(transition.id)}
                               />
                             );
                           })}

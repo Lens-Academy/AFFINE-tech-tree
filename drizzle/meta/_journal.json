@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1771335920758,
-      "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1771344753960,
-      "tag": "0001_panoramic_the_fallen",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1771491402207,
-      "tag": "0002_dear_master_mold",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1771497872205,
-      "tag": "0003_aspiring_squadron_sinister",
+      "when": 1772471041149,
+      "tag": "0000_dizzy_omega_sentinel",
       "breakpoints": true
     }
   ]

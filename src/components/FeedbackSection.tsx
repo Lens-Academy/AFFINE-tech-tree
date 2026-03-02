@@ -343,7 +343,8 @@ function TransitionAccordion({
   teachers: Teacher[];
   onUpsert: (input: {
     id?: number;
-    transitionId: number;
+    topicId: number;
+    transitionId?: number | null;
     type: "resource" | "user" | "free_text";
     topicLinkId?: number | null;
     referencedUserId?: string | null;
@@ -397,6 +398,7 @@ function TransitionAccordion({
               onUpdate={(patch) =>
                 onUpsert({
                   id: item.existingId,
+                  topicId: transition.topicId,
                   transitionId: transition.id,
                   type: item.type,
                   topicLinkId: item.topicLinkId ?? null,
@@ -555,7 +557,7 @@ function UnifiedItemRow({
   );
 }
 
-function HelpfulnessSelect({
+export function HelpfulnessSelect({
   value,
   onChange,
 }: {
@@ -581,7 +583,7 @@ function HelpfulnessSelect({
   );
 }
 
-function DebouncedTextarea({
+export function DebouncedTextarea({
   initialValue,
   onLocalChange,
   onSave,

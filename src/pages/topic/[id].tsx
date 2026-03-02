@@ -3,14 +3,20 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
+import type { HelpfulnessRating } from "~/shared/feedbackTypes";
 import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { AuthHeader } from "~/components/AuthHeader";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
-import { FeedbackSection } from "~/components/FeedbackSection";
+import { CommentIcon } from "~/components/CommentIcon";
+import {
+  DebouncedTextarea,
+  FeedbackSection,
+  HelpfulnessSelect,
+} from "~/components/FeedbackSection";
 import { TopicList } from "~/components/TopicList";
-import { api } from "~/utils/api";
+import { api, type RouterOutputs } from "~/utils/api";
 
 type BookmarkMutationOptions = Exclude<
   Parameters<typeof api.bookmark.set.useMutation>[0],
@@ -71,6 +77,7 @@ export default function TopicPage() {
   const [isTopicListCollapsed, setIsTopicListCollapsed] = useState(false);
   const [hasLoadedTopicListPreference, setHasLoadedTopicListPreference] =
     useState(false);
+  const [rateMode, setRateMode] = useState(false);
   const [resourceSuggestionInput, setResourceSuggestionInput] = useState("");
   const [resourceSuggestionMessage, setResourceSuggestionMessage] = useState<{
     type: "success" | "error";
@@ -105,6 +112,24 @@ export default function TopicPage() {
       ],
     },
   );
+  const { data: adHocFeedback } = api.feedback.getAdHocFeedbackByTopic.useQuery(
+    { topicId: id },
+    { enabled: !!session?.user && !Number.isNaN(id) },
+  );
+  type UpsertInput = Parameters<
+    typeof api.feedback.upsertFeedbackItem.useMutation
+  >[0];
+  const adHocUpsert = useAppMutation(
+    (opts: Exclude<UpsertInput, undefined>) =>
+      api.feedback.upsertFeedbackItem.useMutation(opts),
+    {
+      refresh: [
+        () =>
+          utils.feedback.getAdHocFeedbackByTopic.invalidate({ topicId: id }),
+      ],
+    },
+  );
+
   const isBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
 
   const serverLevel =
@@ -262,31 +287,49 @@ export default function TopicPage() {
 
                       {topic.topicLinks && topic.topicLinks.length > 0 && (
                         <section className="mb-8">
-                          <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                            Resources
-                          </h2>
-                          <ul className="space-y-2 text-sm">
-                            {topic.topicLinks.map((link) =>
-                              link.url ? (
-                                <li key={link.id}>
-                                  <a
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 visited:text-orange-500 hover:text-orange-300 hover:decoration-orange-300/50"
-                                  >
-                                    {link.title}
-                                  </a>
-                                </li>
-                              ) : (
-                                <li
-                                  key={link.id}
-                                  className="leading-relaxed text-zinc-300"
+                          <div className="mb-3 flex items-center gap-2">
+                            <h2 className="bg-clip-text text-lg font-semibold text-zinc-100">
+                              Resources
+                            </h2>
+                            {session?.user && (
+                              <button
+                                type="button"
+                                onClick={() => setRateMode((v) => !v)}
+                                className={`rounded p-1 transition ${
+                                  rateMode
+                                    ? "text-orange-400 hover:bg-zinc-800"
+                                    : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                                }`}
+                                title={
+                                  rateMode
+                                    ? "Exit rating mode"
+                                    : "Rate resources"
+                                }
+                              >
+                                <svg
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                  className="h-4 w-4"
                                 >
-                                  {link.title}
-                                </li>
-                              ),
+                                  <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                                </svg>
+                              </button>
                             )}
+                          </div>
+                          <ul className="space-y-2 text-sm">
+                            {topic.topicLinks.map((link) => (
+                              <li key={link.id}>
+                                <InlineRateableResource
+                                  link={link}
+                                  rateMode={rateMode}
+                                  topicId={id}
+                                  adHocFeedback={adHocFeedback}
+                                  onUpsert={(input) =>
+                                    adHocUpsert.mutate(input)
+                                  }
+                                />
+                              </li>
+                            ))}
                           </ul>
                         </section>
                       )}
@@ -328,14 +371,16 @@ export default function TopicPage() {
                             </h2>
                             <ul className="space-y-2">
                               {teachers.map((t) => (
-                                <li
-                                  key={t.userId}
-                                  className="flex items-center gap-2 text-sm text-zinc-300"
-                                >
-                                  <span>{t.name ?? "Anonymous"}</span>
-                                  <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                                    {getLevelLabel(t.level)}
-                                  </span>
+                                <li key={t.userId}>
+                                  <InlineRateableTeacher
+                                    teacher={t}
+                                    rateMode={rateMode}
+                                    topicId={id}
+                                    adHocFeedback={adHocFeedback}
+                                    onUpsert={(input) =>
+                                      adHocUpsert.mutate(input)
+                                    }
+                                  />
                                 </li>
                               ))}
                             </ul>
@@ -427,5 +472,205 @@ export default function TopicPage() {
         </div>
       </main>
     </>
+  );
+}
+
+type AdHocFeedbackItem =
+  RouterOutputs["feedback"]["getAdHocFeedbackByTopic"][number];
+
+type UpsertPayload = {
+  id?: number;
+  topicId: number;
+  transitionId?: number | null;
+  type: "resource" | "user" | "free_text";
+  topicLinkId?: number | null;
+  referencedUserId?: string | null;
+  helpfulnessRating?: HelpfulnessRating | null;
+  comment?: string | null;
+};
+
+function InlineRateableResource({
+  link,
+  rateMode,
+  topicId,
+  adHocFeedback,
+  onUpsert,
+}: {
+  link: { id: number; title: string; url: string | null };
+  rateMode: boolean;
+  topicId: number;
+  adHocFeedback: AdHocFeedbackItem[] | undefined;
+  onUpsert: (input: UpsertPayload) => void;
+}) {
+  const existing = adHocFeedback?.find(
+    (fi) => fi.type === "resource" && fi.topicLinkId === link.id,
+  );
+  const [showComment, setShowComment] = useState(false);
+  const [rating, setRating] = useState<HelpfulnessRating | null>(null);
+  const [comment, setComment] = useState("");
+
+  useEffect(() => {
+    setRating(existing?.helpfulnessRating ?? null);
+    setComment(existing?.comment ?? "");
+    setShowComment(!!existing?.comment);
+  }, [existing]);
+
+  const hasComment = comment.trim().length > 0;
+
+  const doUpsert = (patch: {
+    helpfulnessRating?: HelpfulnessRating | null;
+    comment?: string | null;
+  }) => {
+    onUpsert({
+      id: existing?.id,
+      topicId,
+      transitionId: null,
+      type: "resource",
+      topicLinkId: link.id,
+      ...patch,
+    });
+  };
+
+  const linkEl = link.url ? (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300 hover:decoration-orange-300/50"
+    >
+      {link.title}
+    </a>
+  ) : (
+    <span className="leading-relaxed text-zinc-300">{link.title}</span>
+  );
+
+  if (!rateMode) return linkEl;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex-1 truncate">{linkEl}</div>
+        <div className="ml-auto flex items-center gap-1">
+          <HelpfulnessSelect
+            value={rating}
+            onChange={(next) => {
+              setRating(next);
+              doUpsert({ helpfulnessRating: next });
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowComment((v) => !v)}
+            className={`w-6 shrink-0 rounded p-1 transition ${
+              hasComment
+                ? "text-orange-300 hover:bg-zinc-700/60"
+                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+            }`}
+            title={hasComment ? "Show comment" : "Add comment"}
+          >
+            <CommentIcon filled={hasComment} />
+          </button>
+        </div>
+      </div>
+      {showComment && (
+        <DebouncedTextarea
+          initialValue={comment}
+          onLocalChange={setComment}
+          onSave={(next) => doUpsert({ comment: next || null })}
+          placeholder="Optional comment..."
+        />
+      )}
+    </div>
+  );
+}
+
+function InlineRateableTeacher({
+  teacher,
+  rateMode,
+  topicId,
+  adHocFeedback,
+  onUpsert,
+}: {
+  teacher: { userId: string; name: string | null; level: string };
+  rateMode: boolean;
+  topicId: number;
+  adHocFeedback: AdHocFeedbackItem[] | undefined;
+  onUpsert: (input: UpsertPayload) => void;
+}) {
+  const existing = adHocFeedback?.find(
+    (fi) => fi.type === "user" && fi.referencedUserId === teacher.userId,
+  );
+  const [showComment, setShowComment] = useState(false);
+  const [rating, setRating] = useState<HelpfulnessRating | null>(null);
+  const [comment, setComment] = useState("");
+
+  useEffect(() => {
+    setRating(existing?.helpfulnessRating ?? null);
+    setComment(existing?.comment ?? "");
+    setShowComment(!!existing?.comment);
+  }, [existing]);
+
+  const hasComment = comment.trim().length > 0;
+
+  const doUpsert = (patch: {
+    helpfulnessRating?: HelpfulnessRating | null;
+    comment?: string | null;
+  }) => {
+    onUpsert({
+      id: existing?.id,
+      topicId,
+      transitionId: null,
+      type: "user",
+      referencedUserId: teacher.userId,
+      ...patch,
+    });
+  };
+
+  const nameEl = (
+    <div className="flex items-center gap-2 text-sm text-zinc-300">
+      <span>{teacher.name ?? "Anonymous"}</span>
+      <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+        {getLevelLabel(teacher.level)}
+      </span>
+    </div>
+  );
+
+  if (!rateMode) return nameEl;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex-1">{nameEl}</div>
+        <div className="ml-auto flex items-center gap-1">
+          <HelpfulnessSelect
+            value={rating}
+            onChange={(next) => {
+              setRating(next);
+              doUpsert({ helpfulnessRating: next });
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowComment((v) => !v)}
+            className={`w-6 shrink-0 rounded p-1 transition ${
+              hasComment
+                ? "text-orange-300 hover:bg-zinc-700/60"
+                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+            }`}
+            title={hasComment ? "Show comment" : "Add comment"}
+          >
+            <CommentIcon filled={hasComment} />
+          </button>
+        </div>
+      </div>
+      {showComment && (
+        <DebouncedTextarea
+          initialValue={comment}
+          onLocalChange={setComment}
+          onSave={(next) => doUpsert({ comment: next || null })}
+          placeholder="Optional comment..."
+        />
+      )}
+    </div>
   );
 }
