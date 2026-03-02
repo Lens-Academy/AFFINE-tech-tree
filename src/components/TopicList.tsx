@@ -244,9 +244,7 @@ const LEVEL_SORT_WEIGHT: Record<UnderstandingLevel, number> = {
   advanced_questions_welcome: 3,
 };
 
-function sortTopicsByBookmarkAndUnderstanding<
-  T extends { id: number; name: string },
->(
+function sortTopicsByBookmarkAndUnderstanding<T extends { id: number }>(
   topics: T[],
   bookmarkedSet: Set<number>,
   levelByTopic: Map<number, UnderstandingLevel>,
@@ -264,7 +262,8 @@ function sortTopicsByBookmarkAndUnderstanding<
       : Number.MAX_SAFE_INTEGER;
     if (leftWeight !== rightWeight) return leftWeight - rightWeight;
 
-    return left.name.localeCompare(right.name);
+    // Keep backend/DB order for topics with equal sort priority.
+    return 0;
   });
 }
 
