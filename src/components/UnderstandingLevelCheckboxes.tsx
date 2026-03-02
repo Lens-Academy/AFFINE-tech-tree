@@ -1,6 +1,7 @@
 import {
   UNDERSTANDING_LEVEL_LABELS,
   UNDERSTANDING_LEVELS,
+  getLevelShortLabel,
   type UnderstandingLevel,
 } from "~/shared/understandingLevels";
 
@@ -19,9 +20,8 @@ export function UnderstandingLevelCheckboxes({
       <div className="grid grid-cols-4 gap-2">
         {UNDERSTANDING_LEVELS.map((level) => {
           const checked = currentLevel === level;
+          const label = getLevelShortLabel(level);
           const fullLabel = UNDERSTANDING_LEVEL_LABELS[level];
-          const label =
-            level === "advanced_questions_welcome" ? "Advanced" : fullLabel;
           const showTooltip = label !== fullLabel;
           return (
             <label

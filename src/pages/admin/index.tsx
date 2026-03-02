@@ -152,6 +152,14 @@ export default function AdminHomePage() {
                           Review feedback link candidates
                         </Link>
                       </li>
+                      <li>
+                        <Link
+                          href="/admin/feedback"
+                          className="text-orange-400 hover:text-orange-300"
+                        >
+                          Feedback overview
+                        </Link>
+                      </li>
                     </ul>
                   </div>
 

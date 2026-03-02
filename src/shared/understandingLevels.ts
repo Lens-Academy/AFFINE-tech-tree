@@ -33,3 +33,10 @@ export function getLevelLabel(level: string): string {
     ? UNDERSTANDING_LEVEL_LABELS[level as UnderstandingLevel]
     : level;
 }
+
+/** Short label for compact UI (e.g. "Advanced" instead of "Advanced Questions Welcome"). */
+export function getLevelShortLabel(level: UnderstandingLevel): string {
+  return level === "advanced_questions_welcome"
+    ? "Advanced"
+    : UNDERSTANDING_LEVEL_LABELS[level];
+}

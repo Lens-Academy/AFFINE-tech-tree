@@ -23,6 +23,8 @@ import {
   resource,
   teachingSession,
 } from "~/server/db/schema";
+import type { UnderstandingLevel } from "~/shared/understandingLevels";
+import { UNDERSTANDING_LEVELS } from "~/shared/understandingLevels";
 
 const ADMIN_HONOR_SYSTEM_KEY = "admin_honor_system_enabled";
 
@@ -722,6 +724,95 @@ export const adminRouter = createTRPCRouter({
       })),
     }));
   }),
+
+  adminFeedbackTopicStats: protectedProcedure.query(async ({ ctx }) => {
+    await assertAdmin(ctx);
+    const topics = await ctx.db.query.topic.findMany({
+      columns: { id: true, name: true },
+      orderBy: (t, { asc }) => [asc(t.id)],
+    });
+    const statusRows = await ctx.db.query.userTopicStatus.findMany({
+      columns: { topicId: true, level: true },
+    });
+    const transitions = await ctx.db.query.levelTransition.findMany({
+      columns: { topicId: true, fromLevel: true, toLevel: true },
+    });
+
+    const userCountByTopicLevel = new Map<string, number>();
+    for (const row of statusRows) {
+      if (row.level) {
+        const key = `${row.topicId}:${row.level}`;
+        userCountByTopicLevel.set(
+          key,
+          (userCountByTopicLevel.get(key) ?? 0) + 1,
+        );
+      }
+    }
+    const transitionsInByTopicLevel = new Map<string, number>();
+    const transitionsOutByTopicLevel = new Map<string, number>();
+    for (const row of transitions) {
+      if (row.toLevel) {
+        const key = `${row.topicId}:${row.toLevel}`;
+        transitionsInByTopicLevel.set(
+          key,
+          (transitionsInByTopicLevel.get(key) ?? 0) + 1,
+        );
+      }
+      if (row.fromLevel) {
+        const key = `${row.topicId}:${row.fromLevel}`;
+        transitionsOutByTopicLevel.set(
+          key,
+          (transitionsOutByTopicLevel.get(key) ?? 0) + 1,
+        );
+      }
+    }
+
+    return topics.map((t) => {
+      const levels = {} as Record<
+        UnderstandingLevel,
+        { userCount: number; transitionsIn: number; transitionsOut: number }
+      >;
+      let hasActivity = false;
+      for (const level of UNDERSTANDING_LEVELS) {
+        const userCount = userCountByTopicLevel.get(`${t.id}:${level}`) ?? 0;
+        const transitionsIn =
+          transitionsInByTopicLevel.get(`${t.id}:${level}`) ?? 0;
+        const transitionsOut =
+          transitionsOutByTopicLevel.get(`${t.id}:${level}`) ?? 0;
+        levels[level] = { userCount, transitionsIn, transitionsOut };
+        if (userCount > 0 || transitionsIn > 0 || transitionsOut > 0) {
+          hasActivity = true;
+        }
+      }
+      return {
+        id: t.id,
+        name: t.name,
+        levels,
+        hasActivity,
+      };
+    });
+  }),
+
+  adminFeedbackByTopic: protectedProcedure
+    .input(z.object({ topicId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      return ctx.db.query.levelTransition.findMany({
+        where: (t, { eq }) => eq(t.topicId, input.topicId),
+        orderBy: (t, { desc }) => [desc(t.createdAt)],
+        with: {
+          user: { columns: { id: true, name: true, email: true } },
+          feedbackItems: {
+            with: {
+              topicLink: true,
+              referencedUser: {
+                columns: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+      });
+    }),
 
   createNonUserTeacher: protectedProcedure
     .input(
