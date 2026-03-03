@@ -41,9 +41,7 @@ export const userStatusRouter = createTRPCRouter({
           },
         });
 
-      // Feedback is only requested for real defined-level changes.
-      // Transitions involving undefined (first set / clear) are skipped.
-      const shouldCreateTransition = !!current && current.level !== input.level;
+      const shouldCreateTransition = current?.level !== input.level;
 
       let transitionId: number | undefined;
       if (shouldCreateTransition) {
@@ -52,7 +50,7 @@ export const userStatusRouter = createTRPCRouter({
           .values({
             userId: ctx.session.user.id,
             topicId: input.topicId,
-            fromLevel: current.level,
+            fromLevel: current?.level ?? null,
             toLevel: input.level,
           })
           .returning({ id: levelTransition.id });
@@ -65,6 +63,19 @@ export const userStatusRouter = createTRPCRouter({
   remove: protectedProcedure
     .input(z.object({ topicId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const current = await ctx.db.query.userTopicStatus.findFirst({
+        where: (s, { and, eq }) =>
+          and(eq(s.userId, ctx.session.user.id), eq(s.topicId, input.topicId)),
+      });
+      if (current?.level) {
+        await ctx.db.insert(levelTransition).values({
+          userId: ctx.session.user.id,
+          topicId: input.topicId,
+          fromLevel: current.level,
+          toLevel: null,
+        });
+      }
+
       await ctx.db
         .delete(userTopicStatus)
         .where(
@@ -73,7 +84,5 @@ export const userStatusRouter = createTRPCRouter({
             eq(userTopicStatus.topicId, input.topicId),
           ),
         );
-
-      // Clearing understanding should not produce a feedback transition.
     }),
 });

@@ -27,6 +27,7 @@ import type { UnderstandingLevel } from "~/shared/understandingLevels";
 import { UNDERSTANDING_LEVELS } from "~/shared/understandingLevels";
 
 const ADMIN_HONOR_SYSTEM_KEY = "admin_honor_system_enabled";
+const NULL_LEVEL_KEY = "__null__";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -731,6 +732,20 @@ export const adminRouter = createTRPCRouter({
     }
     const transitionsInByTopicLevel = new Map<string, number>();
     const transitionsOutByTopicLevel = new Map<string, number>();
+    const transitionMatrixByTopic = new Map<string, number>();
+    const toLevelKey = (level: UnderstandingLevel | null) =>
+      level ?? NULL_LEVEL_KEY;
+    const incrementMatrix = (
+      topicId: number,
+      fromLevel: UnderstandingLevel | null,
+      toLevel: UnderstandingLevel | null,
+    ) => {
+      const key = `${topicId}:${toLevelKey(fromLevel)}:${toLevelKey(toLevel)}`;
+      transitionMatrixByTopic.set(
+        key,
+        (transitionMatrixByTopic.get(key) ?? 0) + 1,
+      );
+    };
     for (const row of transitions) {
       if (row.toLevel) {
         const key = `${row.topicId}:${row.toLevel}`;
@@ -746,6 +761,7 @@ export const adminRouter = createTRPCRouter({
           (transitionsOutByTopicLevel.get(key) ?? 0) + 1,
         );
       }
+      incrementMatrix(row.topicId, row.fromLevel ?? null, row.toLevel ?? null);
     }
 
     return topics.map((t) => {
@@ -753,6 +769,13 @@ export const adminRouter = createTRPCRouter({
         UnderstandingLevel,
         { userCount: number; transitionsIn: number; transitionsOut: number }
       >;
+      const transitionMatrix: {
+        fromLevel: UnderstandingLevel | null;
+        cells: {
+          toLevel: UnderstandingLevel | null;
+          count: number;
+        }[];
+      }[] = [];
       let hasActivity = false;
       for (const level of UNDERSTANDING_LEVELS) {
         const userCount = userCountByTopicLevel.get(`${t.id}:${level}`) ?? 0;
@@ -765,11 +788,28 @@ export const adminRouter = createTRPCRouter({
           hasActivity = true;
         }
       }
+
+      const matrixLevels = [NULL_LEVEL_KEY, ...UNDERSTANDING_LEVELS] as const;
+      for (const fromLevel of matrixLevels) {
+        transitionMatrix.push({
+          fromLevel: fromLevel === NULL_LEVEL_KEY ? null : fromLevel,
+          cells: matrixLevels.map((toLevel) => ({
+            toLevel: toLevel === NULL_LEVEL_KEY ? null : toLevel,
+            count:
+              transitionMatrixByTopic.get(`${t.id}:${fromLevel}:${toLevel}`) ??
+              0,
+          })),
+        });
+      }
+      const hasMatrixActivity = transitionMatrix.some((row) =>
+        row.cells.some((cell) => cell.count > 0),
+      );
       return {
         id: t.id,
         name: t.name,
         levels,
-        hasActivity,
+        transitionMatrix,
+        hasActivity: hasActivity || hasMatrixActivity,
       };
     });
   }),
@@ -793,19 +833,7 @@ export const adminRouter = createTRPCRouter({
           },
         },
       });
-      const adHocItems = await ctx.db.query.feedbackItem.findMany({
-        where: (fi, { and, eq, isNull }) =>
-          and(eq(fi.topicId, input.topicId), isNull(fi.transitionId)),
-        orderBy: (fi, { desc }) => [desc(fi.createdAt)],
-        with: {
-          author: { columns: { id: true, name: true, email: true } },
-          topicLink: true,
-          referencedUser: {
-            columns: { id: true, name: true, email: true },
-          },
-        },
-      });
-      return { transitions, adHocItems };
+      return { transitions };
     }),
 
   createNonUserTeacher: protectedProcedure

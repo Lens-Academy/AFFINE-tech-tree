@@ -17,7 +17,7 @@
     "deploy:cf": "BUILDING_FOR_CF=1 opennextjs-cloudflare build && wrangler deploy",
     "dev": "next dev",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
+    "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --log-level warn",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "preview": "next build && next start",

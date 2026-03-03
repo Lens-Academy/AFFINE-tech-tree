@@ -9,7 +9,6 @@ import {
 } from "~/shared/feedbackTypes";
 import {
   getLevelLabel,
-  getLevelShortLabel,
   type UnderstandingLevel,
   UNDERSTANDING_LEVEL_LABELS,
 } from "~/shared/understandingLevels";
@@ -20,79 +19,81 @@ import { api, type RouterOutputs } from "~/utils/api";
 const ADMIN_FEEDBACK_SIDEBAR_COLLAPSED_KEY =
   "affine.admin-feedback.sidebar-collapsed";
 
-type TopicStats = RouterOutputs["admin"]["adminFeedbackTopicStats"][number];
+type TransitionMatrix = {
+  fromLevel: UnderstandingLevel | null;
+  cells: {
+    toLevel: UnderstandingLevel | null;
+    count: number;
+  }[];
+}[];
+type TopicStats = RouterOutputs["admin"]["adminFeedbackTopicStats"][number] & {
+  transitionMatrix: TransitionMatrix;
+};
 type AdminFeedbackByTopic = RouterOutputs["admin"]["adminFeedbackByTopic"];
 type Transition = AdminFeedbackByTopic["transitions"][number];
 type FeedbackItem = Transition["feedbackItems"][number];
-type AdHocItem = AdminFeedbackByTopic["adHocItems"][number];
-type TimelineEvent =
-  | { kind: "transition"; transition: Transition }
-  | { kind: "ad_hoc"; item: AdHocItem };
 
-function LevelStatBox({
-  level,
-  userCount,
-  transitionsIn,
-  transitionsOut,
+function TopicTransitionMatrix({
+  transitionMatrix,
 }: {
-  level: UnderstandingLevel;
-  userCount: number;
-  transitionsIn: number;
-  transitionsOut: number;
+  transitionMatrix: TransitionMatrix;
 }) {
-  const fullLabel = UNDERSTANDING_LEVEL_LABELS[level];
-  const shortLabel = getLevelShortLabel(level);
-  const tooltip = `"${fullLabel}": ${userCount} users now; ${transitionsIn} transitions in (↘); ${transitionsOut} transitions out (↗).`;
+  const hasAnyRatings = transitionMatrix.some((row) =>
+    row.cells.some((cell) => cell.count > 0),
+  );
+  const leftBracketChars = ["⎡", "⎢", "⎢", "⎢", "⎣"] as const;
+  const rightBracketChars = ["⎤", "⎥", "⎥", "⎥", "⎦"] as const;
   return (
-    <div
-      className="flex flex-col gap-0.5 rounded border border-zinc-700 bg-zinc-800/60 px-1.5 py-0.5 text-xs text-zinc-300 tabular-nums"
-      title={tooltip}
-    >
-      <span className="hidden text-[10px] text-zinc-500 lg:block">
-        {shortLabel}
-      </span>
-      <div className="flex items-center gap-0.5 text-xs">
-        <span className="flex items-center gap-0.5">
-          <ArrowInIcon className="h-3 w-3 text-zinc-500" aria-hidden />
-          {transitionsIn}
-        </span>
-        <span className="min-w-5 text-center">{userCount}</span>
-        <span className="flex items-center gap-0.5">
-          {transitionsOut}
-          <ArrowOutIcon className="h-3 w-3 text-zinc-500" aria-hidden />
-        </span>
+    <div className="flex items-center gap-1 font-mono text-[11px] leading-none text-zinc-300 tabular-nums">
+      <div
+        className="grid grid-rows-5 leading-none text-zinc-500"
+        aria-hidden
+        title="Transition matrix"
+      >
+        {leftBracketChars.map((char, index) => (
+          <span key={`${char}-${index}`}>{char}</span>
+        ))}
+      </div>
+      <div className="grid grid-cols-5 gap-x-2 gap-y-0">
+        {transitionMatrix.flatMap((row) =>
+          row.cells.map((cell) => {
+            const value = cell.count;
+            const isNullBand = row.fromLevel == null || cell.toLevel == null;
+            const isZero = value === 0;
+            const colorClass =
+              isNullBand || (!hasAnyRatings && isZero)
+                ? "text-zinc-600"
+                : "text-zinc-300";
+            const fromLabel =
+              row.fromLevel == null
+                ? "null"
+                : UNDERSTANDING_LEVEL_LABELS[row.fromLevel];
+            const toLabel =
+              cell.toLevel == null
+                ? "null"
+                : UNDERSTANDING_LEVEL_LABELS[cell.toLevel];
+            return (
+              <span
+                key={`${String(row.fromLevel)}-${String(cell.toLevel)}`}
+                className={`text-center ${colorClass}`}
+                title={`${fromLabel} → ${toLabel}: ${value}`}
+              >
+                {value}
+              </span>
+            );
+          }),
+        )}
+      </div>
+      <div
+        className="grid grid-rows-5 leading-none text-zinc-500"
+        aria-hidden
+        title="Transition matrix"
+      >
+        {rightBracketChars.map((char, index) => (
+          <span key={`${char}-${index}`}>{char}</span>
+        ))}
       </div>
     </div>
-  );
-}
-
-function ArrowInIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 12 12" className={className} aria-hidden>
-      <path
-        d="M2 2L10 10M10 10H4M10 10V4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ArrowOutIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 12 12" className={className} aria-hidden>
-      <path
-        d="M2 10L10 2M10 2H4M10 2V8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
@@ -109,33 +110,18 @@ function AdminTopicRow({
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-lg px-2 py-2 text-left transition ${
+      className={`w-full rounded-lg px-2 py-1 text-left transition ${
         isSelected
           ? "border border-orange-500/40 bg-orange-500/20 text-orange-200"
           : "border border-transparent text-zinc-200 hover:bg-zinc-800/80"
       }`}
     >
-      <div className="text-sm font-medium">{t.name}</div>
-      {t.hasActivity ? (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {(
-            Object.entries(t.levels) as [
-              UnderstandingLevel,
-              TopicStats["levels"][UnderstandingLevel],
-            ][]
-          ).map(([level, stats]) => (
-            <LevelStatBox
-              key={level}
-              level={level}
-              userCount={stats.userCount}
-              transitionsIn={stats.transitionsIn}
-              transitionsOut={stats.transitionsOut}
-            />
-          ))}
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-medium">{t.name}</div>
+        <div className="shrink-0">
+          <TopicTransitionMatrix transitionMatrix={t.transitionMatrix} />
         </div>
-      ) : (
-        <div className="mt-1 text-xs text-zinc-500">no ratings yet</div>
-      )}
+      </div>
     </button>
   );
 }
@@ -266,54 +252,6 @@ function AdminTransitionEmpty({ transition }: { transition: Transition }) {
   );
 }
 
-function AdminAdHocFeedbackRow({ item }: { item: AdHocItem }) {
-  const userName = item.author.name ?? item.author.email ?? "Anonymous";
-  const label = item.topicLink
-    ? item.topicLink.title
-    : item.referencedUser
-      ? (item.referencedUser.name ?? item.referencedUser.email ?? "Person")
-      : (item.freeTextValue?.trim() ?? "-");
-  const url = item.topicLink?.url ?? null;
-  const ratingLabel =
-    item.helpfulnessRating &&
-    item.helpfulnessRating in HELPFULNESS_RATING_LABELS
-      ? HELPFULNESS_RATING_LABELS[item.helpfulnessRating]
-      : null;
-  const hasComment = item.comment != null && item.comment.trim().length > 0;
-  const timestamp = item.createdAt.toLocaleString("sv-SE");
-
-  return (
-    <div className="space-y-0.5 rounded border border-zinc-700/80 bg-zinc-900/40 px-2 py-1">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-zinc-400">{userName}</span>
-        {url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-orange-400 underline decoration-orange-400/30 underline-offset-2 hover:text-orange-300"
-          >
-            {label}
-          </a>
-        ) : (
-          <span className="text-zinc-300">{label}</span>
-        )}
-        <span
-          className={ratingLabel ? "text-zinc-400" : "text-zinc-500 italic"}
-        >
-          {ratingLabel ?? "no rating"}
-        </span>
-        <span className="text-xs text-zinc-500">{timestamp}</span>
-      </div>
-      {hasComment && (
-        <p className="text-xs whitespace-pre-wrap text-zinc-400">
-          {item.comment!.trim()}
-        </p>
-      )}
-    </div>
-  );
-}
-
 export default function AdminFeedbackPage() {
   const router = useRouter();
   const topicIdParam =
@@ -362,30 +300,6 @@ export default function AdminFeedbackPage() {
     () => transitions.data?.transitions ?? [],
     [transitions.data],
   );
-  const adHocItems = useMemo(
-    () => transitions.data?.adHocItems ?? [],
-    [transitions.data],
-  );
-  const timelineEvents = useMemo<TimelineEvent[]>(() => {
-    const merged: TimelineEvent[] = [
-      ...transitionList.map((transition) => ({
-        kind: "transition" as const,
-        transition,
-      })),
-      ...adHocItems.map((item) => ({ kind: "ad_hoc" as const, item })),
-    ];
-    return merged.sort((a, b) => {
-      const aTime =
-        a.kind === "transition"
-          ? a.transition.createdAt.getTime()
-          : a.item.createdAt.getTime();
-      const bTime =
-        b.kind === "transition"
-          ? b.transition.createdAt.getTime()
-          : b.item.createdAt.getTime();
-      return bTime - aTime;
-    });
-  }, [transitionList, adHocItems]);
   useEffect(() => {
     if (transitionList.length > 0) {
       setExpandedIds(new Set(transitionList.map((t) => t.id)));
@@ -521,16 +435,7 @@ export default function AdminFeedbackPage() {
                           )?.name ?? "Topic"}
                         </h2>
                         <div className="space-y-2">
-                          {timelineEvents.map((event) => {
-                            if (event.kind === "ad_hoc") {
-                              return (
-                                <AdminAdHocFeedbackRow
-                                  key={`ad-hoc-${event.item.id}`}
-                                  item={event.item}
-                                />
-                              );
-                            }
-                            const transition = event.transition;
+                          {transitionList.map((transition) => {
                             const hasRated =
                               transition.feedbackItems.some(hasRatedFeedback);
                             if (!hasRated) {
