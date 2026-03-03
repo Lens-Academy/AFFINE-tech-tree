@@ -344,7 +344,7 @@ function TransitionAccordion({
   onUpsert: (input: {
     id?: number;
     topicId: number;
-    transitionId?: number | null;
+    transitionId: number;
     type: "resource" | "user" | "free_text";
     topicLinkId?: number | null;
     referencedUserId?: string | null;

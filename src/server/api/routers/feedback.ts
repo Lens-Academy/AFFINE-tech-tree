@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 import {
@@ -9,9 +9,9 @@ import {
   SKIP_FEEDBACK_SENTINEL,
 } from "~/shared/feedbackTypes";
 import {
-  isRatedFeedbackInput,
-  shouldCreateAdHocSameStateTransition,
-} from "~/shared/transitionRules";
+  understandingLevelSchema,
+  type UnderstandingLevel,
+} from "~/shared/understandingLevels";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
 import { feedbackItem, levelTransition, topicLink } from "~/server/db/schema";
@@ -101,85 +101,109 @@ async function assertFeedbackItemOwner(args: {
   return item;
 }
 
-async function createSameStateTransitionForAdHocFeedback(args: {
+async function findLatestSameStateTransition(args: {
   db: Db;
   userId: string;
   topicId: number;
-}): Promise<number> {
-  const current = await args.db.query.userTopicStatus.findFirst({
-    where: (s, { and, eq }) =>
-      and(eq(s.userId, args.userId), eq(s.topicId, args.topicId)),
-    columns: { level: true },
-  });
-  const [transition] = await args.db
-    .insert(levelTransition)
-    .values({
-      userId: args.userId,
-      topicId: args.topicId,
-      fromLevel: current?.level ?? null,
-      toLevel: current?.level ?? null,
-    })
-    .returning({ id: levelTransition.id });
-  return transition!.id;
-}
-
-async function snapshotAdHocFeedbackIntoTransition(args: {
-  db: Db;
-  feedbackItemId: number;
-  userId: string;
-  topicId: number;
+  level: UnderstandingLevel | null;
 }) {
-  const source = await args.db.query.feedbackItem.findFirst({
-    where: (fi, { eq }) => eq(fi.id, args.feedbackItemId),
-    columns: {
-      id: true,
-      transitionId: true,
-      type: true,
-      topicLinkId: true,
-      referencedUserId: true,
-      freeTextValue: true,
-      helpfulnessRating: true,
-      comment: true,
-    },
-  });
-  if (!source || source.transitionId != null) return;
+  const level = args.level;
+  if (level == null) {
+    return args.db.query.levelTransition.findFirst({
+      where: (t, { and, eq, isNull }) =>
+        and(
+          eq(t.userId, args.userId),
+          eq(t.topicId, args.topicId),
+          isNull(t.fromLevel),
+          isNull(t.toLevel),
+        ),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+      columns: { id: true },
+    });
+  }
 
-  const transitionId = await createSameStateTransitionForAdHocFeedback({
-    db: args.db,
-    userId: args.userId,
-    topicId: args.topicId,
-  });
-  await args.db.insert(feedbackItem).values({
-    userId: args.userId,
-    topicId: args.topicId,
-    transitionId,
-    type: source.type,
-    topicLinkId: source.topicLinkId,
-    referencedUserId: source.referencedUserId,
-    freeTextValue: source.freeTextValue,
-    helpfulnessRating: source.helpfulnessRating,
-    comment: source.comment,
+  return args.db.query.levelTransition.findFirst({
+    where: (t, { and, eq }) =>
+      and(
+        eq(t.userId, args.userId),
+        eq(t.topicId, args.topicId),
+        eq(t.fromLevel, level),
+        eq(t.toLevel, level),
+      ),
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+    columns: { id: true },
   });
 }
 
 export const feedbackRouter = createTRPCRouter({
-  getAdHocFeedbackByTopic: protectedProcedure
-    .input(z.object({ topicId: z.number() }))
+  getManualFeedbackByTopic: protectedProcedure
+    .input(
+      z.object({
+        topicId: z.number(),
+        level: understandingLevelSchema.nullable(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      return ctx.db.query.feedbackItem.findMany({
-        where: (fi, { eq: e }) =>
+      const transition = await findLatestSameStateTransition({
+        db: ctx.db,
+        userId: ctx.session.user.id,
+        topicId: input.topicId,
+        level: input.level,
+      });
+
+      if (!transition) {
+        return { transitionId: null, feedbackItems: [] };
+      }
+
+      const feedbackItems = await ctx.db.query.feedbackItem.findMany({
+        where: (fi, { and, eq }) =>
           and(
-            e(fi.userId, ctx.session.user.id),
-            e(fi.topicId, input.topicId),
-            isNull(fi.transitionId),
+            eq(fi.userId, ctx.session.user.id),
+            eq(fi.topicId, input.topicId),
+            eq(fi.transitionId, transition.id),
           ),
-        with: {
-          topicLink: true,
-          referencedUser: {
-            columns: { id: true, name: true, email: true },
-          },
+        columns: {
+          id: true,
+          type: true,
+          topicLinkId: true,
+          referencedUserId: true,
+          helpfulnessRating: true,
+          comment: true,
         },
       });
+
+      return { transitionId: transition.id, feedbackItems };
+    }),
+
+  ensureManualFeedbackTransition: protectedProcedure
+    .input(
+      z.object({
+        topicId: z.number(),
+        level: understandingLevelSchema.nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await findLatestSameStateTransition({
+        db: ctx.db,
+        userId: ctx.session.user.id,
+        topicId: input.topicId,
+        level: input.level,
+      });
+      if (existing) {
+        return { transitionId: existing.id };
+      }
+
+      const [created] = await ctx.db
+        .insert(levelTransition)
+        .values({
+          userId: ctx.session.user.id,
+          topicId: input.topicId,
+          fromLevel: input.level,
+          toLevel: input.level,
+        })
+        .returning({ id: levelTransition.id });
+
+      return { transitionId: created!.id };
     }),
 
   getRecentTransitions: protectedProcedure.query(async ({ ctx }) => {
@@ -231,7 +255,7 @@ export const feedbackRouter = createTRPCRouter({
       z.object({
         id: z.number().optional(),
         topicId: z.number(),
-        transitionId: z.number().nullable().optional(),
+        transitionId: z.number(),
         type: feedbackItemTypeSchema,
         topicLinkId: z.number().nullable().optional(),
         referencedUserId: z.string().nullable().optional(),
@@ -244,23 +268,18 @@ export const feedbackRouter = createTRPCRouter({
       const baseScope = {
         userId: ctx.session.user.id,
         topicId: input.topicId,
-        transitionId: input.transitionId ?? null,
+        transitionId: input.transitionId,
       };
 
-      if (input.transitionId) {
-        const transition = await ctx.db.query.levelTransition.findFirst({
-          where: (t, { and, eq }) =>
-            and(
-              eq(t.id, input.transitionId!),
-              eq(t.userId, ctx.session.user.id),
-            ),
+      const transition = await ctx.db.query.levelTransition.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.id, input.transitionId), eq(t.userId, ctx.session.user.id)),
+      });
+      if (!transition) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Transition not found or unauthorized",
         });
-        if (!transition) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Transition not found or unauthorized",
-          });
-        }
       }
 
       const itemId = input.id;
@@ -282,10 +301,7 @@ export const feedbackRouter = createTRPCRouter({
             message: "Feedback item not found or unauthorized",
           });
         }
-        if (
-          input.transitionId &&
-          existing.transitionId !== input.transitionId
-        ) {
+        if (existing.transitionId !== input.transitionId) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Feedback item transition mismatch",
@@ -298,40 +314,10 @@ export const feedbackRouter = createTRPCRouter({
           });
         }
 
-        const wasRated = isRatedFeedbackInput({
-          freeTextValue: existing?.freeTextValue,
-          helpfulnessRating: existing?.helpfulnessRating,
-          comment: existing?.comment,
-        });
-        const willBeRated = isRatedFeedbackInput({
-          freeTextValue: existing?.freeTextValue,
-          helpfulnessRating:
-            input.helpfulnessRating !== undefined
-              ? input.helpfulnessRating
-              : existing?.helpfulnessRating,
-          comment:
-            input.comment !== undefined ? input.comment : existing?.comment,
-        });
-
         await ctx.db
           .update(feedbackItem)
           .set(updateData)
           .where(eq(feedbackItem.id, itemId));
-
-        if (
-          shouldCreateAdHocSameStateTransition({
-            isAdHocFeedback: existing?.transitionId == null,
-            wasRated,
-            willBeRated,
-          })
-        ) {
-          await snapshotAdHocFeedbackIntoTransition({
-            db: ctx.db,
-            feedbackItemId: itemId,
-            userId: ctx.session.user.id,
-            topicId: input.topicId,
-          });
-        }
 
         return { id: itemId };
       }
@@ -340,54 +326,24 @@ export const feedbackRouter = createTRPCRouter({
       // For resource/user feedback rows, treat those saves as updates to one row.
       if (input.type === "resource" && input.topicLinkId != null) {
         const existing = await ctx.db.query.feedbackItem.findFirst({
-          where: (fi, { and, eq, isNull }) =>
+          where: (fi, { and, eq }) =>
             and(
               eq(fi.userId, baseScope.userId),
               eq(fi.topicId, baseScope.topicId),
-              baseScope.transitionId == null
-                ? isNull(fi.transitionId)
-                : eq(fi.transitionId, baseScope.transitionId),
+              eq(fi.transitionId, baseScope.transitionId),
               eq(fi.type, "resource"),
               eq(fi.topicLinkId, input.topicLinkId!),
             ),
           columns: {
             id: true,
-            transitionId: true,
-            freeTextValue: true,
-            helpfulnessRating: true,
-            comment: true,
           },
         });
         if (existing) {
-          const wasRated = isRatedFeedbackInput(existing);
-          const willBeRated = isRatedFeedbackInput({
-            freeTextValue: existing.freeTextValue,
-            helpfulnessRating:
-              input.helpfulnessRating !== undefined
-                ? input.helpfulnessRating
-                : existing.helpfulnessRating,
-            comment:
-              input.comment !== undefined ? input.comment : existing.comment,
-          });
           if (Object.keys(updateData).length > 0) {
             await ctx.db
               .update(feedbackItem)
               .set(updateData)
               .where(eq(feedbackItem.id, existing.id));
-          }
-          if (
-            shouldCreateAdHocSameStateTransition({
-              isAdHocFeedback: existing.transitionId == null,
-              wasRated,
-              willBeRated,
-            })
-          ) {
-            await snapshotAdHocFeedbackIntoTransition({
-              db: ctx.db,
-              feedbackItemId: existing.id,
-              userId: ctx.session.user.id,
-              topicId: input.topicId,
-            });
           }
           return { id: existing.id };
         }
@@ -395,54 +351,24 @@ export const feedbackRouter = createTRPCRouter({
 
       if (input.type === "user" && input.referencedUserId != null) {
         const existing = await ctx.db.query.feedbackItem.findFirst({
-          where: (fi, { and, eq, isNull }) =>
+          where: (fi, { and, eq }) =>
             and(
               eq(fi.userId, baseScope.userId),
               eq(fi.topicId, baseScope.topicId),
-              baseScope.transitionId == null
-                ? isNull(fi.transitionId)
-                : eq(fi.transitionId, baseScope.transitionId),
+              eq(fi.transitionId, baseScope.transitionId),
               eq(fi.type, "user"),
               eq(fi.referencedUserId, input.referencedUserId!),
             ),
           columns: {
             id: true,
-            transitionId: true,
-            freeTextValue: true,
-            helpfulnessRating: true,
-            comment: true,
           },
         });
         if (existing) {
-          const wasRated = isRatedFeedbackInput(existing);
-          const willBeRated = isRatedFeedbackInput({
-            freeTextValue: existing.freeTextValue,
-            helpfulnessRating:
-              input.helpfulnessRating !== undefined
-                ? input.helpfulnessRating
-                : existing.helpfulnessRating,
-            comment:
-              input.comment !== undefined ? input.comment : existing.comment,
-          });
           if (Object.keys(updateData).length > 0) {
             await ctx.db
               .update(feedbackItem)
               .set(updateData)
               .where(eq(feedbackItem.id, existing.id));
-          }
-          if (
-            shouldCreateAdHocSameStateTransition({
-              isAdHocFeedback: existing.transitionId == null,
-              wasRated,
-              willBeRated,
-            })
-          ) {
-            await snapshotAdHocFeedbackIntoTransition({
-              db: ctx.db,
-              feedbackItemId: existing.id,
-              userId: ctx.session.user.id,
-              topicId: input.topicId,
-            });
           }
           return { id: existing.id };
         }
@@ -453,7 +379,7 @@ export const feedbackRouter = createTRPCRouter({
         .values({
           userId: ctx.session.user.id,
           topicId: input.topicId,
-          transitionId: input.transitionId ?? null,
+          transitionId: input.transitionId,
           type: input.type,
           topicLinkId: input.topicLinkId ?? null,
           referencedUserId: input.referencedUserId ?? null,
@@ -479,23 +405,6 @@ export const feedbackRouter = createTRPCRouter({
             })
             .where(eq(feedbackItem.id, result!.id));
         }
-      }
-
-      if (
-        result?.id &&
-        baseScope.transitionId == null &&
-        isRatedFeedbackInput({
-          freeTextValue: input.freeTextValue,
-          helpfulnessRating: input.helpfulnessRating,
-          comment: input.comment,
-        })
-      ) {
-        await snapshotAdHocFeedbackIntoTransition({
-          db: ctx.db,
-          feedbackItemId: result.id,
-          userId: ctx.session.user.id,
-          topicId: input.topicId,
-        });
       }
 
       return result!;

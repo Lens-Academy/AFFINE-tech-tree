@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 import type { HelpfulnessRating } from "~/shared/feedbackTypes";
+import type { UnderstandingLevel } from "~/shared/understandingLevels";
 import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
@@ -78,6 +79,8 @@ export default function TopicPage() {
   const [hasLoadedTopicListPreference, setHasLoadedTopicListPreference] =
     useState(false);
   const [rateMode, setRateMode] = useState(false);
+  const [manualRateLevel, setManualRateLevel] =
+    useState<UnderstandingLevel | null>(null);
   const [resourceSuggestionInput, setResourceSuggestionInput] = useState("");
   const [resourceSuggestionMessage, setResourceSuggestionMessage] = useState<{
     type: "success" | "error";
@@ -112,24 +115,39 @@ export default function TopicPage() {
       ],
     },
   );
-  const { data: adHocFeedback } = api.feedback.getAdHocFeedbackByTopic.useQuery(
-    { topicId: id },
-    { enabled: !!session?.user && !Number.isNaN(id) },
+  const { data: manualFeedback } =
+    api.feedback.getManualFeedbackByTopic.useQuery(
+      { topicId: id, level: manualRateLevel },
+      { enabled: !!session?.user && !Number.isNaN(id) && rateMode },
+    );
+  const ensureManualTransition = useAppMutation(
+    (
+      opts: Exclude<
+        Parameters<
+          typeof api.feedback.ensureManualFeedbackTransition.useMutation
+        >[0],
+        undefined
+      >,
+    ) => api.feedback.ensureManualFeedbackTransition.useMutation(opts),
+    {
+      refresh: [() => utils.feedback.getManualFeedbackByTopic.invalidate()],
+    },
   );
-  type UpsertInput = Parameters<
-    typeof api.feedback.upsertFeedbackItem.useMutation
-  >[0];
-  const adHocUpsert = useAppMutation(
-    (opts: Exclude<UpsertInput, undefined>) =>
-      api.feedback.upsertFeedbackItem.useMutation(opts),
+  const upsertManualFeedback = useAppMutation(
+    (
+      opts: Exclude<
+        Parameters<typeof api.feedback.upsertFeedbackItem.useMutation>[0],
+        undefined
+      >,
+    ) => api.feedback.upsertFeedbackItem.useMutation(opts),
     {
       refresh: [
-        () =>
-          utils.feedback.getAdHocFeedbackByTopic.invalidate({ topicId: id }),
+        () => utils.feedback.getManualFeedbackByTopic.invalidate(),
+        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId: id }),
+        () => utils.feedback.getRecentTransitions.invalidate(),
       ],
     },
   );
-
   const isBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
 
   const serverLevel =
@@ -139,6 +157,16 @@ export default function TopicPage() {
   const currentLevel = serverLevel;
   const isTopicLoading = !Number.isNaN(id) && isLoading;
   const isTopicMissing = !isTopicLoading && !topic;
+
+  useEffect(() => {
+    if (!rateMode) return;
+    const normalizedCurrentLevel = currentLevel ?? null;
+    if (normalizedCurrentLevel !== manualRateLevel) {
+      setRateMode(false);
+      setManualRateLevel(null);
+    }
+  }, [rateMode, currentLevel, manualRateLevel]);
+
   useEffect(() => {
     const saved = window.localStorage.getItem(TOPIC_LIST_COLLAPSED_STORAGE_KEY);
     setIsTopicListCollapsed(saved === "1");
@@ -294,7 +322,15 @@ export default function TopicPage() {
                             {session?.user && (
                               <button
                                 type="button"
-                                onClick={() => setRateMode((v) => !v)}
+                                onClick={() => {
+                                  setRateMode((v) => {
+                                    const next = !v;
+                                    if (next) {
+                                      setManualRateLevel(currentLevel ?? null);
+                                    }
+                                    return next;
+                                  });
+                                }}
                                 className={`rounded p-1 transition ${
                                   rateMode
                                     ? "text-orange-400 hover:bg-zinc-800"
@@ -322,11 +358,28 @@ export default function TopicPage() {
                                 <InlineRateableResource
                                   link={link}
                                   rateMode={rateMode}
-                                  topicId={id}
-                                  adHocFeedback={adHocFeedback}
-                                  onUpsert={(input) =>
-                                    adHocUpsert.mutate(input)
+                                  manualFeedbackItems={
+                                    manualFeedback?.feedbackItems ?? []
                                   }
+                                  onUpsert={async (input) => {
+                                    let transitionId =
+                                      manualFeedback?.transitionId ?? null;
+                                    if (transitionId == null) {
+                                      const created =
+                                        await ensureManualTransition.mutateAsync(
+                                          {
+                                            topicId: id,
+                                            level: manualRateLevel,
+                                          },
+                                        );
+                                      transitionId = created.transitionId;
+                                    }
+                                    upsertManualFeedback.mutate({
+                                      ...input,
+                                      topicId: id,
+                                      transitionId,
+                                    });
+                                  }}
                                 />
                               </li>
                             ))}
@@ -372,15 +425,12 @@ export default function TopicPage() {
                             <ul className="space-y-2">
                               {teachers.map((t) => (
                                 <li key={t.userId}>
-                                  <InlineRateableTeacher
-                                    teacher={t}
-                                    rateMode={rateMode}
-                                    topicId={id}
-                                    adHocFeedback={adHocFeedback}
-                                    onUpsert={(input) =>
-                                      adHocUpsert.mutate(input)
-                                    }
-                                  />
+                                  <div className="flex items-center gap-2 text-sm text-zinc-300">
+                                    <span>{t.name ?? "Anonymous"}</span>
+                                    <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                                      {getLevelLabel(t.level)}
+                                    </span>
+                                  </div>
                                 </li>
                               ))}
                             </ul>
@@ -475,16 +525,15 @@ export default function TopicPage() {
   );
 }
 
-type AdHocFeedbackItem =
-  RouterOutputs["feedback"]["getAdHocFeedbackByTopic"][number];
+type ManualFeedbackItem =
+  RouterOutputs["feedback"]["getManualFeedbackByTopic"]["feedbackItems"][number];
 
-type UpsertPayload = {
-  id?: number;
+type ManualResourceUpsertInput = {
   topicId: number;
-  transitionId?: number | null;
-  type: "resource" | "user" | "free_text";
-  topicLinkId?: number | null;
-  referencedUserId?: string | null;
+  transitionId: number;
+  id?: number;
+  type: "resource";
+  topicLinkId: number;
   helpfulnessRating?: HelpfulnessRating | null;
   comment?: string | null;
 };
@@ -492,39 +541,45 @@ type UpsertPayload = {
 function InlineRateableResource({
   link,
   rateMode,
-  topicId,
-  adHocFeedback,
+  manualFeedbackItems,
   onUpsert,
 }: {
   link: { id: number; title: string; url: string | null };
   rateMode: boolean;
-  topicId: number;
-  adHocFeedback: AdHocFeedbackItem[] | undefined;
-  onUpsert: (input: UpsertPayload) => void;
+  manualFeedbackItems: ManualFeedbackItem[];
+  onUpsert: (
+    input: Omit<ManualResourceUpsertInput, "topicId" | "transitionId">,
+  ) => Promise<void>;
 }) {
-  const existing = adHocFeedback?.find(
+  const existing = manualFeedbackItems.find(
     (fi) => fi.type === "resource" && fi.topicLinkId === link.id,
   );
   const [showComment, setShowComment] = useState(false);
   const [rating, setRating] = useState<HelpfulnessRating | null>(null);
   const [comment, setComment] = useState("");
+  const [hasLocalEdits, setHasLocalEdits] = useState(false);
 
   useEffect(() => {
+    if (hasLocalEdits) return;
     setRating(existing?.helpfulnessRating ?? null);
     setComment(existing?.comment ?? "");
     setShowComment(!!existing?.comment);
-  }, [existing]);
+  }, [existing, hasLocalEdits]);
+
+  useEffect(() => {
+    if (!rateMode) {
+      setHasLocalEdits(false);
+    }
+  }, [rateMode]);
 
   const hasComment = comment.trim().length > 0;
 
-  const doUpsert = (patch: {
+  const doUpsert = async (patch: {
     helpfulnessRating?: HelpfulnessRating | null;
     comment?: string | null;
   }) => {
-    onUpsert({
+    await onUpsert({
       id: existing?.id,
-      topicId,
-      transitionId: null,
       type: "resource",
       topicLinkId: link.id,
       ...patch,
@@ -554,8 +609,9 @@ function InlineRateableResource({
           <HelpfulnessSelect
             value={rating}
             onChange={(next) => {
+              setHasLocalEdits(true);
               setRating(next);
-              doUpsert({ helpfulnessRating: next });
+              void doUpsert({ helpfulnessRating: next });
             }}
           />
           <button
@@ -575,99 +631,13 @@ function InlineRateableResource({
       {showComment && (
         <DebouncedTextarea
           initialValue={comment}
-          onLocalChange={setComment}
-          onSave={(next) => doUpsert({ comment: next || null })}
-          placeholder="Optional comment..."
-        />
-      )}
-    </div>
-  );
-}
-
-function InlineRateableTeacher({
-  teacher,
-  rateMode,
-  topicId,
-  adHocFeedback,
-  onUpsert,
-}: {
-  teacher: { userId: string; name: string | null; level: string };
-  rateMode: boolean;
-  topicId: number;
-  adHocFeedback: AdHocFeedbackItem[] | undefined;
-  onUpsert: (input: UpsertPayload) => void;
-}) {
-  const existing = adHocFeedback?.find(
-    (fi) => fi.type === "user" && fi.referencedUserId === teacher.userId,
-  );
-  const [showComment, setShowComment] = useState(false);
-  const [rating, setRating] = useState<HelpfulnessRating | null>(null);
-  const [comment, setComment] = useState("");
-
-  useEffect(() => {
-    setRating(existing?.helpfulnessRating ?? null);
-    setComment(existing?.comment ?? "");
-    setShowComment(!!existing?.comment);
-  }, [existing]);
-
-  const hasComment = comment.trim().length > 0;
-
-  const doUpsert = (patch: {
-    helpfulnessRating?: HelpfulnessRating | null;
-    comment?: string | null;
-  }) => {
-    onUpsert({
-      id: existing?.id,
-      topicId,
-      transitionId: null,
-      type: "user",
-      referencedUserId: teacher.userId,
-      ...patch,
-    });
-  };
-
-  const nameEl = (
-    <div className="flex items-center gap-2 text-sm text-zinc-300">
-      <span>{teacher.name ?? "Anonymous"}</span>
-      <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-        {getLevelLabel(teacher.level)}
-      </span>
-    </div>
-  );
-
-  if (!rateMode) return nameEl;
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex-1">{nameEl}</div>
-        <div className="ml-auto flex items-center gap-1">
-          <HelpfulnessSelect
-            value={rating}
-            onChange={(next) => {
-              setRating(next);
-              doUpsert({ helpfulnessRating: next });
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => setShowComment((v) => !v)}
-            className={`w-6 shrink-0 rounded p-1 transition ${
-              hasComment
-                ? "text-orange-300 hover:bg-zinc-700/60"
-                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-            }`}
-            title={hasComment ? "Show comment" : "Add comment"}
-          >
-            <CommentIcon filled={hasComment} />
-          </button>
-        </div>
-      </div>
-      {showComment && (
-        <DebouncedTextarea
-          initialValue={comment}
-          onLocalChange={setComment}
-          onSave={(next) => doUpsert({ comment: next || null })}
+          onLocalChange={(next) => {
+            setHasLocalEdits(true);
+            setComment(next);
+          }}
+          onSave={(next) => {
+            void doUpsert({ comment: next || null });
+          }}
           placeholder="Optional comment..."
         />
       )}
