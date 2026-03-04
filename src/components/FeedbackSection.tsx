@@ -71,12 +71,23 @@ export function FeedbackSection({
     { enabled: !!transitions && transitions.length > 0 },
   );
 
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const latestTransitionId = transitions?.[0]?.id ?? null;
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const hasInitializedExpansion = useRef(false);
 
   useEffect(() => {
-    setExpandedId(latestTransitionId);
-  }, [latestTransitionId]);
+    hasInitializedExpansion.current = false;
+    setExpandedIds(new Set());
+  }, [topicId]);
+
+  useEffect(() => {
+    if (!transitions || hasInitializedExpansion.current) return;
+    // On initial load per topic, auto-expand only transitions still pending feedback.
+    const pendingTransitionIds = transitions
+      .filter((transition) => transition.feedbackItems.length === 0)
+      .map((transition) => transition.id);
+    setExpandedIds(new Set(pendingTransitionIds));
+    hasInitializedExpansion.current = true;
+  }, [transitions]);
 
   const utils = api.useUtils();
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
@@ -162,7 +173,15 @@ export function FeedbackSection({
   if (!transitions || transitions.length === 0) return null;
 
   const toggle = (id: number) => {
-    setExpandedId((prev) => (prev === id ? null : id));
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   return (
@@ -180,7 +199,7 @@ export function FeedbackSection({
           <TransitionAccordion
             key={t.id}
             transition={t}
-            isExpanded={expandedId === t.id}
+            isExpanded={expandedIds.has(t.id)}
             onToggle={() => toggle(t.id)}
             topicLinks={topicLinks}
             teachers={teachers ?? []}
