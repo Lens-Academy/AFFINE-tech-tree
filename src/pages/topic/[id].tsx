@@ -228,7 +228,7 @@ export default function TopicPage() {
               <button
                 type="button"
                 onClick={toggleTopicList}
-                className="absolute -left-6 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex"
+                className="absolute -left-4 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex lg:-left-6"
                 aria-label={
                   isTopicListCollapsed ? "Show topic list" : "Hide topic list"
                 }
