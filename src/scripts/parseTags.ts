@@ -1,5 +1,5 @@
 /**
- * Parse comma- or slash-separated tag strings from spreadsheet data.
+ * Parse comma- or slash-separated tag strings.
  * Returns trimmed, non-empty tag names.
  */
 export function parseTags(raw: string | undefined): string[] {

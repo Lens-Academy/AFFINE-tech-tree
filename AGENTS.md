@@ -1,6 +1,6 @@
 # AFFINE Tech Tree
 
-Training material progress tracker for the AFFINE Seminar. Users track their understanding level per topic (synced from a Google Sheet).
+Training material progress tracker for the AFFINE Seminar. Users track their understanding level per topic (synced from an Airtable base).
 
 ## Stack
 

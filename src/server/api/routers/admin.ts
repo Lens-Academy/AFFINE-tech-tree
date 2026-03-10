@@ -1113,4 +1113,25 @@ export const adminRouter = createTRPCRouter({
       await ctx.db.delete(user).where(eq(user.id, existing.id));
       return { ok: true };
     }),
+
+  prerequisiteGraph: protectedProcedure.query(async ({ ctx }) => {
+    await assertAdmin(ctx);
+    const topics = await ctx.db.query.topic.findMany({
+      columns: { id: true, name: true },
+      orderBy: (t, { asc }) => [asc(t.spreadsheetRow), asc(t.id)],
+    });
+    const edges = await ctx.db.query.topicPrerequisite.findMany();
+    const nodeIds = new Set<number>();
+    for (const edge of edges) {
+      nodeIds.add(edge.prerequisiteTopicId);
+      nodeIds.add(edge.topicId);
+    }
+    return {
+      nodes: topics.filter((topic) => nodeIds.has(topic.id)),
+      edges: edges.map((e) => ({
+        from: e.prerequisiteTopicId,
+        to: e.topicId,
+      })),
+    };
+  }),
 });

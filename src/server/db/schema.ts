@@ -185,6 +185,27 @@ export const topicTag = sqliteTable(
   (t) => [uniqueIndex("topic_tag_unique").on(t.topicId, t.tagName)],
 );
 
+export const topicPrerequisite = sqliteTable(
+  "topic_prerequisite",
+  (d) => ({
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    prerequisiteTopicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+  }),
+  (t) => [
+    uniqueIndex("topic_prerequisite_unique").on(
+      t.topicId,
+      t.prerequisiteTopicId,
+    ),
+    index("topic_prerequisite_prereq_idx").on(t.prerequisiteTopicId),
+  ],
+);
+
 export const userTopicStatus = sqliteTable(
   "user_topic_status",
   (d) => ({
@@ -412,12 +433,30 @@ export const appSetting = sqliteTable("app_setting", (d) => ({
 export const topicRelations = relations(topic, ({ many }) => ({
   topicTags: many(topicTag),
   topicLinks: many(topicLink),
+  prerequisites: many(topicPrerequisite, { relationName: "topicPrereqs" }),
+  dependents: many(topicPrerequisite, { relationName: "prereqDependents" }),
   userTopicStatus: many(userTopicStatus),
   resources: many(resource),
   bookmarks: many(bookmark),
   teachingSessions: many(teachingSession),
   levelTransitions: many(levelTransition),
 }));
+
+export const topicPrerequisiteRelations = relations(
+  topicPrerequisite,
+  ({ one }) => ({
+    topic: one(topic, {
+      fields: [topicPrerequisite.topicId],
+      references: [topic.id],
+      relationName: "topicPrereqs",
+    }),
+    prerequisiteTopic: one(topic, {
+      fields: [topicPrerequisite.prerequisiteTopicId],
+      references: [topic.id],
+      relationName: "prereqDependents",
+    }),
+  }),
+);
 
 export const topicLinkRelations = relations(topicLink, ({ one, many }) => ({
   topic: one(topic, { fields: [topicLink.topicId], references: [topic.id] }),

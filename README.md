@@ -25,6 +25,8 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Feedback-linking review page with exact/fuzzy suggestions.
   - Optional deletion mode to also purge teaching-status history.
 - Sign-up deduplicates non-user teacher emails by claiming and converting records.
+- Topic detail shows "Related Topics" section with prerequisites and dependents.
+- Admin area includes a prerequisite network graph visualization (`/admin/prerequisite-graph`).
 
 ## Dev
 
@@ -36,17 +38,17 @@ pnpm dev
 
 ### Environment variables
 
-| Variable                | Description                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`          | SQLite connection string (default: `file:./db.sqlite`)                                                  |
-| `BETTER_AUTH_SECRET`    | Secret for Better Auth sessions (required in production)                                                |
-| `AFFINE_SHEETS_API_KEY` | Google API key with Sheets API enabled — needed by `db:sync` to extract hyperlinks from the spreadsheet |
+| Variable             | Description                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| `DATABASE_URL`       | SQLite connection string (default: `file:./db.sqlite`)           |
+| `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production)         |
+| `AIRTABLE_API_KEY`   | Airtable personal access token - needed by `db:sync` to import topics |
 
-To create an `AFFINE_SHEETS_API_KEY`: [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials), enable the **Google Sheets API**, then create an API key.
+To create an `AIRTABLE_API_KEY`: go to https://airtable.com/create/tokens, create a personal access token with `data.records:read` scope on the AFFINE Seminar base.
 
 ### Database
 
-Import data from https://docs.google.com/spreadsheets/d/16BG0Fw7mOOHJykBVLkeqPzlpdxgMMp1_YeSmgaFnKLc
+Import data from the Airtable base (Materials table, List view):
 
 ```sh
 pnpm db:sync

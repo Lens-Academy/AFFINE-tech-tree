@@ -12,72 +12,61 @@ function requiredEnv(name: string): string {
 }
 
 const DATABASE_URL = requiredEnv("DATABASE_URL");
-const AFFINE_SHEETS_API_KEY = requiredEnv("AFFINE_SHEETS_API_KEY");
+const AIRTABLE_API_KEY = requiredEnv("AIRTABLE_API_KEY");
 
 const client = createClient({ url: DATABASE_URL });
 const db = drizzle(client, { schema });
-const { tag, topic, topicTag, topicLink } = schema;
+const { tag, topic, topicTag, topicLink, topicPrerequisite } = schema;
 
-const SPREADSHEET_ID = "16BG0Fw7mOOHJykBVLkeqPzlpdxgMMp1_YeSmgaFnKLc";
+const AIRTABLE_BASE_ID = "app1JWwSscnpSUgNp";
+const AIRTABLE_TABLE_ID = "tblivpWMCQpFs0w7w";
+const AIRTABLE_VIEW_ID = "List";
 
-// Column indices in the spreadsheet (0-based)
-const COL = {
-  NAME: 0,
-  DESCRIPTION: 1,
-  LINKS: 2,
-  PREREQUISITES: 3,
-  TAGS: 4,
-} as const;
-
-type CellData = {
-  formattedValue?: string;
-  textFormatRuns?: Array<{
-    startIndex?: number;
-    format?: { link?: { uri?: string } };
-  }>;
+type AirtableRecord = {
+  id: string;
+  fields: Record<string, unknown>;
 };
 
-type SheetRow = { values?: CellData[] };
-
-/** Extract {title, url} pairs from a cell's text format runs. */
+/** Parse markdown-style links from Airtable rich text. */
 function extractLinks(
-  cell: CellData | undefined,
+  richText: string | undefined | null,
 ): Array<{ title: string; url: string | null }> {
-  const text = cell?.formattedValue?.trim();
-  if (!text) return [];
+  if (!richText?.trim()) return [];
 
-  const runs = cell?.textFormatRuns;
-  if (!runs || runs.length === 0) {
-    // No rich text — split by bullet/newline and return as plain titles
-    return splitBullets(text).map((t) => ({ title: t, url: null }));
-  }
-
-  // Build spans: each run applies from its startIndex to the next run's startIndex
-  const spans: Array<{ start: number; end: number; url: string | null }> = [];
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i]!;
-    const start = run.startIndex ?? 0;
-    const end =
-      i + 1 < runs.length
-        ? (runs[i + 1]!.startIndex ?? text.length)
-        : text.length;
-    const url = run.format?.link?.uri ?? null;
-    spans.push({ start, end, url });
-  }
-
-  // Group consecutive spans into link items
   const results: Array<{ title: string; url: string | null }> = [];
-  for (const span of spans) {
-    const chunk = text.slice(span.start, span.end);
-    if (span.url) {
-      const title = cleanTitle(chunk);
-      if (title) results.push({ title, url: span.url });
+  // Match markdown links: [title](url)
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  let lastEnd = 0;
+  const plainParts: string[] = [];
+
+  while ((match = linkRegex.exec(richText)) !== null) {
+    // Collect plain text before this link
+    if (match.index > lastEnd) {
+      plainParts.push(richText.slice(lastEnd, match.index));
     }
+    lastEnd = match.index + match[0].length;
+
+    const title = cleanTitle(match[1]!);
+    const url = match[2]!.trim();
+    if (title) results.push({ title, url });
   }
 
-  // If no runs had links, fall back to plain bullet splitting
+  // Remaining plain text after last link
+  if (lastEnd < richText.length) {
+    plainParts.push(richText.slice(lastEnd));
+  }
+
+  // If no markdown links found, split plain text as bullet items
   if (results.length === 0) {
-    return splitBullets(text).map((t) => ({ title: t, url: null }));
+    return splitBullets(richText).map((t) => ({ title: t, url: null }));
+  }
+
+  // Also pick up any plain-text bullet items that aren't part of links
+  for (const part of plainParts) {
+    for (const item of splitBullets(part)) {
+      if (item) results.push({ title: item, url: null });
+    }
   }
 
   return results;
@@ -97,52 +86,86 @@ function cleanTitle(s: string): string {
     .trim();
 }
 
-function cellText(row: SheetRow, col: number): string | null {
-  return row.values?.[col]?.formattedValue?.trim() ?? null;
+async function fetchAllRecords(): Promise<AirtableRecord[]> {
+  const allRecords: AirtableRecord[] = [];
+  let offset: string | undefined;
+
+  do {
+    const url = new URL(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}`,
+    );
+    url.searchParams.set("view", AIRTABLE_VIEW_ID);
+    if (offset) url.searchParams.set("offset", offset);
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Airtable API error ${res.status}: ${body}`);
+    }
+    const json: { records: AirtableRecord[]; offset?: string } =
+      await res.json();
+    allRecords.push(...json.records);
+    offset = json.offset;
+  } while (offset);
+
+  return allRecords;
 }
 
 async function main() {
-  const url = new URL(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`,
-  );
-  url.searchParams.set("ranges", "Hoja 1");
-  url.searchParams.set("includeGridData", "true");
-  url.searchParams.set(
-    "fields",
-    "sheets.data.rowData.values(formattedValue,textFormatRuns)",
-  );
-  url.searchParams.set("key", AFFINE_SHEETS_API_KEY);
+  const records = await fetchAllRecords();
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Sheets API error ${res.status}: ${body}`);
+  // Build record-id-to-name map for prerequisite resolution
+  const recordIdToName = new Map<string, string>();
+  for (const record of records) {
+    const name =
+      typeof record.fields.Name === "string" ? record.fields.Name.trim() : null;
+    if (name) {
+      recordIdToName.set(record.id, name);
+    }
   }
-  const json: { sheets: Array<{ data: Array<{ rowData?: SheetRow[] }> }> } =
-    await res.json();
-
-  const rows = json.sheets[0]?.data[0]?.rowData ?? [];
-  // Skip header row
-  const dataRows = rows.slice(1);
 
   let upserted = 0;
   let skipped = 0;
   let linkCount = 0;
 
+  // First pass: upsert topics, tags, links
   await db.transaction(async (tx) => {
-    for (let i = 0; i < dataRows.length; i++) {
-      const row = dataRows[i]!;
-      const rowNum = i + 2; // 1-based + header
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i]!;
+      const fields = record.fields;
+      const rowNum = i + 1;
 
-      const name = cellText(row, COL.NAME);
+      const name = typeof fields.Name === "string" ? fields.Name.trim() : null;
       if (!name) {
         skipped++;
         continue;
       }
 
-      const description = cellText(row, COL.DESCRIPTION);
-      const rawPrerequisites = cellText(row, COL.PREREQUISITES);
-      const rawTags = cellText(row, COL.TAGS);
+      const description =
+        typeof fields["Description+Relevance"] === "string"
+          ? fields["Description+Relevance"].trim() || null
+          : null;
+
+      // Tags: Airtable multi-select returns string[]
+      const rawTagsArray = Array.isArray(fields.Tags) ? fields.Tags : [];
+      const rawTags = rawTagsArray.join(", ");
+
+      // Prerequisites: Airtable linked records return string[] of record IDs
+      const prereqRecordIds = Array.isArray(fields.Prerequisites)
+        ? fields.Prerequisites.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : [];
+      const prereqNames = prereqRecordIds
+        .map((id) => recordIdToName.get(id))
+        .filter((n): n is string => !!n);
+      const rawPrerequisites = prereqNames.join(", ") || null;
+
+      // Resources: rich text (markdown)
+      const rawResources =
+        typeof fields.Resources === "string" ? fields.Resources : null;
 
       const existing = await tx.query.topic.findFirst({
         where: (t, { eq }) => eq(t.name, name),
@@ -178,7 +201,7 @@ async function main() {
       }
 
       // Tags
-      const tagNames = parseTags(rawTags ?? undefined);
+      const tagNames = parseTags(rawTags || undefined);
       for (const tagName of tagNames) {
         await tx
           .insert(tag)
@@ -192,8 +215,8 @@ async function main() {
           });
       }
 
-      // Links
-      const links = extractLinks(row.values?.[COL.LINKS]);
+      // Links from rich text Resources field
+      const links = extractLinks(rawResources);
       for (let pos = 0; pos < links.length; pos++) {
         const link = links[pos]!;
         await tx.insert(topicLink).values({
@@ -209,8 +232,48 @@ async function main() {
     }
   });
 
+  // Second pass: resolve prerequisite relationships (topics must all exist first)
+  let prereqCount = 0;
+  await db.transaction(async (tx) => {
+    // Clear all prerequisites first
+    await tx.delete(topicPrerequisite);
+
+    const allTopics = await tx.query.topic.findMany({
+      columns: { id: true, name: true },
+    });
+    const topicNameToId = new Map(allTopics.map((t) => [t.name, t.id]));
+
+    for (const record of records) {
+      const fields = record.fields;
+      const name = typeof fields.Name === "string" ? fields.Name.trim() : null;
+      if (!name) continue;
+
+      const topicId = topicNameToId.get(name);
+      if (topicId == null) continue;
+
+      const prereqRecordIds = Array.isArray(fields.Prerequisites)
+        ? fields.Prerequisites.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : [];
+
+      for (const prereqRecordId of prereqRecordIds) {
+        const prereqName = recordIdToName.get(prereqRecordId);
+        if (!prereqName) continue;
+        const prereqTopicId = topicNameToId.get(prereqName);
+        if (prereqTopicId == null || prereqTopicId === topicId) continue;
+
+        await tx
+          .insert(topicPrerequisite)
+          .values({ topicId, prerequisiteTopicId: prereqTopicId })
+          .onConflictDoNothing();
+        prereqCount++;
+      }
+    }
+  });
+
   console.log(
-    `Sync complete: ${upserted} topics upserted, ${linkCount} links, ${skipped} rows skipped`,
+    `Sync complete: ${upserted} topics upserted, ${linkCount} links, ${prereqCount} prerequisites, ${skipped} rows skipped`,
   );
 }
 

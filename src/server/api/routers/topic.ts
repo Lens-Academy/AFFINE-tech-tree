@@ -43,6 +43,20 @@ export const topicRouter = createTRPCRouter({
           topicLinks: {
             orderBy: (l, { asc }) => [asc(l.position)],
           },
+          prerequisites: {
+            with: {
+              prerequisiteTopic: {
+                columns: { id: true, name: true },
+              },
+            },
+          },
+          dependents: {
+            with: {
+              topic: {
+                columns: { id: true, name: true },
+              },
+            },
+          },
           resources: true,
         },
       });

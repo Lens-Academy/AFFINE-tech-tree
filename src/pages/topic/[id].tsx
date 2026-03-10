@@ -305,6 +305,36 @@ export default function TopicPage() {
                         </p>
                       )}
 
+                      {((topic.prerequisites &&
+                        topic.prerequisites.length > 0) ||
+                        (topic.dependents && topic.dependents.length > 0)) && (
+                        <section className="mb-6">
+                          <h2 className="mb-3 text-lg font-semibold text-zinc-100">
+                            Related Topics
+                          </h2>
+                          <div className="flex flex-wrap gap-1.5">
+                            {topic.prerequisites.map((p) => (
+                              <Link
+                                key={`pre-${p.prerequisiteTopic.id}`}
+                                href={`/topic/${p.prerequisiteTopic.id}`}
+                                className="rounded bg-zinc-800 px-2 py-0.5 text-sm text-orange-400 hover:bg-zinc-700 hover:text-orange-300"
+                              >
+                                {p.prerequisiteTopic.name}
+                              </Link>
+                            ))}
+                            {topic.dependents.map((d) => (
+                              <Link
+                                key={`dep-${d.topic.id}`}
+                                href={`/topic/${d.topic.id}`}
+                                className="rounded bg-zinc-800 px-2 py-0.5 text-sm text-orange-400 hover:bg-zinc-700 hover:text-orange-300"
+                              >
+                                {d.topic.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
                       <div id="feedback" />
                       {session?.user && !Number.isNaN(id) && (
                         <FeedbackSection
