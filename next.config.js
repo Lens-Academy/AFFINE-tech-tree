@@ -15,16 +15,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const config = {
   reactStrictMode: true,
 
-  /**
-   * If you are using `appDir` then you must comment the below `i18n` config out.
-   *
-   * @see https://github.com/vercel/next.js/issues/41980
-   */
-  i18n: {
-    locales: ["en"],
-    defaultLocale: "en",
-  },
-
   webpack: (webpackConfig) => {
     if (process.env.BUILDING_FOR_CF) {
       // Swap all server db entry specifiers to db/cf at CF build time so

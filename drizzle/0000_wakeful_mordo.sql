@@ -152,6 +152,15 @@ CREATE TABLE `topic_link` (
 );
 --> statement-breakpoint
 CREATE INDEX `topic_link_topic_idx` ON `topic_link` (`topicId`);--> statement-breakpoint
+CREATE TABLE `topic_prerequisite` (
+	`topicId` integer NOT NULL,
+	`prerequisiteTopicId` integer NOT NULL,
+	FOREIGN KEY (`topicId`) REFERENCES `topic`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`prerequisiteTopicId`) REFERENCES `topic`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `topic_prerequisite_unique` ON `topic_prerequisite` (`topicId`,`prerequisiteTopicId`);--> statement-breakpoint
+CREATE INDEX `topic_prerequisite_prereq_idx` ON `topic_prerequisite` (`prerequisiteTopicId`);--> statement-breakpoint
 CREATE TABLE `topic_tag` (
 	`topicId` integer NOT NULL,
 	`tagName` text(255) NOT NULL,
@@ -167,6 +176,10 @@ CREATE TABLE `user` (
 	`isNonUser` integer DEFAULT false NOT NULL,
 	`emailVerified` integer DEFAULT false,
 	`image` text(255),
+	`availableForTutoring` integer DEFAULT false NOT NULL,
+	`latitude` real,
+	`longitude` real,
+	`locationUpdatedAt` integer,
 	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
 	`updatedAt` integer
 );

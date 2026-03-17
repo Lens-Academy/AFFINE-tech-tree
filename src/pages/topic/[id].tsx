@@ -9,6 +9,7 @@ import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { AuthHeader } from "~/components/AuthHeader";
+import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
 import { CommentIcon } from "~/components/CommentIcon";
 import {
@@ -196,12 +197,15 @@ export default function TopicPage() {
       <main className="h-screen overflow-hidden bg-zinc-950">
         <header className="border-b border-zinc-800/80 bg-zinc-950/95">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-2 lg:px-4">
-            <Link
-              href="/"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              AFFINE Tech Tree
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/"
+                className="text-sm text-zinc-500 hover:text-zinc-300"
+              >
+                AFFINE Tech Tree
+              </Link>
+              {session?.user && <AvailabilityToggle />}
+            </div>
             <AuthHeader />
           </div>
         </header>
@@ -460,6 +464,23 @@ export default function TopicPage() {
                                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
                                       {getLevelLabel(t.level)}
                                     </span>
+                                    {t.available && (
+                                      <span className="rounded bg-orange-500/20 px-2 py-0.5 text-xs text-orange-400">
+                                        Available
+                                      </span>
+                                    )}
+                                    {t.available &&
+                                      t.latitude != null &&
+                                      t.longitude != null && (
+                                        <a
+                                          href={`https://www.google.com/maps/dir/?api=1&destination=${t.latitude},${t.longitude}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-orange-400 underline hover:text-orange-300"
+                                        >
+                                          Navigate
+                                        </a>
+                                      )}
                                   </div>
                                 </li>
                               ))}

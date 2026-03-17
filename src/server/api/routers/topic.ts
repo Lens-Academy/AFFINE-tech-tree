@@ -72,14 +72,28 @@ export const topicRouter = createTRPCRouter({
             inArray(s.level, [...TEACHER_LEVELS]),
           ),
         with: {
-          user: { columns: { id: true, name: true } },
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              availableForTutoring: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
         },
       });
-      return rows.map((r) => ({
-        userId: r.user.id,
-        name: r.user.name,
-        level: r.level,
-      }));
+      return rows.map((r) => {
+        const isAvailable = r.user.availableForTutoring;
+        return {
+          userId: r.user.id,
+          name: r.user.name,
+          level: r.level,
+          available: isAvailable,
+          latitude: isAvailable ? r.user.latitude : null,
+          longitude: isAvailable ? r.user.longitude : null,
+        };
+      });
     }),
 
   submitTopicFreeTextSuggestion: protectedProcedure

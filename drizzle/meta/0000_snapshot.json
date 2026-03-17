@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f5e3fd50-fe6c-497f-9bac-72c62138bde3",
+  "id": "389986a7-1d20-44db-b6f4-bd983058b945",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -1092,6 +1092,73 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "topic_prerequisite": {
+      "name": "topic_prerequisite",
+      "columns": {
+        "topicId": {
+          "name": "topicId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "prerequisiteTopicId": {
+          "name": "prerequisiteTopicId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "topic_prerequisite_unique": {
+          "name": "topic_prerequisite_unique",
+          "columns": [
+            "topicId",
+            "prerequisiteTopicId"
+          ],
+          "isUnique": true
+        },
+        "topic_prerequisite_prereq_idx": {
+          "name": "topic_prerequisite_prereq_idx",
+          "columns": [
+            "prerequisiteTopicId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "topic_prerequisite_topicId_topic_id_fk": {
+          "name": "topic_prerequisite_topicId_topic_id_fk",
+          "tableFrom": "topic_prerequisite",
+          "tableTo": "topic",
+          "columnsFrom": [
+            "topicId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "topic_prerequisite_prerequisiteTopicId_topic_id_fk": {
+          "name": "topic_prerequisite_prerequisiteTopicId_topic_id_fk",
+          "tableFrom": "topic_prerequisite",
+          "tableTo": "topic",
+          "columnsFrom": [
+            "prerequisiteTopicId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "topic_tag": {
       "name": "topic_tag",
       "columns": {
@@ -1195,6 +1262,35 @@
         "image": {
           "name": "image",
           "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "availableForTutoring": {
+          "name": "availableForTutoring",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "locationUpdatedAt": {
+          "name": "locationUpdatedAt",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

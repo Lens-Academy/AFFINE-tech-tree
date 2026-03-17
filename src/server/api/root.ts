@@ -1,5 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { adminRouter } from "~/server/api/routers/admin";
+import { availabilityRouter } from "~/server/api/routers/availability";
 import { bookmarkRouter } from "~/server/api/routers/bookmark";
 import { feedbackRouter } from "~/server/api/routers/feedback";
 import { topicRouter } from "~/server/api/routers/topic";
@@ -12,6 +13,7 @@ import { userStatusRouter } from "~/server/api/routers/userStatus";
  */
 export const appRouter = createTRPCRouter({
   admin: adminRouter,
+  availability: availabilityRouter,
   bookmark: bookmarkRouter,
   feedback: feedbackRouter,
   topic: topicRouter,

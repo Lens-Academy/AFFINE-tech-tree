@@ -1,6 +1,14 @@
 import Head from "next/head";
 import { AuthHeader } from "~/components/AuthHeader";
+import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { TopicList } from "~/components/TopicList";
+import { authClient } from "~/server/better-auth/client";
+
+function AvailabilityToggleIfLoggedIn() {
+  const { data: session } = authClient.useSession();
+  if (!session?.user) return null;
+  return <AvailabilityToggle />;
+}
 
 export default function Home() {
   return (
@@ -15,10 +23,13 @@ export default function Home() {
       </Head>
       <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-4xl">
-          <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-15% bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl">
-              AFFINE Tech Tree
-            </h1>
+          <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-baseline sm:justify-between">
+            <div className="flex items-baseline gap-4">
+              <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-15% bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl">
+                AFFINE Tech Tree
+              </h1>
+              <AvailabilityToggleIfLoggedIn />
+            </div>
             <AuthHeader />
           </header>
 
