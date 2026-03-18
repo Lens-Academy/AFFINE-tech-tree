@@ -4,6 +4,13 @@ import { z } from "zod";
 
 import { auth } from "~/server/better-auth";
 import {
+  ALLOW_NEW_USERS_WITHOUT_APPROVAL_KEY,
+  getAllowNewUsersWithoutApproval,
+  isAdminUser,
+  isUserApproved,
+} from "~/server/approvalPolicy";
+import {
+  authenticatedProcedure,
   createTRPCRouter,
   protectedProcedure,
   publicProcedure,
@@ -12,9 +19,11 @@ import type { Db } from "~/server/db";
 import { normalizeUrl } from "~/server/urlUtils";
 import {
   adminActionLog,
+  account,
   appSetting,
   user,
   userRole,
+  session,
   userTopicStatus,
   levelTransition,
   bookmark,
@@ -50,24 +59,13 @@ function similarityScore(haystack: string, needle: string): number {
   return overlap / Math.max(aTokens.size, bTokens.size);
 }
 
-function parseBooleanSetting(raw: string | undefined, fallback: boolean) {
-  if (raw == null) return fallback;
-  return raw === "true";
-}
-
-async function isAdminUser(db: Db, userId: string) {
-  const role = await db.query.userRole.findFirst({
-    where: (r, { and, eq }) => and(eq(r.userId, userId), eq(r.role, "admin")),
-  });
-  return !!role;
-}
-
 async function getHonorSystemEnabled(db: Db) {
   const row = await db.query.appSetting.findFirst({
     where: (s, { eq }) => eq(s.key, ADMIN_HONOR_SYSTEM_KEY),
     columns: { value: true },
   });
-  return parseBooleanSetting(row?.value, true);
+  if (row?.value == null) return true;
+  return row.value === "true";
 }
 
 async function assertAdmin(ctx: { db: Db; session: { user: { id: string } } }) {
@@ -98,7 +96,7 @@ async function logAdminAction(ctx: {
 }
 
 export const adminRouter = createTRPCRouter({
-  getAdminStatus: protectedProcedure.query(async ({ ctx }) => {
+  getAdminStatus: authenticatedProcedure.query(async ({ ctx }) => {
     const [adminCountRow] = await ctx.db
       .select({ value: count() })
       .from(userRole)
@@ -107,15 +105,24 @@ export const adminRouter = createTRPCRouter({
 
     const isAdmin = await isAdminUser(ctx.db, ctx.session.user.id);
     const honorSystemEnabled = await getHonorSystemEnabled(ctx.db);
+    const allowNewUsersWithoutApproval = await getAllowNewUsersWithoutApproval(
+      ctx.db,
+    );
+    const isApproved = await isUserApproved(ctx.db, ctx.session.user.id);
+    const canViewSettings = isApproved || isAdmin;
     return {
       isAdmin,
+      isApproved,
       hasAnyAdmin: adminCount > 0,
-      honorSystemEnabled,
-      canSelfPromote: !isAdmin && honorSystemEnabled,
+      honorSystemEnabled: canViewSettings ? honorSystemEnabled : false,
+      allowNewUsersWithoutApproval: canViewSettings
+        ? allowNewUsersWithoutApproval
+        : false,
+      canSelfPromote: !isAdmin && isApproved && honorSystemEnabled,
     };
   }),
 
-  bootstrapFirstAdmin: protectedProcedure.mutation(async ({ ctx }) => {
+  bootstrapFirstAdmin: authenticatedProcedure.mutation(async ({ ctx }) => {
     const [adminCountRow] = await ctx.db
       .select({ value: count() })
       .from(userRole)
@@ -127,6 +134,11 @@ export const adminRouter = createTRPCRouter({
         message: "Admin role already bootstrapped",
       });
     }
+
+    await ctx.db
+      .update(user)
+      .set({ isApproved: true })
+      .where(eq(user.id, ctx.session.user.id));
 
     await ctx.db.insert(userRole).values({
       userId: ctx.session.user.id,
@@ -201,6 +213,35 @@ export const adminRouter = createTRPCRouter({
       return { ok: true };
     }),
 
+  setAllowNewUsersWithoutApproval: protectedProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      await ctx.db
+        .insert(appSetting)
+        .values({
+          key: ALLOW_NEW_USERS_WITHOUT_APPROVAL_KEY,
+          value: input.enabled ? "true" : "false",
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: appSetting.key,
+          set: {
+            value: input.enabled ? "true" : "false",
+            updatedAt: new Date(),
+          },
+        });
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "set_allow_new_users_without_approval",
+        targetType: "app_setting",
+        targetId: ALLOW_NEW_USERS_WITHOUT_APPROVAL_KEY,
+        payload: { enabled: input.enabled },
+      });
+      return { ok: true };
+    }),
+
   listUsersForAdmin: protectedProcedure.query(async ({ ctx }) => {
     await assertAdmin(ctx);
     const users = await ctx.db.query.user.findMany({
@@ -209,6 +250,7 @@ export const adminRouter = createTRPCRouter({
         name: true,
         email: true,
         isNonUser: true,
+        isApproved: true,
       },
       with: {
         roles: {
@@ -216,16 +258,51 @@ export const adminRouter = createTRPCRouter({
           where: (r, { eq }) => eq(r.role, "admin"),
         },
       },
-      orderBy: (u, { asc }) => [asc(u.name), asc(u.email)],
+      orderBy: (u, { asc }) => [asc(u.createdAt), asc(u.id)],
     });
     return users.map((u) => ({
       id: u.id,
       name: u.name,
       email: u.email,
       isNonUser: u.isNonUser,
+      isApproved: u.isApproved,
       isAdmin: u.roles.length > 0,
     }));
   }),
+
+  setUserApproval: protectedProcedure
+    .input(z.object({ userId: z.string().min(1), isApproved: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      if (input.userId === ctx.session.user.id && !input.isApproved) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Admins cannot revoke their own approval",
+        });
+      }
+      const existingUser = await ctx.db.query.user.findFirst({
+        where: (u, { eq }) => eq(u.id, input.userId),
+        columns: { id: true },
+      });
+      if (!existingUser) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      await ctx.db
+        .update(user)
+        .set({ isApproved: input.isApproved })
+        .where(eq(user.id, input.userId));
+
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "set_user_approval",
+        targetType: "user",
+        targetId: input.userId,
+        payload: { isApproved: input.isApproved },
+      });
+      return { ok: true };
+    }),
 
   setUserAdmin: protectedProcedure
     .input(z.object({ userId: z.string().min(1), isAdmin: z.boolean() }))
@@ -279,6 +356,85 @@ export const adminRouter = createTRPCRouter({
         targetType: "user_role",
         targetId: input.userId,
         payload: { isAdmin: input.isAdmin },
+      });
+      return { ok: true };
+    }),
+
+  deleteUserByAdmin: protectedProcedure
+    .input(z.object({ userId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      if (input.userId === ctx.session.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Admins cannot delete their own account from this action",
+        });
+      }
+
+      const existingUser = await ctx.db.query.user.findFirst({
+        where: (u, { eq }) => eq(u.id, input.userId),
+        columns: { id: true, email: true },
+      });
+      if (!existingUser) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      const targetIsAdmin = await ctx.db.query.userRole.findFirst({
+        where: (r, { and, eq }) =>
+          and(eq(r.userId, input.userId), eq(r.role, "admin")),
+        columns: { id: true },
+      });
+      if (targetIsAdmin) {
+        const [adminCountRow] = await ctx.db
+          .select({ value: count() })
+          .from(userRole)
+          .where(eq(userRole.role, "admin"));
+        const adminCount = adminCountRow?.value ?? 0;
+        const honorSystemEnabled = await getHonorSystemEnabled(ctx.db);
+        if (adminCount <= 1 && !honorSystemEnabled) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Cannot delete the last admin while honor system is disabled",
+          });
+        }
+      }
+
+      await ctx.db
+        .update(adminActionLog)
+        .set({ actorUserId: null })
+        .where(eq(adminActionLog.actorUserId, input.userId));
+      await ctx.db
+        .update(feedbackItem)
+        .set({ referencedUserId: null })
+        .where(eq(feedbackItem.referencedUserId, input.userId));
+      await ctx.db.delete(feedbackItem).where(eq(feedbackItem.userId, input.userId));
+      await ctx.db
+        .delete(teachingSession)
+        .where(eq(teachingSession.teacherId, input.userId));
+      await ctx.db
+        .delete(teachingSession)
+        .where(eq(teachingSession.learnerId, input.userId));
+      await ctx.db.delete(resource).where(eq(resource.submittedById, input.userId));
+      await ctx.db.delete(bookmark).where(eq(bookmark.userId, input.userId));
+      await ctx.db
+        .delete(levelTransition)
+        .where(eq(levelTransition.userId, input.userId));
+      await ctx.db
+        .delete(userTopicStatus)
+        .where(eq(userTopicStatus.userId, input.userId));
+      await ctx.db.delete(userRole).where(eq(userRole.userId, input.userId));
+      await ctx.db.delete(session).where(eq(session.userId, input.userId));
+      await ctx.db.delete(account).where(eq(account.userId, input.userId));
+      await ctx.db.delete(user).where(eq(user.id, input.userId));
+
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "delete_user",
+        targetType: "user",
+        targetId: input.userId,
+        payload: { email: existingUser.email },
       });
       return { ok: true };
     }),
@@ -1060,6 +1216,10 @@ export const adminRouter = createTRPCRouter({
           headers: new Headers(),
         });
         createdUserId = signUpResult.user.id;
+        await ctx.db
+          .update(user)
+          .set({ isApproved: true })
+          .where(eq(user.id, createdUserId));
       } catch (error) {
         await ctx.db
           .update(user)

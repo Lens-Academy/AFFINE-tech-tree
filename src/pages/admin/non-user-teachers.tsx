@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useAppMutation } from "~/hooks/useAppMutation";
-import { authClient } from "~/server/better-auth/client";
 import { api } from "~/utils/api";
 
 type TopicOption = { id: number; name: string };
@@ -22,13 +22,13 @@ type DeleteTeacherMutationOptions = Exclude<
 >;
 
 export default function NonUserTeachersAdminPage() {
-  const { data: session, isPending } = authClient.useSession();
+  const { viewerUser, isPending } = useViewerAccess();
   const utils = api.useUtils();
   const adminStatus = api.admin.getAdminStatus.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!viewerUser,
   });
   const teachers = api.admin.listNonUserTeachers.useQuery(undefined, {
-    enabled: !!session?.user && !!adminStatus.data?.isAdmin,
+    enabled: !!viewerUser && !!adminStatus.data?.isAdmin,
   });
 
   const [name, setName] = useState("");
@@ -93,17 +93,17 @@ export default function NonUserTeachersAdminPage() {
           </h1>
 
           {isPending && <p className="text-zinc-500">Loading session…</p>}
-          {!isPending && !session?.user && (
+          {!isPending && !viewerUser && (
             <p className="text-zinc-400">
               Please sign in to access admin features.
             </p>
           )}
 
-          {session?.user && adminStatus.data && !adminStatus.data.isAdmin && (
+          {viewerUser && adminStatus.data && !adminStatus.data.isAdmin && (
             <p className="text-zinc-400">Admin access required.</p>
           )}
 
-          {session?.user && adminStatus.data?.isAdmin && (
+          {viewerUser && adminStatus.data?.isAdmin && (
             <div className="space-y-6">
               <section className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
                 <h2 className="mb-3 text-lg font-semibold text-zinc-100">

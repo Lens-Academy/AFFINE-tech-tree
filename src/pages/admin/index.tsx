@@ -2,7 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { AuthHeader } from "~/components/AuthHeader";
 import { useAppMutation } from "~/hooks/useAppMutation";
-import { authClient } from "~/server/better-auth/client";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api } from "~/utils/api";
 
 type BootstrapMutationOptions = Exclude<
@@ -17,14 +17,22 @@ type SetHonorSystemMutationOptions = Exclude<
   Parameters<typeof api.admin.setHonorSystemEnabled.useMutation>[0],
   undefined
 >;
+type SetAllowNewUsersWithoutApprovalMutationOptions = Exclude<
+  Parameters<typeof api.admin.setAllowNewUsersWithoutApproval.useMutation>[0],
+  undefined
+>;
+type SetUserApprovalMutationOptions = Exclude<
+  Parameters<typeof api.admin.setUserApproval.useMutation>[0],
+  undefined
+>;
 export default function AdminHomePage() {
-  const { data: session, isPending } = authClient.useSession();
+  const { rawUser, isPending } = useViewerAccess();
   const utils = api.useUtils();
   const status = api.admin.getAdminStatus.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!rawUser,
   });
   const users = api.admin.listUsersForAdmin.useQuery(undefined, {
-    enabled: !!session?.user && !!status.data?.isAdmin,
+    enabled: !!rawUser && !!status.data?.isAdmin,
   });
   const bootstrap = useAppMutation(
     (opts: BootstrapMutationOptions) =>
@@ -50,6 +58,20 @@ export default function AdminHomePage() {
       refresh: [() => utils.admin.getAdminStatus.invalidate()],
     },
   );
+  const setAllowNewUsersWithoutApproval = useAppMutation(
+    (opts: SetAllowNewUsersWithoutApprovalMutationOptions) =>
+      api.admin.setAllowNewUsersWithoutApproval.useMutation(opts),
+    {
+      refresh: [() => utils.admin.getAdminStatus.invalidate()],
+    },
+  );
+  const setUserApproval = useAppMutation(
+    (opts: SetUserApprovalMutationOptions) =>
+      api.admin.setUserApproval.useMutation(opts),
+    {
+      refresh: [() => utils.admin.listUsersForAdmin.invalidate()],
+    },
+  );
 
   return (
     <>
@@ -70,13 +92,13 @@ export default function AdminHomePage() {
 
           <h1 className="mb-4 text-3xl font-bold text-zinc-100">Admin</h1>
           {isPending && <p className="text-zinc-500">Loading session…</p>}
-          {!isPending && !session?.user && (
+          {!isPending && !rawUser && (
             <p className="text-zinc-400">
               Please sign in to access admin features.
             </p>
           )}
 
-          {session?.user && status.data && (
+          {rawUser && status.data && (
             <div className="space-y-4">
               {!status.data.hasAnyAdmin && (
                 <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
@@ -154,6 +176,33 @@ export default function AdminHomePage() {
                   </div>
 
                   <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-zinc-200">
+                          Allow new users without approval
+                        </h2>
+                        <p className="text-sm text-zinc-500">
+                          When disabled, new self-created accounts must be
+                          approved by an admin before they can use features.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={status.data.allowNewUsersWithoutApproval}
+                          onChange={(e) =>
+                            setAllowNewUsersWithoutApproval.mutate({
+                              enabled: e.target.checked,
+                            })
+                          }
+                          disabled={setAllowNewUsersWithoutApproval.isPending}
+                        />
+                        Enabled
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <h2 className="text-zinc-200">Admin honor system</h2>
@@ -195,13 +244,33 @@ export default function AdminHomePage() {
                                 <div className="truncate text-xs text-zinc-500">
                                   {u.email}
                                   {u.isNonUser ? " · non-user" : ""}
+                                  {!u.isApproved ? " · waiting approval" : ""}
                                 </div>
                               </div>
-                              {u.isAdmin && (
-                                <span className="ml-3 text-xs text-orange-400">
-                                  Admin
-                                </span>
-                              )}
+                              <div className="ml-3 flex items-center gap-2">
+                                {!u.isApproved && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setUserApproval.mutate({
+                                        userId: u.id,
+                                        isApproved: true,
+                                      });
+                                    }}
+                                    disabled={setUserApproval.isPending}
+                                    className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
+                                {u.isAdmin && (
+                                  <span className="text-xs text-orange-400">
+                                    Admin
+                                  </span>
+                                )}
+                              </div>
                             </Link>
                           </li>
                         ))}

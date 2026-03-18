@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { useAppMutation } from "~/hooks/useAppMutation";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
-import { authClient } from "~/server/better-auth/client";
 import { type UnderstandingLevel } from "~/shared/understandingLevels";
 import { api } from "~/utils/api";
 import { TopicCard } from "./TopicCard";
@@ -27,16 +27,16 @@ export function TopicList() {
   const [bookmarkUpdatingTopicId, setBookmarkUpdatingTopicId] = useState<
     number | null
   >(null);
-  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
   const { data: tags } = api.topic.listTags.useQuery();
   const { data: statuses, isFetched: statusesFetched } =
     api.userStatus.getAll.useQuery(undefined, {
-      enabled: !!session?.user,
+      enabled: !!viewerUser,
     });
   const { data: bookmarkedIds, isFetched: bookmarksFetched } =
     api.bookmark.getAll.useQuery(undefined, {
-      enabled: !!session?.user,
+      enabled: !!viewerUser,
     });
   const utils = api.useUtils();
   const bookmarkSet = useAppMutation(
@@ -94,9 +94,9 @@ export function TopicList() {
     [allTopicsList, bookmarkedSet, serverStatusByTopic],
   );
   const initialSortReady =
-    !isLoading && (!session?.user || (statusesFetched && bookmarksFetched));
+    !isLoading && (!viewerUser || (statusesFetched && bookmarksFetched));
   useEffect(() => {
-    if (!session?.user) {
+    if (!viewerUser) {
       setInitialSortApplied(false);
       setTopicOrder([]);
       return;
@@ -113,7 +113,7 @@ export function TopicList() {
   }, [
     initialSortReady,
     initialSortApplied,
-    session?.user,
+    viewerUser,
     allTopicsList,
     bookmarkedSet,
     serverStatusByTopic,
@@ -121,7 +121,7 @@ export function TopicList() {
   ]);
   const sortDirty = initialSortApplied && currentSortKey !== lastAppliedSortKey;
   const shouldHoldForInitialSort =
-    sessionPending || (!!session?.user && !initialSortApplied);
+    viewerPending || (!!viewerUser && !initialSortApplied);
   const topicsById = useMemo(
     () => new Map(allTopicsList.map((topic) => [topic.id, topic])),
     [allTopicsList],
@@ -213,7 +213,7 @@ export function TopicList() {
                       setStatus.mutate({ topicId: t.id, level });
                     }
                   }}
-                  canEdit={!!session?.user}
+                  canEdit={!!viewerUser}
                   bookmarked={bookmarkedSet.has(t.id)}
                   onBookmarkToggle={() => {
                     if (bookmarkSet.isPending) return;
@@ -222,7 +222,7 @@ export function TopicList() {
                       bookmarked: !bookmarkedSet.has(t.id),
                     });
                   }}
-                  canBookmark={!!session?.user}
+                  canBookmark={!!viewerUser}
                   bookmarkDisabled={
                     bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
                   }

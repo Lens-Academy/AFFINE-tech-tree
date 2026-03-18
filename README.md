@@ -28,6 +28,8 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - DB-backed admin role checks (no env-based admin list).
   - Bootstrap flow for first admin user.
   - Honor system toggle for self-service admin promotion.
+  - Toggle to require admin approval for new self-created accounts.
+  - Pending users are blocked from protected features until approved.
   - User list links to user profile pages (admin can view/edit any user).
   - CRUD for non-user teachers with topic assignments.
   - Feedback-linking review page with exact/fuzzy suggestions.

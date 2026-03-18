@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
 import { useAppMutation } from "~/hooks/useAppMutation";
-import { authClient } from "~/server/better-auth/client";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api, type RouterOutputs } from "~/utils/api";
 
 type Candidate = RouterOutputs["admin"]["listFeedbackLinkCandidates"][number];
@@ -37,7 +37,7 @@ function extractEmail(value: string): string {
 }
 
 export default function FeedbackLinkingAdminPage() {
-  const { data: session, isPending } = authClient.useSession();
+  const { viewerUser, isPending } = useViewerAccess();
   const utils = api.useUtils();
   const [mutationMessage, setMutationMessage] = useState<{
     type: "success" | "error";
@@ -53,10 +53,10 @@ export default function FeedbackLinkingAdminPage() {
     setMutationMessage({ type: "error", text });
 
   const status = api.admin.getAdminStatus.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!viewerUser,
   });
   const candidates = api.admin.listFeedbackLinkCandidates.useQuery(undefined, {
-    enabled: !!session?.user && !!status.data?.isAdmin,
+    enabled: !!viewerUser && !!status.data?.isAdmin,
   });
   const applySuggestion = useAppMutation(
     (opts: ApplySuggestionMutationOptions) =>
@@ -176,16 +176,16 @@ export default function FeedbackLinkingAdminPage() {
             Free-text feedback management
           </h1>
           {isPending && <p className="text-zinc-500">Loading session…</p>}
-          {!isPending && !session?.user && (
+          {!isPending && !viewerUser && (
             <p className="text-zinc-400">
               Please sign in to access admin features.
             </p>
           )}
-          {session?.user && status.data && !status.data.isAdmin && (
+          {viewerUser && status.data && !status.data.isAdmin && (
             <p className="text-zinc-400">Admin access required.</p>
           )}
 
-          {session?.user && status.data?.isAdmin && (
+          {viewerUser && status.data?.isAdmin && (
             <>
               <p className="mb-4 text-sm text-zinc-500">
                 Deduplicate free-text feedback items:

@@ -13,6 +13,7 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 
 import { auth } from "~/server/better-auth";
+import { isUserApproved } from "~/server/approvalPolicy";
 import { type Session } from "~/server/better-auth/config";
 import { db } from "~/server/db";
 
@@ -146,6 +147,25 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
 /**
+ * Authenticated (signed-in) procedure
+ *
+ * Requires a valid session but does not enforce approval status.
+ * Use sparingly for bootstrap/recovery flows.
+ */
+export const authenticatedProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(({ ctx, next }) => {
+    if (!ctx.session?.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+    return next({
+      ctx: {
+        session: { ...ctx.session, user: ctx.session.user },
+      },
+    });
+  });
+
+/**
  * Protected (authenticated) procedure
  *
  * If you want a query or mutation to ONLY be accessible to logged in users, use this. It verifies
@@ -155,14 +175,26 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  */
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
-  .use(({ ctx, next }) => {
-    if (!ctx.session?.user) {
+  .use(async ({ ctx, next }) => {
+    const session = ctx.session;
+    if (!session?.user) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
+
+    // Approval status currently lives in DB, so protected procedures do a fast
+    // per-request read until we introduce session-side caching/invalidation.
+    const approved = await isUserApproved(ctx.db, session.user.id);
+    if (!approved) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Your account is waiting for admin approval",
+      });
+    }
+
     return next({
       ctx: {
         // infers the `session` as non-nullable
-        session: { ...ctx.session, user: ctx.session.user },
+        session: { ...session, user: session.user },
       },
     });
   });

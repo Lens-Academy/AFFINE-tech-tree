@@ -15,7 +15,7 @@ import {
   UNDERSTANDING_LEVEL_LABELS,
 } from "~/shared/understandingLevels";
 import { AuthHeader } from "~/components/AuthHeader";
-import { authClient } from "~/server/better-auth/client";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api, type RouterOutputs } from "~/utils/api";
 
 const ADMIN_FEEDBACK_SIDEBAR_COLLAPSED_KEY =
@@ -262,18 +262,18 @@ export default function AdminFeedbackPage() {
       : NaN;
   const selectedTopicId = Number.isNaN(topicIdParam) ? null : topicIdParam;
 
-  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const { viewerUser, isPending: sessionPending } = useViewerAccess();
   const status = api.admin.getAdminStatus.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!viewerUser,
   });
   const topicStats = api.admin.adminFeedbackTopicStats.useQuery(undefined, {
-    enabled: !!session?.user && !!status.data?.isAdmin,
+    enabled: !!viewerUser && !!status.data?.isAdmin,
   });
   const transitions = api.admin.adminFeedbackByTopic.useQuery(
     { topicId: selectedTopicId! },
     {
       enabled:
-        !!session?.user && !!status.data?.isAdmin && selectedTopicId != null,
+        !!viewerUser && !!status.data?.isAdmin && selectedTopicId != null,
     },
   );
 
@@ -325,7 +325,7 @@ export default function AdminFeedbackPage() {
   };
 
   const isAdmin = status.data?.isAdmin ?? false;
-  const showContent = session?.user && isAdmin;
+  const showContent = viewerUser && isAdmin;
 
   return (
     <>
@@ -350,12 +350,12 @@ export default function AdminFeedbackPage() {
             hasLoadedSidebarPref ? "md:visible" : "md:invisible"
           }`}
         >
-          {!session?.user && !sessionPending && (
+          {!viewerUser && !sessionPending && (
             <div className="flex h-full items-center justify-center">
               <p className="text-zinc-500">Please sign in.</p>
             </div>
           )}
-          {session?.user && !isAdmin && status.data !== undefined && (
+          {viewerUser && !isAdmin && status.data !== undefined && (
             <div className="flex h-full items-center justify-center">
               <p className="text-zinc-500">Admin access required.</p>
             </div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
-import { authClient } from "~/server/better-auth/client";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api } from "~/utils/api";
 
 type Node = { id: number; name: string; x: number; y: number };
@@ -206,9 +206,9 @@ function edgePath(from: Node, to: Node, curvature: number): string {
 }
 
 export default function PrerequisiteGraphPage() {
-  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const { viewerUser, isPending: sessionPending } = useViewerAccess();
   const { data: adminStatus } = api.admin.getAdminStatus.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!viewerUser,
   });
   const { data: graph, isLoading } = api.admin.prerequisiteGraph.useQuery(
     undefined,
@@ -357,12 +357,12 @@ export default function PrerequisiteGraphPage() {
           {sessionPending && (
             <p className="text-zinc-500">Loading session...</p>
           )}
-          {!sessionPending && !session?.user && (
+          {!sessionPending && !viewerUser && (
             <p className="text-zinc-400">
               Please sign in to access admin features.
             </p>
           )}
-          {session?.user && adminStatus && !adminStatus.isAdmin && (
+          {viewerUser && adminStatus && !adminStatus.isAdmin && (
             <p className="text-zinc-400">Admin access required.</p>
           )}
           {isLoading && adminStatus?.isAdmin && (

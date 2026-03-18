@@ -1,11 +1,12 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { useAppMutation } from "~/hooks/useAppMutation";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { authClient } from "~/server/better-auth/client";
 import { HELPFULNESS_RATING_LABELS } from "~/shared/feedbackTypes";
 import { formatDate } from "~/shared/formatDate";
@@ -19,6 +20,18 @@ type UpdateProfileMutationOptions = Exclude<
 
 type BecomeAdminMutationOptions = Exclude<
   Parameters<typeof api.admin.becomeAdmin.useMutation>[0],
+  undefined
+>;
+type DeleteUserMutationOptions = Exclude<
+  Parameters<typeof api.admin.deleteUserByAdmin.useMutation>[0],
+  undefined
+>;
+type SetUserAdminMutationOptions = Exclude<
+  Parameters<typeof api.admin.setUserAdmin.useMutation>[0],
+  undefined
+>;
+type SetUserApprovalMutationOptions = Exclude<
+  Parameters<typeof api.admin.setUserApproval.useMutation>[0],
   undefined
 >;
 
@@ -372,12 +385,12 @@ function FeedbackAboutUser({
 export default function UserProfilePage() {
   const router = useRouter();
   const userId = router.query.id as string | undefined;
-  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const utils = api.useUtils();
 
   const profile = api.userProfile.get.useQuery(
     { userId: userId! },
-    { enabled: !!userId && !!session?.user },
+    { enabled: !!userId && !!viewerUser },
   );
 
   const updateProfile = useAppMutation(
@@ -398,9 +411,44 @@ export default function UserProfilePage() {
       ],
     },
   );
+  const deleteUser = useAppMutation(
+    (opts: DeleteUserMutationOptions) =>
+      api.admin.deleteUserByAdmin.useMutation(opts),
+    {
+      refresh: [
+        () => utils.admin.getAdminStatus.invalidate(),
+        () => utils.admin.listUsersForAdmin.invalidate(),
+      ],
+    },
+  );
+  const setUserAdmin = useAppMutation(
+    (opts: SetUserAdminMutationOptions) => api.admin.setUserAdmin.useMutation(opts),
+    {
+      refresh: [
+        () => utils.userProfile.get.invalidate(),
+        () => utils.admin.getAdminStatus.invalidate(),
+        () => utils.admin.listUsersForAdmin.invalidate(),
+      ],
+    },
+  );
+  const setUserApproval = useAppMutation(
+    (opts: SetUserApprovalMutationOptions) =>
+      api.admin.setUserApproval.useMutation(opts),
+    {
+      refresh: [
+        () => utils.userProfile.get.invalidate(),
+        () => utils.admin.listUsersForAdmin.invalidate(),
+      ],
+    },
+  );
+  const [confirmDeleteArmed, setConfirmDeleteArmed] = useState(false);
 
   const data = profile.data;
   const displayName = data?.user.name ?? data?.user.email ?? "";
+
+  useEffect(() => {
+    setConfirmDeleteArmed(false);
+  }, [data?.user.id]);
 
   return (
     <>
@@ -423,14 +471,12 @@ export default function UserProfilePage() {
             <AuthHeader />
           </div>
 
-          {sessionPending && (
-            <p className="text-zinc-500">Loading session...</p>
-          )}
-          {!sessionPending && !session?.user && (
+          {viewerPending && <p className="text-zinc-500">Loading session...</p>}
+          {!viewerPending && !viewerUser && (
             <p className="text-zinc-400">Please sign in to view profiles.</p>
           )}
 
-          {profile.isLoading && session?.user && (
+          {profile.isLoading && viewerUser && (
             <p className="text-zinc-500">Loading profile...</p>
           )}
 
@@ -476,6 +522,41 @@ export default function UserProfilePage() {
                       {formatDate(data.user.createdAt)}
                     </span>
                   </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-zinc-500">
+                      Approval
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={
+                          data.user.isApproved ? "text-zinc-200" : "text-zinc-400"
+                        }
+                      >
+                        {data.user.isApproved
+                          ? "Approved"
+                          : "Waiting for approval"}
+                      </span>
+                      {data.viewerIsAdmin && !data.isSelf && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setUserApproval.mutate({
+                              userId: data.user.id,
+                              isApproved: !data.user.isApproved,
+                            })
+                          }
+                          disabled={setUserApproval.isPending}
+                          className="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 transition hover:bg-zinc-700 disabled:opacity-50"
+                        >
+                          {setUserApproval.isPending
+                            ? "Updating..."
+                            : data.user.isApproved
+                              ? "Unapprove"
+                              : "Approve"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   {data.user.isNonUser && (
                     <div className="text-sm text-zinc-500">
                       Non-user teacher account
@@ -505,11 +586,72 @@ export default function UserProfilePage() {
                       {becomeAdmin.isPending ? "Applying..." : "Become admin"}
                     </button>
                   )}
+                  {data.viewerIsAdmin && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setUserAdmin.mutate({
+                          userId: data.user.id,
+                          isAdmin: !data.isAdmin,
+                        })
+                      }
+                      disabled={setUserAdmin.isPending}
+                      className="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 transition hover:bg-zinc-700 disabled:opacity-50"
+                    >
+                      {setUserAdmin.isPending
+                        ? "Updating..."
+                        : data.isAdmin
+                          ? "Remove admin"
+                          : "Make admin"}
+                    </button>
+                  )}
                 </div>
                 {data.isSelf && !data.isAdmin && !data.honorSystemEnabled && (
                   <p className="mt-1 text-sm text-zinc-600">
                     Honor system is disabled. Ask an existing admin for access.
                   </p>
+                )}
+                {data.viewerIsAdmin && !data.isSelf && (
+                  <div className="mt-4 border-t border-zinc-800 pt-3">
+                    <p className="mb-2 text-xs text-zinc-500">
+                      Dangerous action
+                    </p>
+                    {!confirmDeleteArmed ? (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteArmed(true)}
+                        className="rounded bg-red-900/40 px-3 py-1.5 text-sm text-red-300 hover:bg-red-900/60"
+                      >
+                        Delete user…
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteArmed(false)}
+                          disabled={deleteUser.isPending}
+                          className="min-w-26 rounded bg-zinc-800 px-3 py-1.5 text-center text-sm text-zinc-300 hover:bg-zinc-700 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await deleteUser.mutateAsync({
+                              userId: data.user.id,
+                            });
+                            await router.push("/admin");
+                          }}
+                          disabled={deleteUser.isPending}
+                          className="rounded bg-red-700 px-3 py-1.5 text-sm text-white hover:bg-red-600 disabled:opacity-50"
+                        >
+                          {deleteUser.isPending
+                            ? "Deleting..."
+                            : "Confirm delete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 

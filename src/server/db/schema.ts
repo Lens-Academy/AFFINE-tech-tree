@@ -17,6 +17,7 @@ export const user = sqliteTable("user", (d) => ({
   name: d.text({ length: 255 }),
   email: d.text({ length: 255 }).notNull().unique(),
   isNonUser: d.integer({ mode: "boolean" }).notNull().default(false),
+  isApproved: d.integer({ mode: "boolean" }).notNull().default(true),
   emailVerified: d.integer({ mode: "boolean" }).default(false),
   image: d.text({ length: 255 }),
   availableForTutoring: d.integer({ mode: "boolean" }).notNull().default(false),

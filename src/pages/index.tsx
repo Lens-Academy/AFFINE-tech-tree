@@ -1,12 +1,12 @@
 import Head from "next/head";
 import { AuthHeader } from "~/components/AuthHeader";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { TopicList } from "~/components/TopicList";
-import { authClient } from "~/server/better-auth/client";
 
 function AvailabilityToggleIfLoggedIn() {
-  const { data: session } = authClient.useSession();
-  if (!session?.user) return null;
+  const { viewerUser } = useViewerAccess();
+  if (!viewerUser) return null;
   return <AvailabilityToggle />;
 }
 

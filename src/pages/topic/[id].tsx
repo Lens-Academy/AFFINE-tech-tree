@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import type { HelpfulnessRating } from "~/shared/feedbackTypes";
 import type { UnderstandingLevel } from "~/shared/understandingLevels";
 import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useAppMutation } from "~/hooks/useAppMutation";
-import { authClient } from "~/server/better-auth/client";
 import { AuthHeader } from "~/components/AuthHeader";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
@@ -40,12 +40,12 @@ export default function TopicPage() {
     { id },
     { enabled: !Number.isNaN(id) },
   );
-  const { data: session } = authClient.useSession();
+  const { viewerUser } = useViewerAccess();
   const { data: statuses } = api.userStatus.getAll.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!viewerUser,
   });
   const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
-    enabled: !!session?.user,
+    enabled: !!viewerUser,
   });
   const utils = api.useUtils();
   const bookmarkSet = useAppMutation(
@@ -74,7 +74,7 @@ export default function TopicPage() {
   );
   const { data: teachers } = api.topic.getTeachers.useQuery(
     { topicId: id },
-    { enabled: !!session?.user && !Number.isNaN(id) },
+    { enabled: !!viewerUser && !Number.isNaN(id) },
   );
   const [isTopicListCollapsed, setIsTopicListCollapsed] = useState(false);
   const [hasLoadedTopicListPreference, setHasLoadedTopicListPreference] =
@@ -119,7 +119,7 @@ export default function TopicPage() {
   const { data: manualFeedback } =
     api.feedback.getManualFeedbackByTopic.useQuery(
       { topicId: id, level: manualRateLevel },
-      { enabled: !!session?.user && !Number.isNaN(id) && rateMode },
+      { enabled: !!viewerUser && !Number.isNaN(id) && rateMode },
     );
   const ensureManualTransition = useAppMutation(
     (
@@ -204,7 +204,7 @@ export default function TopicPage() {
               >
                 AFFINE Tech Tree
               </Link>
-              {session?.user && <AvailabilityToggle />}
+              {viewerUser && <AvailabilityToggle />}
             </div>
             <AuthHeader />
           </div>
@@ -269,7 +269,7 @@ export default function TopicPage() {
                         <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-5% bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
                           {topic.name}
                         </h1>
-                        {session?.user && (
+                        {viewerUser && (
                           <button
                             type="button"
                             onClick={() => {
@@ -340,7 +340,7 @@ export default function TopicPage() {
                       )}
 
                       <div id="feedback" />
-                      {session?.user && !Number.isNaN(id) && (
+                      {viewerUser && !Number.isNaN(id) && (
                         <FeedbackSection
                           topicId={id}
                           topicLinks={topic.topicLinks ?? []}
@@ -353,7 +353,7 @@ export default function TopicPage() {
                             <h2 className="bg-clip-text text-lg font-semibold text-zinc-100">
                               Resources
                             </h2>
-                            {session?.user && (
+                            {viewerUser && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -448,7 +448,7 @@ export default function TopicPage() {
                         </section>
                       )}
 
-                      {session?.user &&
+                      {viewerUser &&
                         !isTeacherLevel(currentLevel) &&
                         teachers &&
                         teachers.length > 0 && (
@@ -503,7 +503,7 @@ export default function TopicPage() {
                             {resourceSuggestionMessage.text}
                           </p>
                         )}
-                        {!session?.user && (
+                        {!viewerUser && (
                           <p className="mb-2 text-sm text-zinc-500">
                             Sign in to submit a resource for review.
                           </p>
@@ -521,7 +521,7 @@ export default function TopicPage() {
                               e.preventDefault();
                               const value = resourceSuggestionInput.trim();
                               if (
-                                !session?.user ||
+                                !viewerUser ||
                                 !value ||
                                 submitTopicSuggestion.isPending ||
                                 Number.isNaN(id)
@@ -533,20 +533,20 @@ export default function TopicPage() {
                                 value,
                               });
                             }}
-                            disabled={!session?.user}
+                            disabled={!viewerUser}
                             className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                           />
                           <button
                             type="button"
                             disabled={
-                              !session?.user ||
+                              !viewerUser ||
                               submitTopicSuggestion.isPending ||
                               !resourceSuggestionInput.trim()
                             }
                             onClick={() => {
                               const value = resourceSuggestionInput.trim();
                               if (
-                                !session?.user ||
+                                !viewerUser ||
                                 !value ||
                                 submitTopicSuggestion.isPending ||
                                 Number.isNaN(id)
