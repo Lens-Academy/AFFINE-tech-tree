@@ -4,6 +4,7 @@ import { availabilityRouter } from "~/server/api/routers/availability";
 import { bookmarkRouter } from "~/server/api/routers/bookmark";
 import { feedbackRouter } from "~/server/api/routers/feedback";
 import { topicRouter } from "~/server/api/routers/topic";
+import { userProfileRouter } from "~/server/api/routers/userProfile";
 import { userStatusRouter } from "~/server/api/routers/userStatus";
 
 /**
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   bookmark: bookmarkRouter,
   feedback: feedbackRouter,
   topic: topicRouter,
+  userProfile: userProfileRouter,
   userStatus: userStatusRouter,
 });
 

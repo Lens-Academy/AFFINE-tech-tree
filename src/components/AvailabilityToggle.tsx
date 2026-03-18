@@ -86,9 +86,14 @@ export function AvailabilityToggle() {
           }`}
         />
       </button>
-      <span className="text-xs text-zinc-500">
+      <button
+        type="button"
+        onClick={() => toggle.mutate(!available)}
+        disabled={toggle.isPending}
+        className="text-xs text-zinc-500 hover:text-zinc-300"
+      >
         {available ? "Available" : "Unavailable"}
-      </span>
+      </button>
       {toggle.error && (
         <span className="text-xs text-red-400">
           {toggle.error instanceof GeolocationPositionError &&

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 
+import { formatDate } from "~/shared/formatDate";
+
 import {
   HELPFULNESS_RATING_LABELS,
   SKIP_FEEDBACK_SENTINEL,
@@ -200,7 +202,7 @@ function AdminTransitionAccordion({
     " → ",
     transition.toLevel ? getLevelLabel(transition.toLevel) : "-",
   ].join("");
-  const timestamp = transition.createdAt.toLocaleString("sv-SE");
+  const timestamp = formatDate(transition.createdAt);
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800/50">
       <button
@@ -235,7 +237,7 @@ function AdminTransitionEmpty({ transition }: { transition: Transition }) {
     " → ",
     transition.toLevel ? getLevelLabel(transition.toLevel) : "-",
   ].join("");
-  const timestamp = transition.createdAt.toLocaleString("sv-SE");
+  const timestamp = formatDate(transition.createdAt);
   return (
     <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-2 py-1.5 lg:px-3 lg:py-2">
       <div className="min-w-0 flex-1">

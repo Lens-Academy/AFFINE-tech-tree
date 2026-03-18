@@ -17,12 +17,21 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Free-text URLs/emails/names are auto-linked when exact matches are found.
   - Free-text links can be promoted into topic resources and paired.
 - Header includes a notification bell with recent transitions and pending feedback signal.
+- User profile page (`/user/[id]`):
+  - Edit name and email.
+  - Change password (self) or generate a password reset link (admin viewing another user).
+  - Availability toggle with GPS tracking.
+  - View feedback left about this user by others.
+  - Become admin (when honor system is enabled).
+- Auth page shows sign-up and sign-in side by side with shared fields.
 - Admin area (`/admin`) supports non-user teacher management:
   - DB-backed admin role checks (no env-based admin list).
   - Bootstrap flow for first admin user.
-  - Admin user management (grant/revoke admin role).
+  - Honor system toggle for self-service admin promotion.
+  - User list links to user profile pages (admin can view/edit any user).
   - CRUD for non-user teachers with topic assignments.
   - Feedback-linking review page with exact/fuzzy suggestions.
+  - Feedback overview with per-topic statistics and transition matrices.
   - Optional deletion mode to also purge teaching-status history.
 - Sign-up deduplicates non-user teacher emails by claiming and converting records.
 - Topic detail shows "Related Topics" section with prerequisites and dependents.

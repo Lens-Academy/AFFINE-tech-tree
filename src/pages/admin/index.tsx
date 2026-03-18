@@ -1,7 +1,5 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
-
 import { AuthHeader } from "~/components/AuthHeader";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
@@ -19,11 +17,6 @@ type SetHonorSystemMutationOptions = Exclude<
   Parameters<typeof api.admin.setHonorSystemEnabled.useMutation>[0],
   undefined
 >;
-type SetUserAdminMutationOptions = Exclude<
-  Parameters<typeof api.admin.setUserAdmin.useMutation>[0],
-  undefined
->;
-
 export default function AdminHomePage() {
   const { data: session, isPending } = authClient.useSession();
   const utils = api.useUtils();
@@ -57,17 +50,6 @@ export default function AdminHomePage() {
       refresh: [() => utils.admin.getAdminStatus.invalidate()],
     },
   );
-  const setUserAdmin = useAppMutation(
-    (opts: SetUserAdminMutationOptions) =>
-      api.admin.setUserAdmin.useMutation(opts),
-    {
-      refresh: [
-        () => utils.admin.listUsersForAdmin.invalidate(),
-        () => utils.admin.getAdminStatus.invalidate(),
-      ],
-    },
-  );
-  const [manageError, setManageError] = useState<string | null>(null);
 
   return (
     <>
@@ -195,51 +177,32 @@ export default function AdminHomePage() {
                   </div>
 
                   <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-                    <h2 className="mb-3 text-zinc-200">User admin access</h2>
-                    {manageError && (
-                      <p className="mb-2 text-sm text-red-400">{manageError}</p>
-                    )}
+                    <h2 className="mb-3 text-zinc-200">Users</h2>
                     {users.isLoading ? (
                       <p className="text-sm text-zinc-500">Loading users…</p>
                     ) : (
                       <ul className="space-y-2">
                         {(users.data ?? []).map((u) => (
-                          <li
-                            key={u.id}
-                            className="flex items-center justify-between rounded border border-zinc-800 px-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate text-sm text-zinc-200">
-                                {u.name ?? "(no name)"}
+                          <li key={u.id}>
+                            <Link
+                              href={`/user/${u.id}`}
+                              className="flex items-center justify-between rounded border border-zinc-800 px-3 py-2 transition hover:border-zinc-600 hover:bg-zinc-800/50"
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate text-sm text-zinc-200">
+                                  {u.name ?? "(no name)"}
+                                </div>
+                                <div className="truncate text-xs text-zinc-500">
+                                  {u.email}
+                                  {u.isNonUser ? " · non-user" : ""}
+                                </div>
                               </div>
-                              <div className="truncate text-xs text-zinc-500">
-                                {u.email}
-                                {u.isNonUser ? " · non-user" : ""}
-                              </div>
-                            </div>
-                            <label className="ml-3 flex items-center gap-2 text-xs text-zinc-300">
-                              <input
-                                type="checkbox"
-                                checked={u.isAdmin}
-                                disabled={setUserAdmin.isPending}
-                                onChange={async (e) => {
-                                  setManageError(null);
-                                  try {
-                                    await setUserAdmin.mutateAsync({
-                                      userId: u.id,
-                                      isAdmin: e.target.checked,
-                                    });
-                                  } catch (err) {
-                                    const message =
-                                      err instanceof Error
-                                        ? err.message
-                                        : "Failed to update admin role";
-                                    setManageError(message);
-                                  }
-                                }}
-                              />
-                              Admin
-                            </label>
+                              {u.isAdmin && (
+                                <span className="ml-3 text-xs text-orange-400">
+                                  Admin
+                                </span>
+                              )}
+                            </Link>
                           </li>
                         ))}
                       </ul>

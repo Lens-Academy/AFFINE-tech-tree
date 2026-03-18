@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { formatDate } from "~/shared/formatDate";
 import {
   HELPFULNESS_RATING_LABELS,
   HELPFULNESS_RATINGS,
@@ -399,7 +400,7 @@ function TransitionAccordion({
             {transition.toLevel ? getLevelLabel(transition.toLevel) : "-"}
           </div>
           <div className="text-xs text-zinc-500">
-            {transition.createdAt.toLocaleString("sv-SE")}
+            {formatDate(transition.createdAt)}
           </div>
         </div>
         <div className="ml-3 flex items-center gap-2">

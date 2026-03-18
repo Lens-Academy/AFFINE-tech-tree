@@ -7,8 +7,8 @@ Training material progress tracker for the AFFINE Seminar. Users track their und
 - Next.js 15 (Pages Router)
 - tRPC
 - Drizzle ORM
-- SQLite: libSQL (local dev) / D1 (Cloudflare Workers)
-- experimenting with Cloudflare Workers (@opennextjs/cloudflare), but deployment provider not chosen yet
+- SQLite: libSQL (local dev) / D1 (Cloudflare Workers, not yet deployed)
+- Deployment target: Cloudflare Workers (@opennextjs/cloudflare)
 - Better Auth (email/password)
 - Tailwind CSS 4
 
@@ -20,4 +20,5 @@ Training material progress tracker for the AFFINE Seminar. Users track their und
 - TypeScript conventions: do not use `enum`; use `z.enum()` for discriminated unions, derive types with `z.infer<>`, infer return types, and do not use `as any`.
 - Testing: focus on non-trivial business logic such as parsing, transformation, and validation. Do not test what the type system already guarantees.
 - No dual paths by default: when behavior is changed, remove the old implementation, never keep both.
+- Date formatting: always use `formatDate()` from `~/shared/formatDate` - never call `toLocaleString()` / `toLocaleDateString()` directly. Renders as `YYYY-MM-DD HH:MM:SS`.
 - `pnpm check` and `pnpm format:write` when everything is finished, double check README.md and AGENTS.md are in sync with added features
