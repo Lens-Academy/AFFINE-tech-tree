@@ -422,7 +422,8 @@ export default function UserProfilePage() {
     },
   );
   const setUserAdmin = useAppMutation(
-    (opts: SetUserAdminMutationOptions) => api.admin.setUserAdmin.useMutation(opts),
+    (opts: SetUserAdminMutationOptions) =>
+      api.admin.setUserAdmin.useMutation(opts),
     {
       refresh: [
         () => utils.userProfile.get.invalidate(),
@@ -529,7 +530,9 @@ export default function UserProfilePage() {
                     <div className="flex items-center gap-3">
                       <span
                         className={
-                          data.user.isApproved ? "text-zinc-200" : "text-zinc-400"
+                          data.user.isApproved
+                            ? "text-zinc-200"
+                            : "text-zinc-400"
                         }
                       >
                         {data.user.isApproved

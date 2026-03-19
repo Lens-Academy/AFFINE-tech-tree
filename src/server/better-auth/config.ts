@@ -13,6 +13,7 @@ import { user } from "~/server/db/schema";
 export const pendingResetUrls = new Map<string, string>();
 
 export const auth = betterAuth({
+  baseURL: env.BETTER_AUTH_URL,
   database: drizzleAdapter(db, {
     provider: "sqlite",
   }),

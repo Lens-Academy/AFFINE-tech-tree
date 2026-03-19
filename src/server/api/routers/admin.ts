@@ -408,14 +408,18 @@ export const adminRouter = createTRPCRouter({
         .update(feedbackItem)
         .set({ referencedUserId: null })
         .where(eq(feedbackItem.referencedUserId, input.userId));
-      await ctx.db.delete(feedbackItem).where(eq(feedbackItem.userId, input.userId));
+      await ctx.db
+        .delete(feedbackItem)
+        .where(eq(feedbackItem.userId, input.userId));
       await ctx.db
         .delete(teachingSession)
         .where(eq(teachingSession.teacherId, input.userId));
       await ctx.db
         .delete(teachingSession)
         .where(eq(teachingSession.learnerId, input.userId));
-      await ctx.db.delete(resource).where(eq(resource.submittedById, input.userId));
+      await ctx.db
+        .delete(resource)
+        .where(eq(resource.submittedById, input.userId));
       await ctx.db.delete(bookmark).where(eq(bookmark.userId, input.userId));
       await ctx.db
         .delete(levelTransition)

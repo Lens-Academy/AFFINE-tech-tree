@@ -49,10 +49,11 @@ pnpm dev
 
 ### Environment variables
 
-| Variable             | Description                                                      |
-| -------------------- | ---------------------------------------------------------------- |
-| `DATABASE_URL`       | SQLite connection string (default: `file:./db.sqlite`)           |
-| `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production)         |
+| Variable             | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| `DATABASE_URL`       | SQLite connection string (default: `file:./db.sqlite`)                |
+| `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production)              |
+| `BETTER_AUTH_URL`    | Production base URL for Better Auth origin checks (optional locally)  |
 | `AIRTABLE_API_KEY`   | Airtable personal access token - needed by `db:sync` to import topics |
 
 To create an `AIRTABLE_API_KEY`: go to https://airtable.com/create/tokens, create a personal access token with `data.records:read` scope on the AFFINE Seminar base.
@@ -72,19 +73,48 @@ pnpm db:generate
 pnpm db:migrate
 ```
 
-### How do I deploy this?
+### Deployment (Vercel + Turso)
 
-Follow T3 deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
-
-#### Cloudflare Workers
-
-Requires [Wrangler](https://developers.cloudflare.com/workers/wrangler/), a Cloudflare account, and [`sqlite3`](https://sqlite.org/cli.html) CLI (`sudo apt install sqlite3` on Debian/Ubuntu/WSL2).
+#### 1. Create a Turso database
 
 ```sh
-cp wrangler.jsonc.example wrangler.jsonc    # then fill in account_id and database_id
-pnpm wrangler login                         # one-time auth
-pnpm wrangler secret put BETTER_AUTH_SECRET # paste the value from .env
-pnpm db:upload:cf                           # copy local db.sqlite → D1 (replaces everything)
-pnpm db:download:cf                         # copy D1 → local db.sqlite (replaces local file)
-pnpm deploy:cf                              # build Next.js as a Worker and deploy
+curl -sSfL https://get.tur.so/install.sh | bash   # install Turso CLI
+turso auth signup                                 # or: turso auth login
+turso db create affine-tech-tree
+turso db show affine-tech-tree --url              # → libsql://affine-tech-tree-<org>.turso.io
+turso db tokens create affine-tech-tree           # → auth token
 ```
+
+#### 2. Push schema and seed data
+
+Update `DATABASE_URL` in `.env` to the Turso URL:
+
+```
+DATABASE_URL="libsql://affine-tech-tree-<org>.turso.io?authToken=<token>"
+```
+
+Then push the schema and seed topics:
+
+```sh
+pnpm db:push
+pnpm db:sync
+```
+
+#### 3. Deploy to Vercel
+
+```sh
+pnpm add -g vercel                                # install Vercel CLI
+vercel link                                       # link repo to a Vercel project
+vercel env add DATABASE_URL                       # paste Turso URL with ?authToken=…
+vercel env add BETTER_AUTH_SECRET                 # generate: openssl rand -base64 32
+vercel --prod                                     # deploy
+```
+
+After the first deploy, set the production URL and redeploy:
+
+```sh
+vercel env add BETTER_AUTH_URL                    # paste Aliased URL (e.g. https://learn.affi.ne)
+vercel --prod                                     # redeploy with the new variable
+```
+
+Alternatively, import the repo in the [Vercel dashboard](https://vercel.com/new), set the environment variables there, and deploy from the UI.

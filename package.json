@@ -5,16 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "next build",
-    "build:cf": "BUILDING_FOR_CF=1 opennextjs-cloudflare build",
     "check": "tsc --noEmit && eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:sync": "node --env-file=.env --experimental-strip-types src/scripts/sync-topics.ts",
-    "db:upload:cf": "(echo 'PRAGMA foreign_keys=OFF;' && sqlite3 db.sqlite \"SELECT 'DROP TABLE IF EXISTS \\\"' || name || '\\\"' || ';' FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid DESC;\" && sqlite3 db.sqlite .dump | grep -Ev '^(BEGIN TRANSACTION|COMMIT|PRAGMA foreign_keys)') > /tmp/affine-dump.sql && wrangler d1 execute DATABASE_URL --remote --file /tmp/affine-dump.sql",
-    "db:download:cf": "wrangler d1 export DATABASE_URL --remote --output /tmp/affine-backup.sql && rm -f db.sqlite && sqlite3 db.sqlite < /tmp/affine-backup.sql",
-    "deploy:cf": "BUILDING_FOR_CF=1 opennextjs-cloudflare build && wrangler deploy",
     "dev": "next dev",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --log-level warn",
@@ -28,7 +24,6 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "@opennextjs/cloudflare": "^1.16.5",
     "@t3-oss/env-nextjs": "^0.12.0",
     "@tanstack/react-query": "^5.90.21",
     "@trpc/client": "^11.10.0",
@@ -60,8 +55,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.0",
-    "vitest": "^2.1.9",
-    "wrangler": "^4.65.0"
+    "vitest": "^2.1.9"
   },
   "ct3aMetadata": {
     "initVersion": "7.40.0"

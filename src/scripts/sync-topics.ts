@@ -104,8 +104,10 @@ async function fetchAllRecords(): Promise<AirtableRecord[]> {
       const body = await res.text();
       throw new Error(`Airtable API error ${res.status}: ${body}`);
     }
-    const json: { records: AirtableRecord[]; offset?: string } =
-      await res.json();
+    const json = (await res.json()) as {
+      records: AirtableRecord[];
+      offset?: string;
+    };
     allRecords.push(...json.records);
     offset = json.offset;
   } while (offset);

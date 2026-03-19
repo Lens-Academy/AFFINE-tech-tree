@@ -8,8 +8,8 @@ Admins can optionally require approval for newly self-created user accounts.
 - Next.js 15 (Pages Router)
 - tRPC
 - Drizzle ORM
-- SQLite: libSQL (local dev) / D1 (Cloudflare Workers, not yet deployed)
-- Deployment target: Cloudflare Workers (@opennextjs/cloudflare)
+- SQLite via libSQL (`@libsql/client`)
+- Deployment target: Vercel
 - Better Auth (email/password)
 - Tailwind CSS 4
 

@@ -15,9 +15,11 @@ export const env = createEnv({
     // BETTER_AUTH_GITHUB_CLIENT_ID: z.string(),
     // BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
     DATABASE_URL: z.string().url(),
+    BETTER_AUTH_URL:
+      process.env.NODE_ENV === "production"
+        ? z.string().url()
+        : z.string().url().optional(),
     AIRTABLE_API_KEY: z.string().optional(),
-    // Set by the `build:cf` script — do not add to .env
-    BUILDING_FOR_CF: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -40,9 +42,9 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     // BETTER_AUTH_GITHUB_CLIENT_ID: process.env.BETTER_AUTH_GITHUB_CLIENT_ID,
     // BETTER_AUTH_GITHUB_CLIENT_SECRET: process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     AIRTABLE_API_KEY: process.env.AIRTABLE_API_KEY,
-    BUILDING_FOR_CF: process.env.BUILDING_FOR_CF,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**
