@@ -3,47 +3,16 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
+import {
+  assignManualPositions,
+  edgePath,
+  NODE_H,
+  NODE_W,
+  PAD,
+  type Edge,
+  type GraphTopic,
+} from "~/features/prerequisite-graph/layout";
 import { api } from "~/utils/api";
-
-export type GraphTopic = { id: number; name: string };
-export type Edge = { from: number; to: number };
-export type PositionedNode = GraphTopic & { x: number; y: number };
-
-const NODE_W = 160;
-const NODE_H = 30;
-const PAD = 40;
-
-export function assignManualPositions(
-  topics: GraphTopic[],
-  edges: Edge[],
-): PositionedNode[] {
-  return topics.map((topic, i) => ({
-    ...topic,
-    x: 0,
-    y: i * (NODE_H + 16),
-  }));
-}
-
-function edgePath(from: PositionedNode, to: PositionedNode): string {
-  const fromCx = from.x + NODE_W / 2;
-  const fromCy = from.y + NODE_H / 2;
-  const toCx = to.x + NODE_W / 2;
-  const toCy = to.y + NODE_H / 2;
-  const dx = toCx - fromCx;
-  const dy = toCy - fromCy;
-
-  const edgePoint = (cx: number, cy: number, vx: number, vy: number) => {
-    if (vx === 0 && vy === 0) return { x: cx, y: cy };
-    const sx = vx === 0 ? Infinity : NODE_W / 2 / Math.abs(vx);
-    const sy = vy === 0 ? Infinity : NODE_H / 2 / Math.abs(vy);
-    const t = Math.min(sx, sy);
-    return { x: cx + vx * t, y: cy + vy * t };
-  };
-
-  const start = edgePoint(fromCx, fromCy, dx, dy);
-  const end = edgePoint(toCx, toCy, -dx, -dy);
-  return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-}
 
 export function PrerequisiteGraphView({
   topics,
@@ -90,24 +59,28 @@ export function PrerequisiteGraphView({
           <polygon points="0 0, 8 3, 0 6" fill="#fb923c" />
         </marker>
       </defs>
-      {edges.map((e, i) => {
-        const from = nodeById.get(e.from);
-        const to = nodeById.get(e.to);
-        if (!from || !to) return null;
-        const highlight =
-          hoveredNode !== null &&
-          (e.from === hoveredNode || e.to === hoveredNode);
-        return (
-          <path
-            key={i}
-            d={edgePath(from, to)}
-            fill="none"
-            stroke={highlight ? "#fb923c" : "#3f3f46"}
-            strokeWidth={highlight ? 2 : 1}
-            markerEnd={highlight ? "url(#arrow-hl)" : "url(#arrow)"}
-          />
-        );
-      })}
+      {edges
+        .map((e, i) => ({ e, i }))
+        .filter(({ e }) => {
+          if (hoveredNode === null) return true;
+          return e.from !== hoveredNode && e.to !== hoveredNode;
+        })
+        .map(({ e, i }) => {
+          const from = nodeById.get(e.from);
+          const to = nodeById.get(e.to);
+          if (!from || !to) return null;
+          return (
+            <path
+              key={i}
+              d={edgePath(from, to)}
+              fill="none"
+              stroke="#3f3f46"
+              strokeWidth={1}
+              markerEnd="url(#arrow)"
+              pointerEvents="none"
+            />
+          );
+        })}
       {nodes.map((node) => {
         const isHovered = hoveredNode === node.id;
         const label =
@@ -144,6 +117,26 @@ export function PrerequisiteGraphView({
           </g>
         );
       })}
+      {hoveredNode !== null &&
+        edges
+          .map((e, i) => ({ e, i }))
+          .filter(({ e }) => e.from === hoveredNode || e.to === hoveredNode)
+          .map(({ e, i }) => {
+            const from = nodeById.get(e.from);
+            const to = nodeById.get(e.to);
+            if (!from || !to) return null;
+            return (
+              <path
+                key={i}
+                d={edgePath(from, to)}
+                fill="none"
+                stroke="#fb923c"
+                strokeWidth={1.5}
+                markerEnd="url(#arrow-hl)"
+                pointerEvents="none"
+              />
+            );
+          })}
     </svg>
   );
 }

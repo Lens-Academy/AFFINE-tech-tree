@@ -1277,5 +1277,4 @@ export const adminRouter = createTRPCRouter({
       await ctx.db.delete(user).where(eq(user.id, existing.id));
       return { ok: true };
     }),
-
 });
