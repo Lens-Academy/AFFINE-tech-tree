@@ -96,6 +96,21 @@ export const topicRouter = createTRPCRouter({
       });
     }),
 
+  prerequisiteGraph: publicProcedure.query(async ({ ctx }) => {
+    const topics = await ctx.db.query.topic.findMany({
+      columns: { id: true, name: true },
+      orderBy: (t, { asc }) => [asc(t.spreadsheetRow), asc(t.id)],
+    });
+    const edges = await ctx.db.query.topicPrerequisite.findMany();
+    return {
+      nodes: topics,
+      edges: edges.map((e) => ({
+        from: e.prerequisiteTopicId,
+        to: e.topicId,
+      })),
+    };
+  }),
+
   submitTopicFreeTextSuggestion: protectedProcedure
     .input(
       z.object({
