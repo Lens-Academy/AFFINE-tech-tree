@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:sync": "node --env-file=.env --experimental-strip-types src/scripts/sync-topics.ts",
+    "deploy": "sh -c 'commit=$(git rev-parse HEAD) && build_date=$(git log -1 --format=%cI \"$commit\") && vercel --prod --build-env NEXT_PUBLIC_GIT_COMMIT=\"$commit\" --build-env NEXT_PUBLIC_BUILD_DATE=\"$build_date\"'",
     "dev": "next dev",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache --log-level warn",

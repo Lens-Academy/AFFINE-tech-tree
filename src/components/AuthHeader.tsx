@@ -3,14 +3,14 @@ import Link from "next/link";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { authClient } from "~/server/better-auth/client";
 import { NotificationBell } from "~/components/NotificationBell";
+import { TestEnvBadge } from "~/components/TestEnvBadge";
+import { GITHUB_REPO } from "~/shared/constants";
 import { api } from "~/utils/api";
-
-const GITHUB_URL = "https://github.com/Lens-Academy/AFFINE-tech-tree";
 
 function GitHubLink() {
   return (
     <a
-      href={GITHUB_URL}
+      href={GITHUB_REPO}
       target="_blank"
       rel="noopener noreferrer"
       className="rounded p-1.5 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
@@ -35,6 +35,7 @@ export function AuthHeader() {
   if (viewerUser) {
     return (
       <div className="flex items-center gap-3">
+        <TestEnvBadge />
         <GitHubLink />
         <Link
           href={`/user/${viewerUser.id}`}
@@ -68,6 +69,7 @@ export function AuthHeader() {
   if (rawUser && isPendingApproval) {
     return (
       <div className="flex items-center gap-3">
+        <TestEnvBadge />
         <GitHubLink />
         <div
           className="flex items-center gap-2 rounded px-2 py-1 text-sm text-zinc-400"
@@ -113,6 +115,7 @@ export function AuthHeader() {
 
   return (
     <div className="flex items-center gap-3">
+      <TestEnvBadge />
       <GitHubLink />
       <Link
         href="/auth"

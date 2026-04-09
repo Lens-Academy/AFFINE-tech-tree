@@ -36,7 +36,9 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Feedback overview with per-topic statistics and transition matrices.
   - Optional deletion mode to also purge teaching-status history.
 - Sign-up deduplicates non-user teacher emails by claiming and converting records.
-- Topic detail shows "Related Topics" section with prerequisites and dependents.
+- Topic detail shows "Related Topics" section with prerequisites and dependents (below "Add resource").
+- Header includes a link to the GitHub repository.
+- Test/staging deployments show a "Test env" badge with deploy date, commit link, and production URL.
 - Admin area includes a prerequisite network graph visualization (`/admin/prerequisite-graph`).
 
 ## Dev
@@ -107,14 +109,14 @@ pnpm add -g vercel                                # install Vercel CLI
 vercel link                                       # link repo to a Vercel project
 vercel env add DATABASE_URL                       # paste Turso URL with ?authToken=…
 vercel env add BETTER_AUTH_SECRET                 # generate: openssl rand -base64 32
-vercel --prod                                     # deploy
+pnpm run deploy                                   # deploy (passes git commit/date to the Vercel build)
 ```
 
 After the first deploy, set the production URL and redeploy:
 
 ```sh
 vercel env add BETTER_AUTH_URL                    # paste Aliased URL (e.g. https://learn.affi.ne)
-vercel --prod                                     # redeploy with the new variable
+pnpm run deploy                                   # redeploy with the new variable
 ```
 
 Alternatively, import the repo in the [Vercel dashboard](https://vercel.com/new), set the environment variables there, and deploy from the UI.
