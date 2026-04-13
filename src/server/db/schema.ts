@@ -165,6 +165,7 @@ export const topicLink = sqliteTable(
       .references(() => topic.id, { onDelete: "cascade" }),
     title: d.text({ length: 512 }).notNull(),
     url: d.text({ length: 2048 }),
+    author: d.text({ length: 512 }),
     position: d.integer({ mode: "number" }).notNull().default(0),
   }),
   (t) => [index("topic_link_topic_idx").on(t.topicId)],

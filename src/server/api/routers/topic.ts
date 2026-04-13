@@ -196,6 +196,14 @@ export const topicRouter = createTRPCRouter({
     };
   }),
 
+  listResources: publicProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db.query.topicLink.findMany({
+      with: { topic: { columns: { id: true, name: true } } },
+      orderBy: (tl, { asc }) => [asc(tl.title)],
+    });
+    return rows;
+  }),
+
   submitTopicFreeTextSuggestion: protectedProcedure
     .input(
       z.object({

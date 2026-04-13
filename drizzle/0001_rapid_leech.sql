@@ -1,0 +1,1 @@
+ALTER TABLE `topic_link` ADD `author` text(512);

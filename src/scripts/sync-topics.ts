@@ -159,7 +159,9 @@ async function fetchTopics(): Promise<TopicRow[]> {
     .filter((t) => t.name !== "");
 }
 
-async function fetchResourceUrlMap(): Promise<Map<string, string | null>> {
+type ResourceInfo = { url: string | null; author: string | null };
+
+async function fetchResourceMap(): Promise<Map<string, ResourceInfo>> {
   const csv = await fetchSheetCSV("Resources");
   const rows = csvToObjects(parseCSV(csv)) as Array<{
     Name: string;
@@ -167,18 +169,22 @@ async function fetchResourceUrlMap(): Promise<Map<string, string | null>> {
     Author: string;
   }>;
 
-  const map = new Map<string, string | null>();
+  const map = new Map<string, ResourceInfo>();
   for (const row of rows) {
     const name = row.Name?.trim();
-    if (name) map.set(name, row.Link?.trim() || null);
+    if (name)
+      map.set(name, {
+        url: row.Link?.trim() || null,
+        author: row.Author?.trim() || null,
+      });
   }
   return map;
 }
 
 async function main() {
-  const [topics, resourceUrlMap] = await Promise.all([
+  const [topics, resourceMap] = await Promise.all([
     fetchTopics(),
-    fetchResourceUrlMap(),
+    fetchResourceMap(),
   ]);
 
   let upserted = 0;
@@ -248,14 +254,18 @@ async function main() {
           });
       }
 
-      // Links: look up URLs from Resources sheet by name
+      // Links: look up URLs and authors from Resources sheet by name
       const resourceNames = splitResourceNames(t.rawResources ?? "");
       for (let pos = 0; pos < resourceNames.length; pos++) {
         const title = resourceNames[pos]!;
-        const url = resourceUrlMap.get(title) ?? null;
-        await tx
-          .insert(topicLink)
-          .values({ topicId, title, url, position: pos });
+        const info = resourceMap.get(title);
+        await tx.insert(topicLink).values({
+          topicId,
+          title,
+          url: info?.url ?? null,
+          author: info?.author ?? null,
+          position: pos,
+        });
         linkCount++;
       }
 

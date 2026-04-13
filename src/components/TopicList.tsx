@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
@@ -180,6 +181,16 @@ export function TopicList() {
             onClick={() => handleTagFilterChange(t.name)}
           />
         ))}
+        <Link
+          href="/resources"
+          className={
+            isTopicRoute
+              ? "flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-400 underline decoration-blue-400/40 underline-offset-2 transition hover:text-blue-300"
+              : "flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-400 underline decoration-blue-400/40 underline-offset-2 transition hover:text-blue-300"
+          }
+        >
+          Resources →
+        </Link>
         {sortDirty && (
           <SortLinkButton dense={isTopicRoute} onClick={applySort} />
         )}
