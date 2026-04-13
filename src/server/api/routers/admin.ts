@@ -29,7 +29,6 @@ import {
   bookmark,
   feedbackItem,
   topicLink,
-  resource,
   teachingSession,
 } from "~/server/db/schema";
 import type { UnderstandingLevel } from "~/shared/understandingLevels";
@@ -417,9 +416,6 @@ export const adminRouter = createTRPCRouter({
       await ctx.db
         .delete(teachingSession)
         .where(eq(teachingSession.learnerId, input.userId));
-      await ctx.db
-        .delete(resource)
-        .where(eq(resource.submittedById, input.userId));
       await ctx.db.delete(bookmark).where(eq(bookmark.userId, input.userId));
       await ctx.db
         .delete(levelTransition)
@@ -1261,10 +1257,6 @@ export const adminRouter = createTRPCRouter({
         .update(bookmark)
         .set({ userId: createdUserId })
         .where(eq(bookmark.userId, existing.id));
-      await ctx.db
-        .update(resource)
-        .set({ submittedById: createdUserId })
-        .where(eq(resource.submittedById, existing.id));
       await ctx.db
         .update(teachingSession)
         .set({ teacherId: createdUserId })

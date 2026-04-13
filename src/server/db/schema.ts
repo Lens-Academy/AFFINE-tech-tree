@@ -36,7 +36,6 @@ export const userRelations = relations(user, ({ many }) => ({
   session: many(session),
   userTopicStatus: many(userTopicStatus),
   bookmark: many(bookmark),
-  resource: many(resource),
   teachingSessionAsTeacher: many(teachingSession, {
     relationName: "teacher",
   }),
@@ -237,31 +236,6 @@ export const userTopicStatus = sqliteTable(
   ],
 );
 
-export const resource = sqliteTable(
-  "resource",
-  (d) => ({
-    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
-    topicId: d
-      .integer({ mode: "number" })
-      .notNull()
-      .references(() => topic.id, { onDelete: "cascade" }),
-    title: d.text({ length: 512 }).notNull(),
-    url: d.text({ length: 2048 }).notNull(),
-    type: d.text({ length: 64 }),
-    submittedById: d
-      .text({ length: 255 })
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    approved: d.integer({ mode: "boolean" }).default(false),
-    createdAt: d
-      .integer({ mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
-    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-  }),
-  (t) => [index("resource_topic_idx").on(t.topicId)],
-);
-
 export const teachingSession = sqliteTable(
   "teaching_session",
   (d) => ({
@@ -441,7 +415,6 @@ export const topicRelations = relations(topic, ({ many }) => ({
   prerequisites: many(topicPrerequisite, { relationName: "topicPrereqs" }),
   dependents: many(topicPrerequisite, { relationName: "prereqDependents" }),
   userTopicStatus: many(userTopicStatus),
-  resources: many(resource),
   bookmarks: many(bookmark),
   teachingSessions: many(teachingSession),
   levelTransitions: many(levelTransition),
@@ -490,14 +463,6 @@ export const userTopicStatusRelations = relations(
     }),
   }),
 );
-
-export const resourceRelations = relations(resource, ({ one }) => ({
-  topic: one(topic, { fields: [resource.topicId], references: [topic.id] }),
-  submittedBy: one(user, {
-    fields: [resource.submittedById],
-    references: [user.id],
-  }),
-}));
 
 export const teachingSessionRelations = relations(
   teachingSession,

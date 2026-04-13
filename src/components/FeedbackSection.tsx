@@ -48,7 +48,12 @@ type UnifiedItem = {
   isSkipPlaceholder?: boolean;
 };
 
-type TopicLink = { id: number; title: string; url: string | null };
+type TopicLink = {
+  id: number;
+  title: string;
+  url: string | null;
+  position: number;
+};
 
 function getMutationErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -108,6 +113,7 @@ export function FeedbackSection({
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
         () => utils.feedback.getRecentTransitions.invalidate(),
+        () => utils.topic.getById.invalidate({ id: topicId }),
       ],
     },
   );
@@ -127,6 +133,7 @@ export function FeedbackSection({
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
         () => utils.feedback.getRecentTransitions.invalidate(),
+        () => utils.topic.getById.invalidate({ id: topicId }),
       ],
     },
   );
@@ -167,6 +174,7 @@ export function FeedbackSection({
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
         () => utils.feedback.getRecentTransitions.invalidate(),
+        () => utils.topic.getById.invalidate({ id: topicId }),
       ],
     },
   );
@@ -225,6 +233,10 @@ function buildUnifiedItems(
   teachers: Teacher[],
 ): UnifiedItem[] {
   const items: UnifiedItem[] = [];
+  const orderedTopicLinks = [...topicLinks].sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position;
+    return a.id - b.id;
+  });
 
   // Index existing feedback items by their reference
   const byResourceId = new Map<number, ExistingFeedbackItem>();
@@ -257,7 +269,7 @@ function buildUnifiedItems(
   }
 
   // Every transition can be edited, including historical ones.
-  for (const link of topicLinks) {
+  for (const link of orderedTopicLinks) {
     const existing = byResourceId.get(link.id);
     items.push({
       key: `resource-${link.id}`,

@@ -81,21 +81,6 @@ CREATE TABLE `level_transition` (
 CREATE INDEX `level_transition_user_idx` ON `level_transition` (`userId`);--> statement-breakpoint
 CREATE INDEX `level_transition_topic_idx` ON `level_transition` (`topicId`);--> statement-breakpoint
 CREATE INDEX `level_transition_user_topic_idx` ON `level_transition` (`userId`,`topicId`);--> statement-breakpoint
-CREATE TABLE `resource` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`topicId` integer NOT NULL,
-	`title` text(512) NOT NULL,
-	`url` text(2048) NOT NULL,
-	`type` text(64),
-	`submittedById` text(255) NOT NULL,
-	`approved` integer DEFAULT false,
-	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
-	`updatedAt` integer,
-	FOREIGN KEY (`topicId`) REFERENCES `topic`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`submittedById`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `resource_topic_idx` ON `resource` (`topicId`);--> statement-breakpoint
 CREATE TABLE `session` (
 	`id` text(255) PRIMARY KEY NOT NULL,
 	`userId` text(255) NOT NULL,
@@ -174,6 +159,7 @@ CREATE TABLE `user` (
 	`name` text(255),
 	`email` text(255) NOT NULL,
 	`isNonUser` integer DEFAULT false NOT NULL,
+	`isApproved` integer DEFAULT true NOT NULL,
 	`emailVerified` integer DEFAULT false,
 	`image` text(255),
 	`availableForTutoring` integer DEFAULT false NOT NULL,

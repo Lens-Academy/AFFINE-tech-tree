@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 import type { HelpfulnessRating } from "~/shared/feedbackTypes";
+import { HELPFULNESS_RATINGS } from "~/shared/feedbackTypes";
 import type { UnderstandingLevel } from "~/shared/understandingLevels";
 import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
@@ -31,6 +32,22 @@ type SubmitTopicSuggestionMutationOptions = Exclude<
 
 const TOPIC_LIST_COLLAPSED_STORAGE_KEY =
   "affine.topic-detail.topic-list-collapsed";
+
+const HELPFULNESS_RATING_GLYPHS: Record<HelpfulnessRating, string> = {
+  really_helpful: "⇈",
+  contributed_clarity: "↑",
+  somewhat_useful: "·",
+  passively_unhelpful: "↓",
+  actively_unhelpful: "⇊",
+};
+
+const HELPFULNESS_RATING_HEADER_TITLES: Record<HelpfulnessRating, string> = {
+  really_helpful: "Really helpful",
+  contributed_clarity: "Contributed clarity",
+  somewhat_useful: "Somewhat useful",
+  passively_unhelpful: "Passively unhelpful",
+  actively_unhelpful: "Actively unhelpful",
+};
 
 export default function TopicPage() {
   const router = useRouter();
@@ -146,6 +163,7 @@ export default function TopicPage() {
         () => utils.feedback.getManualFeedbackByTopic.invalidate(),
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId: id }),
         () => utils.feedback.getRecentTransitions.invalidate(),
+        () => utils.topic.getById.invalidate({ id }),
       ],
     },
   );
@@ -355,6 +373,20 @@ export default function TopicPage() {
                                 </svg>
                               </button>
                             )}
+                            <div className="flex-1" />
+                            {!rateMode && (
+                              <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
+                                {HELPFULNESS_RATINGS.map((r) => (
+                                  <span
+                                    key={r}
+                                    className="w-4 text-center"
+                                    title={HELPFULNESS_RATING_HEADER_TITLES[r]}
+                                  >
+                                    {HELPFULNESS_RATING_GLYPHS[r]}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <ul className="space-y-2 text-sm">
                             {topic.topicLinks.map((link) => (
@@ -385,33 +417,6 @@ export default function TopicPage() {
                                     });
                                   }}
                                 />
-                              </li>
-                            ))}
-                          </ul>
-                        </section>
-                      )}
-
-                      {topic.resources && topic.resources.length > 0 && (
-                        <section className="mb-8">
-                          <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                            Community resources
-                          </h2>
-                          <ul className="space-y-2">
-                            {topic.resources.map((r) => (
-                              <li key={r.id}>
-                                <a
-                                  href={r.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-orange-400 underline visited:text-orange-500 hover:text-orange-300"
-                                >
-                                  {r.title}
-                                </a>
-                                {r.type && (
-                                  <span className="ml-2 text-xs text-zinc-500">
-                                    {r.type}
-                                  </span>
-                                )}
                               </li>
                             ))}
                           </ul>
@@ -595,7 +600,12 @@ function InlineRateableResource({
   manualFeedbackItems,
   onUpsert,
 }: {
-  link: { id: number; title: string; url: string | null };
+  link: {
+    id: number;
+    title: string;
+    url: string | null;
+    ratingCounts: Record<HelpfulnessRating, number>;
+  };
   rateMode: boolean;
   manualFeedbackItems: ManualFeedbackItem[];
   onUpsert: (
@@ -650,7 +660,29 @@ function InlineRateableResource({
     <span className="leading-relaxed text-zinc-300">{link.title}</span>
   );
 
-  if (!rateMode) return linkEl;
+  if (!rateMode) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{linkEl}</div>
+        <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
+          {HELPFULNESS_RATINGS.map((r) => {
+            const count = link.ratingCounts[r];
+            return (
+              <span
+                key={r}
+                className={`w-4 text-center tabular-nums ${
+                  count === 0 ? "text-zinc-700" : ""
+                }`}
+                title={HELPFULNESS_RATING_HEADER_TITLES[r]}
+              >
+                {count}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

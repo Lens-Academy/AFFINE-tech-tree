@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "389986a7-1d20-44db-b6f4-bd983058b945",
+  "id": "682a78a3-52ee-493e-a923-2567ee8208ae",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -604,116 +604,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "resource": {
-      "name": "resource",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "topicId": {
-          "name": "topicId",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text(512)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text(2048)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "type": {
-          "name": "type",
-          "type": "text(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "submittedById": {
-          "name": "submittedById",
-          "type": "text(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "approved": {
-          "name": "approved",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(unixepoch())"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "resource_topic_idx": {
-          "name": "resource_topic_idx",
-          "columns": [
-            "topicId"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "resource_topicId_topic_id_fk": {
-          "name": "resource_topicId_topic_id_fk",
-          "tableFrom": "resource",
-          "tableTo": "topic",
-          "columnsFrom": [
-            "topicId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "resource_submittedById_user_id_fk": {
-          "name": "resource_submittedById_user_id_fk",
-          "tableFrom": "resource",
-          "tableTo": "user",
-          "columnsFrom": [
-            "submittedById"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "session": {
       "name": "session",
       "columns": {
@@ -1250,6 +1140,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "isApproved": {
+          "name": "isApproved",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         },
         "emailVerified": {
           "name": "emailVerified",
