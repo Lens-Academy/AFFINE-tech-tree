@@ -56,17 +56,17 @@ pnpm dev
 | `DATABASE_URL`       | SQLite connection string (default: `file:./db.sqlite`)                |
 | `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production)              |
 | `BETTER_AUTH_URL`    | Production base URL for Better Auth origin checks (optional locally)  |
-| `AIRTABLE_API_KEY`   | Airtable personal access token - needed by `db:sync` to import topics |
-
-To create an `AIRTABLE_API_KEY`: go to https://airtable.com/create/tokens, create a personal access token with `data.records:read` scope on the AFFINE Seminar base.
+| `AIRTABLE_API_KEY`   | No longer required — topics are synced from Google Sheets |
 
 ### Database
 
-Import data from the Airtable base (Materials table, List view):
+Import data from the public Google Sheet (Topics and Resources sheets):
 
 ```sh
 pnpm db:sync
 ```
+
+No API key required — the sheet is fetched directly from its public URL.
 
 When schema changes are introduced (for example feedback/transition tables), run:
 
