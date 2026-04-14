@@ -22,6 +22,7 @@ export function TopicList() {
       ? Number(router.query.id)
       : undefined;
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [topicOrder, setTopicOrder] = useState<number[]>([]);
   const [lastAppliedSortKey, setLastAppliedSortKey] = useState("");
   const [initialSortApplied, setInitialSortApplied] = useState(false);
@@ -72,15 +73,28 @@ export function TopicList() {
   const { setStatus, removeStatus } = useTopicStatusMutations();
 
   const allTopicsList = useMemo(() => allTopics ?? [], [allTopics]);
-  const visibleTopics = useMemo(
-    () =>
-      tagFilter
-        ? allTopicsList.filter((t) =>
-            t.topicTags.some((tt) => tt.tag.name === tagFilter),
-          )
-        : allTopicsList,
-    [allTopicsList, tagFilter],
-  );
+  const visibleTopics = useMemo(() => {
+    let filtered = allTopicsList;
+
+    // Filter by tag
+    if (tagFilter) {
+      filtered = filtered.filter((t) =>
+        t.topicTags.some((tt) => tt.tag.name === tagFilter),
+      );
+    }
+
+    // Filter by search query
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          (t.description?.toLowerCase().includes(q) ?? false),
+      );
+    }
+
+    return filtered;
+  }, [allTopicsList, tagFilter, searchQuery]);
 
   const bookmarkedSet = useMemo(
     () => new Set(bookmarkedIds ?? []),
@@ -195,6 +209,16 @@ export function TopicList() {
           <SortLinkButton dense={isTopicRoute} onClick={applySort} />
         )}
       </div>
+
+      {!isTopicRoute && (
+        <input
+          type="search"
+          placeholder="Search topics by name or description…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="mb-6 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
+        />
+      )}
 
       <div
         className={
