@@ -17,7 +17,7 @@ const client = createClient({ url: DATABASE_URL });
 const db = drizzle(client, { schema });
 const { tag, topic, topicTag, topicLink, topicPrerequisite } = schema;
 
-const SPREADSHEET_ID = "1DLgjDeWm5gv3aDaDAzDNb9Ml-z9l2KSA4AfAdxTp7sk";
+const SPREADSHEET_ID = "13o-_6jETt-qq8gShKqbSicyvxdwjP2CXCZBxZWjN3Ks";
 
 async function fetchSheetCSV(sheetName: string): Promise<string> {
   const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
