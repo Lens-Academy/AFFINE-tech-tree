@@ -39,7 +39,7 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - Topic detail shows "Related Topics" section with prerequisites and dependents (below "Add resource").
 - Header includes a link to the GitHub repository.
 - Test/staging deployments show a "Test env" badge with deploy date, commit link, and production URL.
-- Admin area includes a prerequisite network graph visualization (`/admin/prerequisite-graph`).
+- Admin area includes a prerequisite network graph visualization (`/graph`).
 
 ## Dev
 

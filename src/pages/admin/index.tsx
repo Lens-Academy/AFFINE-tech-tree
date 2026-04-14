@@ -166,10 +166,10 @@ export default function AdminHomePage() {
                       </li>
                       <li>
                         <Link
-                          href="/prerequisite-graph"
+                          href="/graph"
                           className="text-orange-400 hover:text-orange-300"
                         >
-                          Prerequisite graph
+                          Graph
                         </Link>
                       </li>
                     </ul>

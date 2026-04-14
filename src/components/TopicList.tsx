@@ -205,6 +205,16 @@ export function TopicList() {
         >
           Resources →
         </Link>
+        <Link
+          href="/graph"
+          className={
+            isTopicRoute
+              ? "flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-400 underline decoration-blue-400/40 underline-offset-2 transition hover:text-blue-300"
+              : "flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-400 underline decoration-blue-400/40 underline-offset-2 transition hover:text-blue-300"
+          }
+        >
+          Graph →
+        </Link>
         {sortDirty && (
           <SortLinkButton dense={isTopicRoute} onClick={applySort} />
         )}

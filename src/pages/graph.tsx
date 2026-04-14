@@ -147,7 +147,7 @@ export default function PrerequisiteGraphPage() {
   return (
     <>
       <Head>
-        <title>Prerequisite Graph | AFFINE Tech Tree</title>
+        <title>Graph | AFFINE Tech Tree</title>
       </Head>
       <main className="flex h-screen flex-col bg-zinc-950">
         <header className="shrink-0 border-b border-zinc-800/80 px-4 py-3 md:px-8">
@@ -160,7 +160,7 @@ export default function PrerequisiteGraphPage() {
                 ← Back to topics
               </Link>
               <span className="text-zinc-700">/</span>
-              <span className="text-sm text-zinc-300">Prerequisite Graph</span>
+              <span className="text-sm text-zinc-300">Graph</span>
             </div>
             <AuthHeader />
           </div>
