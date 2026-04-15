@@ -7,13 +7,18 @@ import { AuthHeader } from "~/components/AuthHeader";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { StarIcon } from "~/components/StarIcon";
 import { getLevelLabel } from "~/shared/understandingLevels";
+import {
+  USER_SEGMENTS,
+  getSegmentLabel,
+  type UserSegment,
+} from "~/shared/userSegments";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { authClient } from "~/server/better-auth/client";
 import { HELPFULNESS_RATING_LABELS } from "~/shared/feedbackTypes";
 import { formatDate } from "~/shared/formatDate";
 import type { HelpfulnessRating } from "~/shared/feedbackTypes";
-import { api } from "~/utils/api";
+import { api, type RouterInputs, type RouterOutputs } from "~/utils/api";
 
 type UpdateProfileMutationOptions = Exclude<
   Parameters<typeof api.userProfile.updateProfile.useMutation>[0],
@@ -34,6 +39,10 @@ type SetUserAdminMutationOptions = Exclude<
 >;
 type SetUserApprovalMutationOptions = Exclude<
   Parameters<typeof api.admin.setUserApproval.useMutation>[0],
+  undefined
+>;
+type SetUserSegmentMutationOptions = Exclude<
+  Parameters<typeof api.admin.setUserSegment.useMutation>[0],
   undefined
 >;
 
@@ -399,7 +408,41 @@ export default function UserProfilePage() {
     (opts: UpdateProfileMutationOptions) =>
       api.userProfile.updateProfile.useMutation(opts),
     {
-      refresh: [() => utils.userProfile.get.invalidate()],
+      onMutate: async (rawVars) => {
+        const vars = rawVars as RouterInputs["userProfile"]["updateProfile"];
+        const key = { userId: vars.userId };
+        await utils.userProfile.get.cancel(key);
+        const previous = utils.userProfile.get.getData(key);
+        utils.userProfile.get.setData(key, (old) =>
+          old
+            ? {
+                ...old,
+                user: {
+                  ...old.user,
+                  name: vars.name ?? old.user.name,
+                  email: vars.email ?? old.user.email,
+                },
+              }
+            : old,
+        );
+        return { previous };
+      },
+      onError: (_err, rawVars, ctx) => {
+        const vars = rawVars as RouterInputs["userProfile"]["updateProfile"];
+        const context = ctx as
+          | { previous?: RouterOutputs["userProfile"]["get"] }
+          | undefined;
+        if (context?.previous) {
+          utils.userProfile.get.setData(
+            { userId: vars.userId },
+            context.previous,
+          );
+        }
+      },
+      refresh: [
+        () => utils.userProfile.get.invalidate(),
+        () => utils.admin.listUsersForAdmin.invalidate(),
+      ],
     },
   );
 
@@ -427,9 +470,63 @@ export default function UserProfilePage() {
     (opts: SetUserAdminMutationOptions) =>
       api.admin.setUserAdmin.useMutation(opts),
     {
+      onMutate: async (rawVars) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserAdmin"];
+        const key = { userId: vars.userId };
+        await utils.userProfile.get.cancel(key);
+        const previous = utils.userProfile.get.getData(key);
+        utils.userProfile.get.setData(key, (old) =>
+          old ? { ...old, isAdmin: vars.isAdmin } : old,
+        );
+        return { previous };
+      },
+      onError: (_err, rawVars, ctx) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserAdmin"];
+        const context = ctx as
+          | { previous?: RouterOutputs["userProfile"]["get"] }
+          | undefined;
+        if (context?.previous) {
+          utils.userProfile.get.setData(
+            { userId: vars.userId },
+            context.previous,
+          );
+        }
+      },
       refresh: [
         () => utils.userProfile.get.invalidate(),
         () => utils.admin.getAdminStatus.invalidate(),
+        () => utils.admin.listUsersForAdmin.invalidate(),
+      ],
+    },
+  );
+  const setUserSegment = useAppMutation(
+    (opts: SetUserSegmentMutationOptions) =>
+      api.admin.setUserSegment.useMutation(opts),
+    {
+      onMutate: async (rawVars) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserSegment"];
+        const key = { userId: vars.userId };
+        await utils.userProfile.get.cancel(key);
+        const previous = utils.userProfile.get.getData(key);
+        utils.userProfile.get.setData(key, (old) =>
+          old ? { ...old, user: { ...old.user, segment: vars.segment } } : old,
+        );
+        return { previous };
+      },
+      onError: (_err, rawVars, ctx) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserSegment"];
+        const context = ctx as
+          | { previous?: RouterOutputs["userProfile"]["get"] }
+          | undefined;
+        if (context?.previous) {
+          utils.userProfile.get.setData(
+            { userId: vars.userId },
+            context.previous,
+          );
+        }
+      },
+      refresh: [
+        () => utils.userProfile.get.invalidate(),
         () => utils.admin.listUsersForAdmin.invalidate(),
       ],
     },
@@ -438,6 +535,33 @@ export default function UserProfilePage() {
     (opts: SetUserApprovalMutationOptions) =>
       api.admin.setUserApproval.useMutation(opts),
     {
+      onMutate: async (rawVars) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserApproval"];
+        const key = { userId: vars.userId };
+        await utils.userProfile.get.cancel(key);
+        const previous = utils.userProfile.get.getData(key);
+        utils.userProfile.get.setData(key, (old) =>
+          old
+            ? {
+                ...old,
+                user: { ...old.user, isApproved: vars.isApproved },
+              }
+            : old,
+        );
+        return { previous };
+      },
+      onError: (_err, rawVars, ctx) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserApproval"];
+        const context = ctx as
+          | { previous?: RouterOutputs["userProfile"]["get"] }
+          | undefined;
+        if (context?.previous) {
+          utils.userProfile.get.setData(
+            { userId: vars.userId },
+            context.previous,
+          );
+        }
+      },
       refresh: [
         () => utils.userProfile.get.invalidate(),
         () => utils.admin.listUsersForAdmin.invalidate(),
@@ -559,6 +683,46 @@ export default function UserProfilePage() {
                               ? "Unapprove"
                               : "Approve"}
                         </button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-zinc-500">
+                      Segment
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {data.viewerIsAdmin ? (
+                        <select
+                          value={data.user.segment ?? ""}
+                          onChange={(e) =>
+                            setUserSegment.mutate({
+                              userId: data.user.id,
+                              segment:
+                                e.target.value === ""
+                                  ? null
+                                  : (e.target.value as UserSegment),
+                            })
+                          }
+                          disabled={setUserSegment.isPending}
+                          className="rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
+                        >
+                          <option value="">Unassigned</option>
+                          {USER_SEGMENTS.map((seg) => (
+                            <option key={seg} value={seg}>
+                              {getSegmentLabel(seg)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          className={
+                            data.user.segment
+                              ? "text-zinc-200"
+                              : "text-zinc-500"
+                          }
+                        >
+                          {getSegmentLabel(data.user.segment)}
+                        </span>
                       )}
                     </div>
                   </div>

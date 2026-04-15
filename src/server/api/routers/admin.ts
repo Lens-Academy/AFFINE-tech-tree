@@ -34,6 +34,7 @@ import {
 } from "~/server/db/schema";
 import type { UnderstandingLevel } from "~/shared/understandingLevels";
 import { UNDERSTANDING_LEVELS } from "~/shared/understandingLevels";
+import { userSegmentSchema } from "~/shared/userSegments";
 
 const ADMIN_HONOR_SYSTEM_KEY = "admin_honor_system_enabled";
 const NULL_LEVEL_KEY = "__null__";
@@ -251,6 +252,7 @@ export const adminRouter = createTRPCRouter({
         email: true,
         isNonUser: true,
         isApproved: true,
+        segment: true,
       },
       with: {
         roles: {
@@ -266,9 +268,41 @@ export const adminRouter = createTRPCRouter({
       email: u.email,
       isNonUser: u.isNonUser,
       isApproved: u.isApproved,
+      segment: u.segment,
       isAdmin: u.roles.length > 0,
     }));
   }),
+
+  setUserSegment: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        segment: userSegmentSchema.nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertAdmin(ctx);
+      const existingUser = await ctx.db.query.user.findFirst({
+        where: (u, { eq }) => eq(u.id, input.userId),
+        columns: { id: true },
+      });
+      if (!existingUser) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+      await ctx.db
+        .update(user)
+        .set({ segment: input.segment })
+        .where(eq(user.id, input.userId));
+      await logAdminAction({
+        db: ctx.db,
+        actorUserId: ctx.session.user.id,
+        action: "set_user_segment",
+        targetType: "user",
+        targetId: input.userId,
+        payload: { segment: input.segment },
+      });
+      return { ok: true };
+    }),
 
   setUserApproval: protectedProcedure
     .input(z.object({ userId: z.string().min(1), isApproved: z.boolean() }))

@@ -27,6 +27,10 @@ export function AuthHeader() {
   const { rawUser, viewerUser, isPending, isPendingApproval, isAdmin } =
     useViewerAccess();
   const utils = api.useUtils();
+  const incomingMatches = api.match.listIncoming.useQuery(undefined, {
+    enabled: !!viewerUser,
+  });
+  const incomingCount = incomingMatches.data?.length ?? 0;
 
   if (isPending) {
     return <span className="text-sm text-zinc-500">Loading…</span>;
@@ -42,6 +46,17 @@ export function AuthHeader() {
           className="rounded px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
         >
           {viewerUser.name ?? viewerUser.email}
+        </Link>
+        <Link
+          href="/users"
+          className="relative rounded px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+        >
+          Peers
+          {incomingCount > 0 && (
+            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold text-white">
+              {incomingCount > 9 ? "9+" : incomingCount}
+            </span>
+          )}
         </Link>
         {isAdmin && (
           <Link

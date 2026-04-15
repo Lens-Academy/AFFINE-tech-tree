@@ -51,6 +51,7 @@ export const userProfileRouter = createTRPCRouter({
           isApproved: true,
           isNonUser: true,
           availableForTutoring: true,
+          segment: true,
           createdAt: true,
         },
       });

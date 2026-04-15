@@ -6,6 +6,7 @@ import {
   FEEDBACK_ITEM_TYPES,
   HELPFULNESS_RATINGS,
 } from "../../shared/feedbackTypes.ts";
+import { USER_SEGMENTS } from "../../shared/userSegments.ts";
 
 // Better Auth core tables
 export const user = sqliteTable("user", (d) => ({
@@ -21,6 +22,7 @@ export const user = sqliteTable("user", (d) => ({
   emailVerified: d.integer({ mode: "boolean" }).default(false),
   image: d.text({ length: 255 }),
   availableForTutoring: d.integer({ mode: "boolean" }).notNull().default(false),
+  segment: d.text({ length: 32, enum: USER_SEGMENTS }),
   createdAt: d
     .integer({ mode: "timestamp" })
     .default(sql`(unixepoch())`)
@@ -50,6 +52,8 @@ export const userRelations = relations(user, ({ many }) => ({
   roles: many(userRole, { relationName: "roleUser" }),
   createdRoles: many(userRole, { relationName: "roleCreator" }),
   adminActions: many(adminActionLog, { relationName: "actorUser" }),
+  matchRequestsFrom: many(matchRequest, { relationName: "matchRequestFrom" }),
+  matchRequestsTo: many(matchRequest, { relationName: "matchRequestTo" }),
 }));
 
 export const account = sqliteTable(
@@ -419,6 +423,56 @@ export const adminActionLog = sqliteTable(
     index("admin_action_log_action_idx").on(t.action),
   ],
 );
+
+export const MATCH_REQUEST_STATUSES = [
+  "pending",
+  "accepted",
+  "declined",
+] as const;
+
+export const matchRequest = sqliteTable(
+  "match_request",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    fromUserId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toUserId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    pairKey: d.text({ length: 511 }).notNull(),
+    status: d
+      .text({ length: 32, enum: MATCH_REQUEST_STATUSES })
+      .notNull()
+      .default("pending"),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    respondedAt: d.integer({ mode: "timestamp" }),
+  }),
+  (t) => [
+    uniqueIndex("match_request_pair_key_unique").on(t.pairKey),
+    index("match_request_from_idx").on(t.fromUserId),
+    index("match_request_to_idx").on(t.toUserId),
+    index("match_request_status_idx").on(t.status),
+  ],
+);
+
+export const matchRequestRelations = relations(matchRequest, ({ one }) => ({
+  fromUser: one(user, {
+    fields: [matchRequest.fromUserId],
+    references: [user.id],
+    relationName: "matchRequestFrom",
+  }),
+  toUser: one(user, {
+    fields: [matchRequest.toUserId],
+    references: [user.id],
+    relationName: "matchRequestTo",
+  }),
+}));
 
 export const appSetting = sqliteTable("app_setting", (d) => ({
   key: d.text({ length: 128 }).primaryKey(),

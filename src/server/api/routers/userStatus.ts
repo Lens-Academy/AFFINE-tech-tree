@@ -2,9 +2,16 @@ import { z } from "zod";
 
 import { and, eq } from "drizzle-orm";
 
-import { understandingLevelSchema } from "~/shared/understandingLevels";
+import {
+  isTeacherLevel,
+  understandingLevelSchema,
+} from "~/shared/understandingLevels";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { levelTransition, userTopicStatus } from "~/server/db/schema";
+import {
+  excitedToTeach,
+  levelTransition,
+  userTopicStatus,
+} from "~/server/db/schema";
 
 export const userStatusRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -40,6 +47,17 @@ export const userStatusRouter = createTRPCRouter({
             updatedAt: new Date(),
           },
         });
+
+      if (!isTeacherLevel(input.level)) {
+        await ctx.db
+          .delete(excitedToTeach)
+          .where(
+            and(
+              eq(excitedToTeach.userId, ctx.session.user.id),
+              eq(excitedToTeach.topicId, input.topicId),
+            ),
+          );
+      }
 
       const shouldCreateTransition = current?.level !== input.level;
 
@@ -82,6 +100,14 @@ export const userStatusRouter = createTRPCRouter({
           and(
             eq(userTopicStatus.userId, ctx.session.user.id),
             eq(userTopicStatus.topicId, input.topicId),
+          ),
+        );
+      await ctx.db
+        .delete(excitedToTeach)
+        .where(
+          and(
+            eq(excitedToTeach.userId, ctx.session.user.id),
+            eq(excitedToTeach.topicId, input.topicId),
           ),
         );
     }),

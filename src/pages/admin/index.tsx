@@ -1,9 +1,10 @@
 import Head from "next/head";
 import Link from "next/link";
 import { AuthHeader } from "~/components/AuthHeader";
+import { getSegmentLabel } from "~/shared/userSegments";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
-import { api } from "~/utils/api";
+import { api, type RouterInputs, type RouterOutputs } from "~/utils/api";
 
 type BootstrapMutationOptions = Exclude<
   Parameters<typeof api.admin.bootstrapFirstAdmin.useMutation>[0],
@@ -55,6 +56,23 @@ export default function AdminHomePage() {
     (opts: SetHonorSystemMutationOptions) =>
       api.admin.setHonorSystemEnabled.useMutation(opts),
     {
+      onMutate: async (rawVars) => {
+        const vars = rawVars as RouterInputs["admin"]["setHonorSystemEnabled"];
+        await utils.admin.getAdminStatus.cancel();
+        const previous = utils.admin.getAdminStatus.getData();
+        utils.admin.getAdminStatus.setData(undefined, (old) =>
+          old ? { ...old, honorSystemEnabled: vars.enabled } : old,
+        );
+        return { previous };
+      },
+      onError: (_err, _vars, ctx) => {
+        const context = ctx as
+          | { previous?: RouterOutputs["admin"]["getAdminStatus"] }
+          | undefined;
+        if (context?.previous) {
+          utils.admin.getAdminStatus.setData(undefined, context.previous);
+        }
+      },
       refresh: [() => utils.admin.getAdminStatus.invalidate()],
     },
   );
@@ -62,6 +80,24 @@ export default function AdminHomePage() {
     (opts: SetAllowNewUsersWithoutApprovalMutationOptions) =>
       api.admin.setAllowNewUsersWithoutApproval.useMutation(opts),
     {
+      onMutate: async (rawVars) => {
+        const vars =
+          rawVars as RouterInputs["admin"]["setAllowNewUsersWithoutApproval"];
+        await utils.admin.getAdminStatus.cancel();
+        const previous = utils.admin.getAdminStatus.getData();
+        utils.admin.getAdminStatus.setData(undefined, (old) =>
+          old ? { ...old, allowNewUsersWithoutApproval: vars.enabled } : old,
+        );
+        return { previous };
+      },
+      onError: (_err, _vars, ctx) => {
+        const context = ctx as
+          | { previous?: RouterOutputs["admin"]["getAdminStatus"] }
+          | undefined;
+        if (context?.previous) {
+          utils.admin.getAdminStatus.setData(undefined, context.previous);
+        }
+      },
       refresh: [() => utils.admin.getAdminStatus.invalidate()],
     },
   );
@@ -69,6 +105,25 @@ export default function AdminHomePage() {
     (opts: SetUserApprovalMutationOptions) =>
       api.admin.setUserApproval.useMutation(opts),
     {
+      onMutate: async (rawVars) => {
+        const vars = rawVars as RouterInputs["admin"]["setUserApproval"];
+        await utils.admin.listUsersForAdmin.cancel();
+        const previous = utils.admin.listUsersForAdmin.getData();
+        utils.admin.listUsersForAdmin.setData(undefined, (old) =>
+          (old ?? []).map((u) =>
+            u.id === vars.userId ? { ...u, isApproved: vars.isApproved } : u,
+          ),
+        );
+        return { previous };
+      },
+      onError: (_err, _vars, ctx) => {
+        const context = ctx as
+          | { previous?: RouterOutputs["admin"]["listUsersForAdmin"] }
+          | undefined;
+        if (context?.previous) {
+          utils.admin.listUsersForAdmin.setData(undefined, context.previous);
+        }
+      },
       refresh: [() => utils.admin.listUsersForAdmin.invalidate()],
     },
   );
@@ -245,6 +300,8 @@ export default function AdminHomePage() {
                                   {u.email}
                                   {u.isNonUser ? " · non-user" : ""}
                                   {!u.isApproved ? " · waiting approval" : ""}
+                                  {" · "}
+                                  {getSegmentLabel(u.segment)}
                                 </div>
                               </div>
                               <div className="ml-3 flex items-center gap-2">
