@@ -151,8 +151,9 @@ export const topicRouter = createTRPCRouter({
     .input(z.object({ topicId: z.number() }))
     .query(async ({ ctx, input }) => {
       const rows = await ctx.db.query.userTopicStatus.findMany({
-        where: (s, { eq, and, inArray }) =>
+        where: (s, { eq, and, inArray, ne }) =>
           and(
+            ne(s.userId, ctx.session.user.id),
             eq(s.topicId, input.topicId),
             inArray(s.level, [...TEACHER_LEVELS]),
           ),
