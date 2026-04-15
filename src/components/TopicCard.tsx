@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { type UnderstandingLevel } from "~/shared/understandingLevels";
 import { type RouterOutputs } from "~/utils/api";
 import { BookmarkIcon } from "./BookmarkIcon";
+import { StarIcon } from "./StarIcon";
 import { UnderstandingLevelCheckboxes } from "./UnderstandingLevelCheckboxes";
 
 type Topic = RouterOutputs["topic"]["list"][number];
@@ -17,6 +18,10 @@ export function TopicCard({
   onBookmarkToggle,
   canBookmark,
   bookmarkDisabled,
+  excitedToTeach,
+  onExcitedToTeachToggle,
+  excitedToTeachDisabled,
+  canMarkExcitedToTeach,
   isActive,
 }: {
   topic: Topic;
@@ -27,6 +32,10 @@ export function TopicCard({
   onBookmarkToggle?: () => void;
   canBookmark?: boolean;
   bookmarkDisabled?: boolean;
+  excitedToTeach?: boolean;
+  onExcitedToTeachToggle?: () => void;
+  excitedToTeachDisabled?: boolean;
+  canMarkExcitedToTeach?: boolean;
   isActive?: boolean;
 }) {
   const router = useRouter();
@@ -56,21 +65,46 @@ export function TopicCard({
           )}
         </Link>
         {canBookmark && (
-          <button
-            type="button"
-            onClick={onBookmarkToggle}
-            disabled={bookmarkDisabled}
-            title="I'd like to learn this topic"
-            className={`-mt-1 -mr-1.5 shrink-0 rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-              bookmarked
-                ? isActive
-                  ? "text-orange-400"
-                  : "text-zinc-600 group-hover:text-orange-400"
-                : "text-zinc-600 hover:text-orange-400"
-            }`}
-          >
-            <BookmarkIcon filled={!!bookmarked} />
-          </button>
+          <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
+            {canMarkExcitedToTeach && (
+              <button
+                type="button"
+                onClick={onExcitedToTeachToggle}
+                disabled={excitedToTeachDisabled}
+                aria-label={
+                  excitedToTeach
+                    ? "Remove excited to teach"
+                    : "Mark excited to teach"
+                }
+                aria-pressed={!!excitedToTeach}
+                title="Excited to teach"
+                className={`rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  excitedToTeach
+                    ? isActive
+                      ? "text-orange-400"
+                      : "text-zinc-600 group-hover:text-orange-400"
+                    : "text-zinc-600 hover:text-orange-400"
+                }`}
+              >
+                <StarIcon filled={!!excitedToTeach} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onBookmarkToggle}
+              disabled={bookmarkDisabled}
+              title="I'd like to learn this topic"
+              className={`rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                bookmarked
+                  ? isActive
+                    ? "text-orange-400"
+                    : "text-zinc-600 group-hover:text-orange-400"
+                  : "text-zinc-600 hover:text-orange-400"
+              }`}
+            >
+              <BookmarkIcon filled={!!bookmarked} />
+            </button>
+          </div>
         )}
       </div>
       {canEdit && (

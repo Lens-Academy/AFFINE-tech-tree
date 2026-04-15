@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { AuthHeader } from "~/components/AuthHeader";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
+import { StarIcon } from "~/components/StarIcon";
+import { getLevelLabel } from "~/shared/understandingLevels";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { authClient } from "~/server/better-auth/client";
@@ -678,6 +680,33 @@ export default function UserProfilePage() {
                   </div>
                 )}
               </div>
+
+              {/* Excited to teach */}
+              {data.excitedToTeachTopics.length > 0 && (
+                <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+                  <h2 className="mb-3 flex items-center gap-2 text-zinc-200">
+                    <span className="text-orange-400">
+                      <StarIcon filled />
+                    </span>
+                    Excited to teach
+                  </h2>
+                  <ul className="flex flex-wrap gap-2">
+                    {data.excitedToTeachTopics.map((t) => (
+                      <li key={t.id}>
+                        <Link
+                          href={`/topic/${t.id}`}
+                          className="inline-flex items-center gap-2 rounded border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-orange-400 hover:border-orange-500/40 hover:text-orange-300"
+                        >
+                          <span>{t.name}</span>
+                          <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                            {getLevelLabel(t.level)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Password management */}
               {(data.isSelf || data.viewerIsAdmin) && (

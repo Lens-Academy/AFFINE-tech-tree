@@ -13,6 +13,7 @@ import { AuthHeader } from "~/components/AuthHeader";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
 import { CommentIcon } from "~/components/CommentIcon";
+import { StarIcon } from "~/components/StarIcon";
 import {
   DebouncedTextarea,
   FeedbackSection,
@@ -23,6 +24,10 @@ import { api, type RouterOutputs } from "~/utils/api";
 
 type BookmarkMutationOptions = Exclude<
   Parameters<typeof api.bookmark.set.useMutation>[0],
+  undefined
+>;
+type ExcitedToTeachMutationOptions = Exclude<
+  Parameters<typeof api.excitedToTeach.set.useMutation>[0],
   undefined
 >;
 type SubmitTopicSuggestionMutationOptions = Exclude<
@@ -64,6 +69,10 @@ export default function TopicPage() {
   const { data: bookmarkedIds } = api.bookmark.getAll.useQuery(undefined, {
     enabled: !!viewerUser,
   });
+  const { data: excitedToTeachIds } = api.excitedToTeach.getAll.useQuery(
+    undefined,
+    { enabled: !!viewerUser },
+  );
   const utils = api.useUtils();
   const bookmarkSet = useAppMutation(
     (opts: BookmarkMutationOptions) => api.bookmark.set.useMutation(opts),
@@ -82,11 +91,39 @@ export default function TopicPage() {
       },
       onError: (_error, _vars, ctx) => {
         const context = ctx as { previous?: number[] } | undefined;
-        if (context?.previous) {
+        if (context && "previous" in context) {
           utils.bookmark.getAll.setData(undefined, context.previous);
         }
       },
       refresh: [() => utils.bookmark.getAll.invalidate()],
+    },
+  );
+  const excitedToTeachSet = useAppMutation(
+    (opts: ExcitedToTeachMutationOptions) =>
+      api.excitedToTeach.set.useMutation(opts),
+    {
+      onMutate: async (vars) => {
+        const input = vars as { topicId: number; excited: boolean };
+        await utils.excitedToTeach.getAll.cancel();
+        const previous = utils.excitedToTeach.getAll.getData();
+        utils.excitedToTeach.getAll.setData(undefined, (old) => {
+          const set = new Set(old ?? []);
+          if (input.excited) set.add(input.topicId);
+          else set.delete(input.topicId);
+          return [...set];
+        });
+        return { previous };
+      },
+      onError: (_error, _vars, ctx) => {
+        const context = ctx as { previous?: number[] } | undefined;
+        if (context && "previous" in context) {
+          utils.excitedToTeach.getAll.setData(undefined, context.previous);
+        }
+      },
+      refresh: [
+        () => utils.excitedToTeach.getAll.invalidate(),
+        () => utils.topic.getTeachers.invalidate({ topicId: id }),
+      ],
     },
   );
   const { data: teachers } = api.topic.getTeachers.useQuery(
@@ -168,6 +205,9 @@ export default function TopicPage() {
     },
   );
   const isBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
+  const isExcitedToTeach = topic
+    ? (excitedToTeachIds ?? []).includes(topic.id)
+    : false;
 
   const serverLevel =
     topic && statuses
@@ -288,25 +328,54 @@ export default function TopicPage() {
                           {topic.name}
                         </h1>
                         {viewerUser && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (bookmarkSet.isPending) return;
-                              bookmarkSet.mutate({
-                                topicId: topic.id,
-                                bookmarked: !isBookmarked,
-                              });
-                            }}
-                            disabled={bookmarkSet.isPending}
-                            title="I'd like to learn this topic"
-                            className={`shrink-0 rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                              isBookmarked
-                                ? "text-orange-400"
-                                : "text-zinc-600 hover:text-zinc-400"
-                            }`}
-                          >
-                            <BookmarkIcon filled={isBookmarked} />
-                          </button>
+                          <div className="flex shrink-0 items-center">
+                            {isTeacherLevel(currentLevel) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (excitedToTeachSet.isPending) return;
+                                  excitedToTeachSet.mutate({
+                                    topicId: topic.id,
+                                    excited: !isExcitedToTeach,
+                                  });
+                                }}
+                                disabled={excitedToTeachSet.isPending}
+                                aria-label={
+                                  isExcitedToTeach
+                                    ? "Remove excited to teach"
+                                    : "Mark excited to teach"
+                                }
+                                aria-pressed={isExcitedToTeach}
+                                title="Excited to teach"
+                                className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  isExcitedToTeach
+                                    ? "text-orange-400"
+                                    : "text-zinc-600 hover:text-zinc-400"
+                                }`}
+                              >
+                                <StarIcon filled={isExcitedToTeach} />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (bookmarkSet.isPending) return;
+                                bookmarkSet.mutate({
+                                  topicId: topic.id,
+                                  bookmarked: !isBookmarked,
+                                });
+                              }}
+                              disabled={bookmarkSet.isPending}
+                              title="I'd like to learn this topic"
+                              className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                isBookmarked
+                                  ? "text-orange-400"
+                                  : "text-zinc-600 hover:text-zinc-400"
+                              }`}
+                            >
+                              <BookmarkIcon filled={isBookmarked} />
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -436,6 +505,14 @@ export default function TopicPage() {
                                 <li key={t.userId}>
                                   <div className="flex items-center gap-2 text-sm text-zinc-300">
                                     <span>{t.name ?? "Anonymous"}</span>
+                                    {t.excitedToTeach && (
+                                      <span
+                                        className="text-orange-400"
+                                        title="Excited to teach"
+                                      >
+                                        <StarIcon filled />
+                                      </span>
+                                    )}
                                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
                                       {getLevelLabel(t.level)}
                                     </span>

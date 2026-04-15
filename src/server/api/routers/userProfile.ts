@@ -1,11 +1,17 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
-import { user } from "~/server/db/schema";
+import {
+  excitedToTeach,
+  topic as topicTable,
+  user,
+  userTopicStatus,
+} from "~/server/db/schema";
 import { auth, pendingResetUrls } from "~/server/better-auth";
+import { TEACHER_LEVELS } from "~/shared/understandingLevels";
 
 async function isAdminUser(db: Db, userId: string) {
   const role = await db.query.userRole.findFirst({
@@ -56,6 +62,29 @@ export const userProfileRouter = createTRPCRouter({
       const targetIsAdmin = await isAdminUser(ctx.db, input.userId);
       const honorSystemEnabled = await getHonorSystemEnabled(ctx.db);
 
+      const excitedTopicRows = await ctx.db
+        .select({
+          id: topicTable.id,
+          name: topicTable.name,
+          level: userTopicStatus.level,
+        })
+        .from(excitedToTeach)
+        .innerJoin(topicTable, eq(topicTable.id, excitedToTeach.topicId))
+        .innerJoin(
+          userTopicStatus,
+          and(
+            eq(userTopicStatus.userId, excitedToTeach.userId),
+            eq(userTopicStatus.topicId, excitedToTeach.topicId),
+          ),
+        )
+        .where(
+          and(
+            eq(excitedToTeach.userId, input.userId),
+            inArray(userTopicStatus.level, [...TEACHER_LEVELS]),
+          ),
+        )
+        .orderBy(topicTable.name);
+
       // Feedback left about this user by others (type=user, referencedUserId=target)
       const feedbackAboutUser = await ctx.db.query.feedbackItem.findMany({
         where: (fi, { and, eq }) =>
@@ -74,6 +103,7 @@ export const userProfileRouter = createTRPCRouter({
         isSelf,
         viewerIsAdmin,
         honorSystemEnabled,
+        excitedToTeachTopics: excitedTopicRows,
         feedbackAboutUser: feedbackAboutUser.map((fi) => ({
           id: fi.id,
           helpfulnessRating: fi.helpfulnessRating,

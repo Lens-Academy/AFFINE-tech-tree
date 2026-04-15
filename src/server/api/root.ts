@@ -3,6 +3,7 @@ import { accessRouter } from "~/server/api/routers/access";
 import { adminRouter } from "~/server/api/routers/admin";
 import { availabilityRouter } from "~/server/api/routers/availability";
 import { bookmarkRouter } from "~/server/api/routers/bookmark";
+import { excitedToTeachRouter } from "~/server/api/routers/excitedToTeach";
 import { feedbackRouter } from "~/server/api/routers/feedback";
 import { topicRouter } from "~/server/api/routers/topic";
 import { userProfileRouter } from "~/server/api/routers/userProfile";
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   availability: availabilityRouter,
   bookmark: bookmarkRouter,
+  excitedToTeach: excitedToTeachRouter,
   feedback: feedbackRouter,
   topic: topicRouter,
   userProfile: userProfileRouter,

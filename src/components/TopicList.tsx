@@ -5,12 +5,19 @@ import Link from "next/link";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
-import { type UnderstandingLevel } from "~/shared/understandingLevels";
+import {
+  isTeacherLevel,
+  type UnderstandingLevel,
+} from "~/shared/understandingLevels";
 import { api } from "~/utils/api";
 import { TopicCard } from "./TopicCard";
 
 type BookmarkMutationOptions = Exclude<
   Parameters<typeof api.bookmark.set.useMutation>[0],
+  undefined
+>;
+type ExcitedToTeachMutationOptions = Exclude<
+  Parameters<typeof api.excitedToTeach.set.useMutation>[0],
   undefined
 >;
 
@@ -29,6 +36,9 @@ export function TopicList() {
   const [bookmarkUpdatingTopicId, setBookmarkUpdatingTopicId] = useState<
     number | null
   >(null);
+  const [excitedUpdatingTopicId, setExcitedUpdatingTopicId] = useState<
+    number | null
+  >(null);
   const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
   const { data: tags } = api.topic.listTags.useQuery();
@@ -38,6 +48,10 @@ export function TopicList() {
     });
   const { data: bookmarkedIds, isFetched: bookmarksFetched } =
     api.bookmark.getAll.useQuery(undefined, {
+      enabled: !!viewerUser,
+    });
+  const { data: excitedToTeachIds, isFetched: excitedToTeachFetched } =
+    api.excitedToTeach.getAll.useQuery(undefined, {
       enabled: !!viewerUser,
     });
   const utils = api.useUtils();
@@ -59,7 +73,7 @@ export function TopicList() {
       },
       onError: (_error, _vars, ctx) => {
         const context = ctx as { previous?: number[] } | undefined;
-        if (context?.previous) {
+        if (context && "previous" in context) {
           utils.bookmark.getAll.setData(undefined, context.previous);
         }
       },
@@ -67,6 +81,35 @@ export function TopicList() {
         setBookmarkUpdatingTopicId(null);
       },
       refresh: [() => utils.bookmark.getAll.invalidate()],
+    },
+  );
+  const excitedToTeachSet = useAppMutation(
+    (opts: ExcitedToTeachMutationOptions) =>
+      api.excitedToTeach.set.useMutation(opts),
+    {
+      onMutate: async (vars) => {
+        const input = vars as { topicId: number; excited: boolean };
+        setExcitedUpdatingTopicId(input.topicId);
+        await utils.excitedToTeach.getAll.cancel();
+        const previous = utils.excitedToTeach.getAll.getData();
+        utils.excitedToTeach.getAll.setData(undefined, (old) => {
+          const set = new Set(old ?? []);
+          if (input.excited) set.add(input.topicId);
+          else set.delete(input.topicId);
+          return [...set];
+        });
+        return { previous };
+      },
+      onError: (_error, _vars, ctx) => {
+        const context = ctx as { previous?: number[] } | undefined;
+        if (context && "previous" in context) {
+          utils.excitedToTeach.getAll.setData(undefined, context.previous);
+        }
+      },
+      onSettled: () => {
+        setExcitedUpdatingTopicId(null);
+      },
+      refresh: [() => utils.excitedToTeach.getAll.invalidate()],
     },
   );
 
@@ -100,6 +143,10 @@ export function TopicList() {
     () => new Set(bookmarkedIds ?? []),
     [bookmarkedIds],
   );
+  const excitedToTeachSetIds = useMemo(
+    () => new Set(excitedToTeachIds ?? []),
+    [excitedToTeachIds],
+  );
   const serverStatusByTopic = useMemo(
     () => new Map((statuses ?? []).map((s) => [s.topicId, s.level] as const)),
     [statuses],
@@ -109,7 +156,9 @@ export function TopicList() {
     [allTopicsList, bookmarkedSet, serverStatusByTopic],
   );
   const initialSortReady =
-    !isLoading && (!viewerUser || (statusesFetched && bookmarksFetched));
+    !isLoading &&
+    (!viewerUser ||
+      (statusesFetched && bookmarksFetched && excitedToTeachFetched));
   useEffect(() => {
     if (!viewerUser) {
       setInitialSortApplied(false);
@@ -270,6 +319,21 @@ export function TopicList() {
                   canBookmark={!!viewerUser}
                   bookmarkDisabled={
                     bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
+                  }
+                  canMarkExcitedToTeach={isTeacherLevel(
+                    serverStatusByTopic.get(t.id),
+                  )}
+                  excitedToTeach={excitedToTeachSetIds.has(t.id)}
+                  onExcitedToTeachToggle={() => {
+                    if (excitedToTeachSet.isPending) return;
+                    excitedToTeachSet.mutate({
+                      topicId: t.id,
+                      excited: !excitedToTeachSetIds.has(t.id),
+                    });
+                  }}
+                  excitedToTeachDisabled={
+                    excitedToTeachSet.isPending &&
+                    excitedUpdatingTopicId === t.id
                   }
                   isActive={activeTopicId === t.id}
                 />

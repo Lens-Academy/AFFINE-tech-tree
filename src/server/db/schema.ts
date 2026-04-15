@@ -33,6 +33,7 @@ export const userRelations = relations(user, ({ many }) => ({
   session: many(session),
   userTopicStatus: many(userTopicStatus),
   bookmark: many(bookmark),
+  excitedToTeach: many(excitedToTeach),
   teachingSessionAsTeacher: many(teachingSession, {
     relationName: "teacher",
   }),
@@ -284,6 +285,28 @@ export const bookmark = sqliteTable(
   (t) => [uniqueIndex("bookmark_user_topic_unique").on(t.userId, t.topicId)],
 );
 
+export const excitedToTeach = sqliteTable(
+  "excited_to_teach",
+  (d) => ({
+    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    topicId: d
+      .integer({ mode: "number" })
+      .notNull()
+      .references(() => topic.id, { onDelete: "cascade" }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    uniqueIndex("excited_to_teach_user_topic_unique").on(t.userId, t.topicId),
+  ],
+);
+
 export const levelTransition = sqliteTable(
   "level_transition",
   (d) => ({
@@ -414,6 +437,7 @@ export const topicRelations = relations(topic, ({ many }) => ({
   dependents: many(topicPrerequisite, { relationName: "prereqDependents" }),
   userTopicStatus: many(userTopicStatus),
   bookmarks: many(bookmark),
+  excitedToTeach: many(excitedToTeach),
   teachingSessions: many(teachingSession),
   levelTransitions: many(levelTransition),
 }));
@@ -485,6 +509,14 @@ export const teachingSessionRelations = relations(
 export const bookmarkRelations = relations(bookmark, ({ one }) => ({
   user: one(user, { fields: [bookmark.userId], references: [user.id] }),
   topic: one(topic, { fields: [bookmark.topicId], references: [topic.id] }),
+}));
+
+export const excitedToTeachRelations = relations(excitedToTeach, ({ one }) => ({
+  user: one(user, { fields: [excitedToTeach.userId], references: [user.id] }),
+  topic: one(topic, {
+    fields: [excitedToTeach.topicId],
+    references: [topic.id],
+  }),
 }));
 
 export const levelTransitionRelations = relations(

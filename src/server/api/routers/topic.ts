@@ -3,6 +3,7 @@ import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { TEACHER_LEVELS } from "~/shared/understandingLevels";
+import { compareTeachers } from "./topic.helpers";
 import {
   HELPFULNESS_RATINGS,
   type HelpfulnessRating,
@@ -12,7 +13,12 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
-import { feedbackItem } from "~/server/db/schema";
+import {
+  excitedToTeach,
+  feedbackItem,
+  user as userTable,
+  userTopicStatus,
+} from "~/server/db/schema";
 
 const HELPFULNESS_SCORE: Record<HelpfulnessRating, number> = {
   really_helpful: 2,
@@ -150,32 +156,40 @@ export const topicRouter = createTRPCRouter({
   getTeachers: protectedProcedure
     .input(z.object({ topicId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const rows = await ctx.db.query.userTopicStatus.findMany({
-        where: (s, { eq, and, inArray, ne }) =>
+      const rows = await ctx.db
+        .select({
+          userId: userTable.id,
+          name: userTable.name,
+          level: userTopicStatus.level,
+          available: userTable.availableForTutoring,
+          excitedToTeach: excitedToTeach.userId,
+        })
+        .from(userTopicStatus)
+        .innerJoin(userTable, eq(userTable.id, userTopicStatus.userId))
+        .leftJoin(
+          excitedToTeach,
           and(
-            ne(s.userId, ctx.session.user.id),
-            eq(s.topicId, input.topicId),
-            inArray(s.level, [...TEACHER_LEVELS]),
+            eq(excitedToTeach.userId, userTopicStatus.userId),
+            eq(excitedToTeach.topicId, userTopicStatus.topicId),
           ),
-        with: {
-          user: {
-            columns: {
-              id: true,
-              name: true,
-              availableForTutoring: true,
-            },
-          },
-        },
-      });
-      return rows.map((r) => {
-        const isAvailable = r.user.availableForTutoring;
-        return {
-          userId: r.user.id,
-          name: r.user.name,
+        )
+        .where(
+          and(
+            eq(userTopicStatus.topicId, input.topicId),
+            inArray(userTopicStatus.level, [...TEACHER_LEVELS]),
+          ),
+        );
+
+      return rows
+        .filter((r) => r.userId !== ctx.session.user.id)
+        .map((r) => ({
+          userId: r.userId,
+          name: r.name,
           level: r.level,
-          available: isAvailable,
-        };
-      });
+          available: r.available,
+          excitedToTeach: r.excitedToTeach !== null,
+        }))
+        .sort(compareTeachers);
     }),
 
   prerequisiteGraph: publicProcedure.query(async ({ ctx }) => {

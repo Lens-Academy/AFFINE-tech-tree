@@ -27,6 +27,7 @@ import {
   userTopicStatus,
   levelTransition,
   bookmark,
+  excitedToTeach,
   feedbackItem,
   topicLink,
   teachingSession,
@@ -417,6 +418,9 @@ export const adminRouter = createTRPCRouter({
         .delete(teachingSession)
         .where(eq(teachingSession.learnerId, input.userId));
       await ctx.db.delete(bookmark).where(eq(bookmark.userId, input.userId));
+      await ctx.db
+        .delete(excitedToTeach)
+        .where(eq(excitedToTeach.userId, input.userId));
       await ctx.db
         .delete(levelTransition)
         .where(eq(levelTransition.userId, input.userId));
@@ -1257,6 +1261,10 @@ export const adminRouter = createTRPCRouter({
         .update(bookmark)
         .set({ userId: createdUserId })
         .where(eq(bookmark.userId, existing.id));
+      await ctx.db
+        .update(excitedToTeach)
+        .set({ userId: createdUserId })
+        .where(eq(excitedToTeach.userId, existing.id));
       await ctx.db
         .update(teachingSession)
         .set({ teacherId: createdUserId })
