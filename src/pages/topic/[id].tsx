@@ -444,18 +444,6 @@ export default function TopicPage() {
                                         Available
                                       </span>
                                     )}
-                                    {t.available &&
-                                      t.latitude != null &&
-                                      t.longitude != null && (
-                                        <a
-                                          href={`https://www.google.com/maps/dir/?api=1&destination=${t.latitude},${t.longitude}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-xs text-orange-400 underline hover:text-orange-300"
-                                        >
-                                          Navigate
-                                        </a>
-                                      )}
                                   </div>
                                 </li>
                               ))}

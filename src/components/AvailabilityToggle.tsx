@@ -1,61 +1,24 @@
 import { useMutation } from "@tanstack/react-query";
-import { api, type RouterOutputs } from "~/utils/api";
-
-type AvailabilityStatus = RouterOutputs["availability"]["getMyStatus"];
-
-function getPosition(): Promise<{ latitude: number; longitude: number }> {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        }),
-      reject,
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  });
-}
+import { api } from "~/utils/api";
 
 export function AvailabilityToggle() {
   const utils = api.useUtils();
   const { data: status } = api.availability.getMyStatus.useQuery();
 
   const toggle = useMutation({
-    mutationFn: async (available: boolean) => {
-      if (!available) {
-        await utils.client.availability.setAvailable.mutate({
-          available: false,
-          latitude: null,
-          longitude: null,
-        });
-        return;
-      }
-
-      const pos = await getPosition();
-      await utils.client.availability.setAvailable.mutate({
-        available: true,
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-      });
-    },
+    mutationFn: async (available: boolean) =>
+      utils.client.availability.setAvailable.mutate({ available }),
     onMutate: async (available) => {
       await utils.availability.getMyStatus.cancel();
       const previous = utils.availability.getMyStatus.getData();
 
-      utils.availability.getMyStatus.setData(undefined, (old) => ({
-        available,
-        latitude: old?.latitude ?? null,
-        longitude: old?.longitude ?? null,
-        locationUpdatedAt: old?.locationUpdatedAt ?? null,
-      }));
+      utils.availability.getMyStatus.setData(undefined, { available });
 
       return { previous };
     },
     onError: (_err, _vars, ctx) => {
-      const context = ctx as { previous?: AvailabilityStatus } | undefined;
-      if (context?.previous) {
-        utils.availability.getMyStatus.setData(undefined, context.previous);
+      if (ctx?.previous) {
+        utils.availability.getMyStatus.setData(undefined, ctx.previous);
       }
     },
     onSettled: () => utils.availability.getMyStatus.invalidate(),
@@ -95,12 +58,7 @@ export function AvailabilityToggle() {
         {available ? "Available" : "Unavailable"}
       </button>
       {toggle.error && (
-        <span className="text-xs text-red-400">
-          {toggle.error instanceof GeolocationPositionError &&
-          toggle.error.code === toggle.error.PERMISSION_DENIED
-            ? "Location permission denied"
-            : "Could not get location"}
-        </span>
+        <span className="text-xs text-red-400">Could not update status</span>
       )}
     </div>
   );

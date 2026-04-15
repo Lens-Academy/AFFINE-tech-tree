@@ -162,8 +162,6 @@ export const topicRouter = createTRPCRouter({
               id: true,
               name: true,
               availableForTutoring: true,
-              latitude: true,
-              longitude: true,
             },
           },
         },
@@ -175,8 +173,6 @@ export const topicRouter = createTRPCRouter({
           name: r.user.name,
           level: r.level,
           available: isAvailable,
-          latitude: isAvailable ? r.user.latitude : null,
-          longitude: isAvailable ? r.user.longitude : null,
         };
       });
     }),

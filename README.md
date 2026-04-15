@@ -20,7 +20,7 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - User profile page (`/user/[id]`):
   - Edit name and email.
   - Change password (self) or generate a password reset link (admin viewing another user).
-  - Availability toggle with GPS tracking.
+  - Availability toggle.
   - View feedback left about this user by others.
   - Become admin (when honor system is enabled).
 - Auth page shows sign-up and sign-in side by side with shared fields.

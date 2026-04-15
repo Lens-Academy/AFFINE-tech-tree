@@ -658,9 +658,9 @@ export default function UserProfilePage() {
                 )}
               </div>
 
-              {/* GPS / Availability */}
+              {/* Availability */}
               <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-                <h2 className="mb-2 text-zinc-200">Location / Availability</h2>
+                <h2 className="mb-2 text-zinc-200">Availability</h2>
                 {data.isSelf ? (
                   <AvailabilityToggle />
                 ) : (
@@ -674,23 +674,6 @@ export default function UserProfilePage() {
                       }
                     >
                       {data.user.availableForTutoring ? "Yes" : "No"}
-                    </span>
-                  </div>
-                )}
-                {data.user.latitude != null && data.user.longitude != null && (
-                  <div className="mt-2 text-sm">
-                    <span className="text-zinc-500">GPS: </span>
-                    <span className="text-zinc-400">
-                      {data.user.latitude.toFixed(4)},{" "}
-                      {data.user.longitude.toFixed(4)}
-                    </span>
-                  </div>
-                )}
-                {data.user.locationUpdatedAt && (
-                  <div className="text-sm">
-                    <span className="text-zinc-500">Last updated: </span>
-                    <span className="text-zinc-400">
-                      {formatDate(data.user.locationUpdatedAt)}
                     </span>
                   </div>
                 )}

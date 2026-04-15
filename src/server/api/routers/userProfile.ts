@@ -45,9 +45,6 @@ export const userProfileRouter = createTRPCRouter({
           isApproved: true,
           isNonUser: true,
           availableForTutoring: true,
-          latitude: true,
-          longitude: true,
-          locationUpdatedAt: true,
           createdAt: true,
         },
       });

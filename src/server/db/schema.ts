@@ -21,9 +21,6 @@ export const user = sqliteTable("user", (d) => ({
   emailVerified: d.integer({ mode: "boolean" }).default(false),
   image: d.text({ length: 255 }),
   availableForTutoring: d.integer({ mode: "boolean" }).notNull().default(false),
-  latitude: d.real(),
-  longitude: d.real(),
-  locationUpdatedAt: d.integer({ mode: "timestamp" }),
   createdAt: d
     .integer({ mode: "timestamp" })
     .default(sql`(unixepoch())`)

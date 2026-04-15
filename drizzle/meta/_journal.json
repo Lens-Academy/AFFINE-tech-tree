@@ -15,6 +15,13 @@
       "when": 1776090084053,
       "tag": "0001_rapid_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776239520935,
+      "tag": "0002_clumsy_azazel",
+      "breakpoints": true
     }
   ]
 }
