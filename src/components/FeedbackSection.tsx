@@ -78,21 +78,33 @@ export function FeedbackSection({
   );
 
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const hasInitializedExpansion = useRef(false);
+  const seenTransitionIdsRef = useRef<Set<number> | null>(null);
 
   useEffect(() => {
-    hasInitializedExpansion.current = false;
+    seenTransitionIdsRef.current = null;
     setExpandedIds(new Set());
   }, [topicId]);
 
   useEffect(() => {
-    if (!transitions || hasInitializedExpansion.current) return;
-    // On initial load per topic, auto-expand only transitions still pending feedback.
-    const pendingTransitionIds = transitions
-      .filter((transition) => transition.feedbackItems.length === 0)
-      .map((transition) => transition.id);
-    setExpandedIds(new Set(pendingTransitionIds));
-    hasInitializedExpansion.current = true;
+    if (!transitions) return;
+    if (seenTransitionIdsRef.current === null) {
+      const pendingTransitionIds = transitions
+        .filter((transition) => transition.feedbackItems.length === 0)
+        .map((transition) => transition.id);
+      setExpandedIds(new Set(pendingTransitionIds));
+      seenTransitionIdsRef.current = new Set(transitions.map((t) => t.id));
+      return;
+    }
+    const newlyAdded = transitions.filter(
+      (t) => !seenTransitionIdsRef.current!.has(t.id),
+    );
+    if (newlyAdded.length === 0) return;
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      for (const t of newlyAdded) next.add(t.id);
+      return next;
+    });
+    for (const t of newlyAdded) seenTransitionIdsRef.current.add(t.id);
   }, [transitions]);
 
   const utils = api.useUtils();
