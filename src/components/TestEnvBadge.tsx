@@ -43,7 +43,7 @@ export function TestEnvBadge() {
         onClick={() => setOpen((v) => !v)}
         className="rounded bg-orange-500/15 px-2 py-1 text-xs font-medium text-orange-400 transition hover:bg-orange-500/25"
       >
-        Test env
+        Test
       </button>
 
       {open && (
