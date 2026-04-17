@@ -209,14 +209,6 @@ export default function AdminHomePage() {
                           Feedback overview
                         </Link>
                       </li>
-                      <li>
-                        <Link
-                          href="/graph"
-                          className="text-orange-400 hover:text-orange-300"
-                        >
-                          Graph
-                        </Link>
-                      </li>
                     </ul>
                   </div>
 

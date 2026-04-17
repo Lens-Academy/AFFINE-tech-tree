@@ -150,7 +150,7 @@ export default function PrerequisiteGraphPage() {
       </Head>
       <main className="flex h-screen flex-col bg-zinc-950">
         <TopNav />
-        <div className="mx-auto px-4 pt-4 md:px-8">
+        <div className="mx-auto px-4 pt-4">
           {isLoading && <p className="text-zinc-500">Loading graph...</p>}
           {graph && graph.nodes.length > 0 && (
             <PrerequisiteGraphView topics={graph.nodes} edges={graph.edges} />

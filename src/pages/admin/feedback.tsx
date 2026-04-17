@@ -208,7 +208,7 @@ function AdminTransitionAccordion({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left hover:bg-zinc-800/80 lg:px-3 lg:py-2"
+        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left hover:bg-zinc-800/80 md:px-3 md:py-2"
       >
         <div className="min-w-0 flex-1">
           <div className="text-sm text-zinc-200">{userName}</div>
@@ -220,7 +220,7 @@ function AdminTransitionAccordion({
         <span className="shrink-0 text-zinc-500">{isExpanded ? "▼" : "▶"}</span>
       </button>
       {isExpanded && (
-        <div className="space-y-1.5 border-t border-zinc-700 px-2 py-1.5 lg:px-3 lg:py-2">
+        <div className="space-y-1.5 border-t border-zinc-700 px-2 py-1.5 md:px-3 md:py-2">
           {ratedItems.map((item) => (
             <AdminFeedbackItemRow key={item.id} item={item} />
           ))}
@@ -239,7 +239,7 @@ function AdminTransitionEmpty({ transition }: { transition: Transition }) {
   ].join("");
   const timestamp = formatDate(transition.createdAt);
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-2 py-1.5 lg:px-3 lg:py-2">
+    <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-2 py-1.5 md:px-3 md:py-2">
       <div className="min-w-0 flex-1">
         <div className="text-sm text-zinc-200">{userName}</div>
         <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-zinc-400">
@@ -316,12 +316,11 @@ export default function AdminFeedbackPage() {
     });
   };
 
-  const selectTopic = (id: number) => {
-    void router.replace(
-      { query: { ...router.query, topicId: id } },
-      undefined,
-      { shallow: true },
-    );
+  const selectTopic = (id: number | null) => {
+    const query = { ...router.query };
+    if (id == null) delete query.topicId;
+    else query.topicId = String(id);
+    void router.replace({ query }, undefined, { shallow: true });
   };
 
   const isAdmin = status.data?.isAdmin ?? false;
@@ -332,11 +331,18 @@ export default function AdminFeedbackPage() {
       <Head>
         <title>Feedback overview | Admin | AFFINE Tech Tree</title>
       </Head>
-      <main className="h-screen overflow-hidden bg-zinc-950">
+      <main className="min-h-screen bg-zinc-950 md:h-screen md:overflow-hidden">
         <TopNav />
 
+        {/*
+          Paddings look asymmetric across panes (pl-4 on container, pr-2 on
+          the sidebar, pr-3 inside the right pane) but the inner scrolling
+          sections use [scrollbar-gutter:stable], which reserves the gutter
+          on the right edge — so visually the right-side breathing room
+          matches the left. Don't "normalize" these without checking in-browser.
+        */}
         <div
-          className={`mx-auto h-[calc(100%-4rem)] max-w-5xl pl-4 md:pl-2 lg:pl-4 ${
+          className={`mx-auto max-w-5xl pl-4 md:h-[calc(100%-4rem)] ${
             hasLoadedSidebarPref ? "md:visible" : "md:invisible"
           }`}
         >
@@ -352,14 +358,14 @@ export default function AdminFeedbackPage() {
           )}
           {showContent && (
             <div
-              className={`grid h-full min-h-0 md:gap-2 lg:gap-4 ${
+              className={`grid h-full min-h-0 md:gap-4 ${
                 sidebarCollapsed ? "md:grid-cols-1" : "md:grid-cols-2"
               }`}
             >
               <section
-                className={`hidden min-h-0 flex-col border-r border-zinc-800/80 pr-2 ${
-                  sidebarCollapsed ? "md:hidden" : "md:flex"
-                }`}
+                className={`min-h-0 flex-col border-r border-zinc-800/80 pr-2 ${
+                  selectedTopicId == null ? "flex" : "hidden"
+                } ${sidebarCollapsed ? "md:hidden" : "md:flex"}`}
               >
                 <div className="mb-2 flex items-center justify-between">
                   <h1 className="text-lg font-semibold text-zinc-100">
@@ -384,7 +390,11 @@ export default function AdminFeedbackPage() {
                 </div>
               </section>
 
-              <div className="relative min-h-0">
+              <div
+                className={`relative min-h-0 ${
+                  selectedTopicId == null ? "hidden md:block" : "block"
+                }`}
+              >
                 <button
                   type="button"
                   onClick={toggleSidebar}
@@ -411,8 +421,15 @@ export default function AdminFeedbackPage() {
                     )}
                   </svg>
                 </button>
-                <section className="h-full min-h-0 overflow-y-auto pt-2 pb-2 [scrollbar-gutter:stable] lg:pt-4 lg:pb-4">
-                  <div className="mx-auto max-w-3xl pr-2 lg:pr-3">
+                <section className="h-full min-h-0 overflow-y-auto pt-2 pb-2 [scrollbar-gutter:stable] md:pt-4 md:pb-4">
+                  <div className="mx-auto max-w-3xl pr-3">
+                    <button
+                      type="button"
+                      onClick={() => selectTopic(null)}
+                      className="mb-3 text-sm text-zinc-500 hover:text-zinc-300 md:hidden"
+                    >
+                      ← Back to topics
+                    </button>
                     {selectedTopicId == null ? (
                       <p className="text-zinc-500">
                         Select a topic to view feedback events.

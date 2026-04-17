@@ -14,6 +14,7 @@ import {
   type UserSegment,
 } from "~/shared/userSegments";
 import { useAppMutation } from "~/hooks/useAppMutation";
+import { useSignOut } from "~/hooks/useSignOut";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { authClient } from "~/server/better-auth/client";
 import { HELPFULNESS_RATING_LABELS } from "~/shared/feedbackTypes";
@@ -399,6 +400,7 @@ export default function UserProfilePage() {
   const userId = router.query.id as string | undefined;
   const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const utils = api.useUtils();
+  const signOut = useSignOut();
 
   const profile = api.userProfile.get.useQuery(
     { userId: userId! },
@@ -608,10 +610,7 @@ export default function UserProfilePage() {
                   <AvailabilityToggle />
                   <button
                     type="button"
-                    onClick={() => {
-                      void utils.userStatus.getAll.reset();
-                      void authClient.signOut();
-                    }}
+                    onClick={() => void signOut()}
                     className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
                   >
                     Sign out

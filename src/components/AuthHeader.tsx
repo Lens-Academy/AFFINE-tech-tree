@@ -5,8 +5,8 @@ import { NavTab } from "~/components/NavTab";
 import { NotificationBell } from "~/components/NotificationBell";
 import { TestEnvBadge } from "~/components/TestEnvBadge";
 import { useActivePath } from "~/hooks/useActivePath";
+import { useSignOut } from "~/hooks/useSignOut";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
-import { authClient } from "~/server/better-auth/client";
 import { GITHUB_REPO } from "~/shared/constants";
 import { api } from "~/utils/api";
 
@@ -30,7 +30,7 @@ export function AuthHeader() {
   const activePath = useActivePath();
   const { rawUser, viewerUser, isPending, isPendingApproval, isAdmin } =
     useViewerAccess();
-  const utils = api.useUtils();
+  const signOut = useSignOut();
   const availability = api.availability.getMyStatus.useQuery(undefined, {
     enabled: !!viewerUser,
   });
@@ -43,21 +43,19 @@ export function AuthHeader() {
     const isOwnProfile = activePath === `/user/${viewerUser.id}`;
     const isAdminRoute = activePath.startsWith("/admin");
     return (
-      <div className="flex flex-wrap items-center justify-end">
+      <div className="ml-auto flex flex-nowrap items-center">
         <TestEnvBadge />
         <GitHubLink />
         <NotificationBell />
-        <div className="ml-2 flex">
+        <div className="ml-2 flex *:-ml-px *:first:ml-0 *:first:rounded-l-lg *:last:rounded-r-lg">
           {isAdmin && (
-            <NavTab href="/admin" isActive={isAdminRoute} rounding="left">
+            <NavTab href="/admin" isActive={isAdminRoute}>
               Admin
             </NavTab>
           )}
           <NavTab
             href={`/user/${viewerUser.id}`}
             isActive={isOwnProfile}
-            rounding={isAdmin ? "right" : "both"}
-            overlap={isAdmin}
             suffix={
               <AvailabilityCircle
                 available={availability.data?.available ?? false}
@@ -74,7 +72,7 @@ export function AuthHeader() {
 
   if (rawUser && isPendingApproval) {
     return (
-      <div className="flex flex-wrap items-center justify-end gap-3">
+      <div className="ml-auto flex flex-nowrap items-center gap-3">
         <TestEnvBadge />
         <GitHubLink />
         <div
@@ -107,10 +105,7 @@ export function AuthHeader() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            void utils.userStatus.getAll.reset();
-            void authClient.signOut();
-          }}
+          onClick={() => void signOut()}
           className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
         >
           Sign out
@@ -120,7 +115,7 @@ export function AuthHeader() {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
+    <div className="ml-auto flex flex-nowrap items-center gap-3">
       <TestEnvBadge />
       <GitHubLink />
       <Link

@@ -19,5 +19,5 @@ export function useActivePath(): string {
   }, [router.events]);
 
   const raw = pending ?? router.asPath;
-  return raw.split("?")[0]!.split("#")[0]!;
+  return raw.split(/[?#]/, 1)[0]!;
 }

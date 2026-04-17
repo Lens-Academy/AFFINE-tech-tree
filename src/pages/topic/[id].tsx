@@ -251,11 +251,11 @@ export default function TopicPage() {
             : "AFFINE Tech Tree"}
         </title>
       </Head>
-      <main className="h-screen overflow-hidden bg-zinc-950">
+      <main className="min-h-screen bg-zinc-950 md:h-screen md:overflow-hidden">
         <TopNav />
 
         <div
-          className={`mx-auto h-[calc(100%-4rem)] max-w-7xl pl-4 md:pl-2 lg:pl-4 ${
+          className={`mx-auto max-w-7xl pl-4 md:h-[calc(100%-4rem)] md:pl-2 lg:pl-4 ${
             hasLoadedTopicListPreference ? "md:visible" : "md:invisible"
           }`}
         >
@@ -276,7 +276,9 @@ export default function TopicPage() {
               <button
                 type="button"
                 onClick={toggleTopicList}
-                className="absolute -left-4 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex lg:-left-6"
+                className={`absolute z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex ${
+                  isTopicListCollapsed ? "left-0" : "-left-4 lg:-left-6"
+                }`}
                 aria-label={
                   isTopicListCollapsed ? "Show topic list" : "Hide topic list"
                 }
