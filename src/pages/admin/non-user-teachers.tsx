@@ -1,8 +1,7 @@
 import Head from "next/head";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { AuthHeader } from "~/components/AuthHeader";
+import { PageLayout } from "~/components/PageLayout";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { api } from "~/utils/api";
@@ -76,18 +75,8 @@ export default function NonUserTeachersAdminPage() {
       <Head>
         <title>Non-user teachers | Admin</title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-6 flex items-center justify-between">
-            <Link
-              href="/admin"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              ← Back to admin
-            </Link>
-            <AuthHeader />
-          </div>
-
+      <PageLayout>
+        <div>
           <h1 className="mb-6 text-2xl font-bold text-zinc-100">
             Non-user teachers
           </h1>
@@ -209,7 +198,7 @@ export default function NonUserTeachersAdminPage() {
             </div>
           )}
         </div>
-      </main>
+      </PageLayout>
     </>
   );
 }

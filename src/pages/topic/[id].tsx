@@ -9,8 +9,6 @@ import type { UnderstandingLevel } from "~/shared/understandingLevels";
 import { getLevelLabel, isTeacherLevel } from "~/shared/understandingLevels";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useAppMutation } from "~/hooks/useAppMutation";
-import { AuthHeader } from "~/components/AuthHeader";
-import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
 import { CommentIcon } from "~/components/CommentIcon";
 import { StarIcon } from "~/components/StarIcon";
@@ -20,6 +18,7 @@ import {
   HelpfulnessSelect,
 } from "~/components/FeedbackSection";
 import { TopicList } from "~/components/TopicList";
+import { TopNav } from "~/components/TopNav";
 import { api, type RouterOutputs } from "~/utils/api";
 
 type BookmarkMutationOptions = Exclude<
@@ -253,20 +252,7 @@ export default function TopicPage() {
         </title>
       </Head>
       <main className="h-screen overflow-hidden bg-zinc-950">
-        <header className="border-b border-zinc-800/80 bg-zinc-950/95">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-2 lg:px-4">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/"
-                className="text-sm text-zinc-500 hover:text-zinc-300"
-              >
-                AFFINE Tech Tree
-              </Link>
-              {viewerUser && <AvailabilityToggle />}
-            </div>
-            <AuthHeader />
-          </div>
-        </header>
+        <TopNav />
 
         <div
           className={`mx-auto h-[calc(100%-4rem)] max-w-7xl pl-4 md:pl-2 lg:pl-4 ${

@@ -1,9 +1,12 @@
 import Link from "next/link";
 
-import { useViewerAccess } from "~/hooks/useViewerAccess";
-import { authClient } from "~/server/better-auth/client";
+import { AvailabilityCircle } from "~/components/AvailabilityCircle";
+import { NavTab } from "~/components/NavTab";
 import { NotificationBell } from "~/components/NotificationBell";
 import { TestEnvBadge } from "~/components/TestEnvBadge";
+import { useActivePath } from "~/hooks/useActivePath";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
+import { authClient } from "~/server/better-auth/client";
 import { GITHUB_REPO } from "~/shared/constants";
 import { api } from "~/utils/api";
 
@@ -24,56 +27,54 @@ function GitHubLink() {
 }
 
 export function AuthHeader() {
+  const activePath = useActivePath();
   const { rawUser, viewerUser, isPending, isPendingApproval, isAdmin } =
     useViewerAccess();
   const utils = api.useUtils();
-  const incomingMatches = api.match.listIncoming.useQuery(undefined, {
+  const availability = api.availability.getMyStatus.useQuery(undefined, {
     enabled: !!viewerUser,
   });
-  const incomingCount = incomingMatches.data?.length ?? 0;
 
   if (isPending) {
     return <span className="text-sm text-zinc-500">Loading…</span>;
   }
 
   if (viewerUser) {
+    const isOwnProfile = activePath === `/user/${viewerUser.id}`;
+    const isAdminRoute = activePath.startsWith("/admin");
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-end">
         <TestEnvBadge />
         <GitHubLink />
-        <Link
-          href="/users"
-          className="relative rounded px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
-        >
-          Peers
-          {incomingCount > 0 && (
-            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold text-white">
-              {incomingCount > 9 ? "9+" : incomingCount}
-            </span>
-          )}
-        </Link>
-        {isAdmin && (
-          <Link
-            href="/admin"
-            className="rounded px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
-          >
-            Admin
-          </Link>
-        )}
         <NotificationBell />
-        <Link
-          href={`/user/${viewerUser.id}`}
-          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
-        >
-          {viewerUser.name ?? viewerUser.email}
-        </Link>
+        <div className="ml-2 flex">
+          {isAdmin && (
+            <NavTab href="/admin" isActive={isAdminRoute} rounding="left">
+              Admin
+            </NavTab>
+          )}
+          <NavTab
+            href={`/user/${viewerUser.id}`}
+            isActive={isOwnProfile}
+            rounding={isAdmin ? "right" : "both"}
+            overlap={isAdmin}
+            suffix={
+              <AvailabilityCircle
+                available={availability.data?.available ?? false}
+                className="ml-0.5"
+              />
+            }
+          >
+            {viewerUser.name ?? viewerUser.email}
+          </NavTab>
+        </div>
       </div>
     );
   }
 
   if (rawUser && isPendingApproval) {
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <TestEnvBadge />
         <GitHubLink />
         <div
@@ -119,7 +120,7 @@ export function AuthHeader() {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center justify-end gap-3">
       <TestEnvBadge />
       <GitHubLink />
       <Link

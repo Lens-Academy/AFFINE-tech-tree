@@ -1,8 +1,7 @@
 import Head from "next/head";
-import Link from "next/link";
 import { useState } from "react";
 
-import { AuthHeader } from "~/components/AuthHeader";
+import { PageLayout } from "~/components/PageLayout";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api, type RouterOutputs } from "~/utils/api";
@@ -160,18 +159,8 @@ export default function FeedbackLinkingAdminPage() {
       <Head>
         <title>Free-text feedback management | Admin</title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-6 flex items-center justify-between">
-            <Link
-              href="/admin"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              ← Back to admin
-            </Link>
-            <AuthHeader />
-          </div>
-
+      <PageLayout>
+        <div>
           <h1 className="mb-4 text-2xl font-bold text-zinc-100">
             Free-text feedback management
           </h1>
@@ -224,7 +213,7 @@ export default function FeedbackLinkingAdminPage() {
             </>
           )}
         </div>
-      </main>
+      </PageLayout>
     </>
   );
 }

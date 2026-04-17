@@ -43,7 +43,7 @@ export function TopicCard({
 
   return (
     <li
-      className={`group relative rounded-xl border bg-zinc-900/50 transition ${
+      className={`group relative rounded-lg border bg-zinc-900/50 transition ${
         isTopicRoute ? "p-3 lg:p-4" : "p-4 md:p-5"
       } ${
         isActive ? "border-orange-500" : "border-zinc-800 hover:border-zinc-700"

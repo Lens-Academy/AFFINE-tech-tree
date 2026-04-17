@@ -1,8 +1,7 @@
 import Head from "next/head";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { AuthHeader } from "~/components/AuthHeader";
+import { TopNav } from "~/components/TopNav";
 import {
   assignManualPositions,
   edgePath,
@@ -150,22 +149,8 @@ export default function PrerequisiteGraphPage() {
         <title>Graph | AFFINE Tech Tree</title>
       </Head>
       <main className="flex h-screen flex-col bg-zinc-950">
-        <header className="shrink-0 border-b border-zinc-800/80 px-4 py-3 md:px-8">
-          <div className="mx-auto flex max-w-7xl items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="text-sm text-zinc-500 hover:text-zinc-300"
-              >
-                ← Back to topics
-              </Link>
-              <span className="text-zinc-700">/</span>
-              <span className="text-sm text-zinc-300">Graph</span>
-            </div>
-            <AuthHeader />
-          </div>
-        </header>
-        <div className="px-4 pt-4 md:px-8">
+        <TopNav />
+        <div className="mx-auto px-4 pt-4 md:px-8">
           {isLoading && <p className="text-zinc-500">Loading graph...</p>}
           {graph && graph.nodes.length > 0 && (
             <PrerequisiteGraphView topics={graph.nodes} edges={graph.edges} />

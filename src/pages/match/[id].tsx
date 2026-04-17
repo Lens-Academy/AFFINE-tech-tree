@@ -2,8 +2,8 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
-import { AuthHeader } from "~/components/AuthHeader";
 import { BookmarkIcon } from "~/components/BookmarkIcon";
+import { PageLayout } from "~/components/PageLayout";
 import { StarIcon } from "~/components/StarIcon";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { getLevelShortLabel } from "~/shared/understandingLevels";
@@ -27,18 +27,8 @@ export default function MatchPage() {
       <Head>
         <title>Match | AFFINE Tech Tree</title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-6 flex items-center justify-between">
-            <Link
-              href="/users"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              ← Back to peers
-            </Link>
-            <AuthHeader />
-          </div>
-
+      <PageLayout>
+        <div>
           {isPending && <p className="text-zinc-500">Loading session…</p>}
           {!isPending && !rawUser && (
             <p className="text-zinc-400">Please sign in.</p>
@@ -112,7 +102,7 @@ export default function MatchPage() {
             </div>
           )}
         </div>
-      </main>
+      </PageLayout>
     </>
   );
 }

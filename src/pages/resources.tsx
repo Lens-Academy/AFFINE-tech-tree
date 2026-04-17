@@ -1,7 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useState, useMemo } from "react";
-import { AuthHeader } from "~/components/AuthHeader";
+import { PageLayout } from "~/components/PageLayout";
 import { api } from "~/utils/api";
 
 type ResourceRow = {
@@ -76,23 +76,9 @@ export default function ResourcesPage() {
       <Head>
         <title>Resources — AFFINE Tech Tree</title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-4xl">
-          <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-baseline sm:justify-between">
-            <div className="flex items-baseline gap-3">
-              <Link
-                href="/"
-                className="text-zinc-500 transition-colors hover:text-zinc-300"
-              >
-                ← Home
-              </Link>
-              <h1 className="text-2xl font-bold text-zinc-100 md:text-3xl">
-                Resources
-              </h1>
-            </div>
-            <AuthHeader />
-          </header>
-
+      <PageLayout>
+        <div>
+          <h1 className="mb-4 text-3xl font-bold text-zinc-100">Resources</h1>
           <input
             type="search"
             placeholder="Search by title, author, or topic…"
@@ -158,7 +144,7 @@ export default function ResourcesPage() {
             </p>
           )}
         </div>
-      </main>
+      </PageLayout>
     </>
   );
 }

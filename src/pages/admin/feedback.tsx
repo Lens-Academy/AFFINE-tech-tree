@@ -14,7 +14,7 @@ import {
   type UnderstandingLevel,
   UNDERSTANDING_LEVEL_LABELS,
 } from "~/shared/understandingLevels";
-import { AuthHeader } from "~/components/AuthHeader";
+import { TopNav } from "~/components/TopNav";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api, type RouterOutputs } from "~/utils/api";
 
@@ -333,20 +333,10 @@ export default function AdminFeedbackPage() {
         <title>Feedback overview | Admin | AFFINE Tech Tree</title>
       </Head>
       <main className="h-screen overflow-hidden bg-zinc-950">
-        <header className="border-b border-zinc-800/80 bg-zinc-950/95">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-2 lg:px-4">
-            <Link
-              href="/"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              AFFINE Tech Tree
-            </Link>
-            <AuthHeader />
-          </div>
-        </header>
+        <TopNav />
 
         <div
-          className={`mx-auto h-[calc(100%-4rem)] max-w-7xl pl-4 md:pl-2 lg:pl-4 ${
+          className={`mx-auto h-[calc(100%-4rem)] max-w-5xl pl-4 md:pl-2 lg:pl-4 ${
             hasLoadedSidebarPref ? "md:visible" : "md:invisible"
           }`}
         >

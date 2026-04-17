@@ -42,9 +42,9 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - Admin area includes a prerequisite network graph visualization (`/graph`).
 - User segments (SAS, Online SAS, BARYCENTER) and peer match system:
   - Admins assign each user to a segment from the user profile page.
-  - `/users` lists peers in your own segment with their starred topics.
-  - Clicking a peer prompts to send a match request; the recipient sees a
-    badge on the "Peers" link and can accept or decline.
+  - `/match` lists peers in your own segment with their starred topics.
+  - Clicking a peer prompts to send a match request; the recipient can accept
+    or decline.
   - Accepted matches open `/match/[id]`, a sorted list of peer tuition topics:
     topics where one side can teach and the other is at a lower level, ranked
     by learner bookmark, teacher star, "advanced" level, then the topic

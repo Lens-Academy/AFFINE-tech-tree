@@ -75,7 +75,7 @@ export default function ResetPasswordPage() {
         <title>Reset password | AFFINE Tech Tree</title>
       </Head>
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
-        <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-6">
           <h1 className="mb-2 text-2xl font-semibold text-zinc-100">
             Reset password
           </h1>

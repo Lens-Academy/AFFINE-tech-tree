@@ -3,8 +3,9 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 
-import { AuthHeader } from "~/components/AuthHeader";
+import { AvailabilityCircle } from "~/components/AvailabilityCircle";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
+import { PageLayout } from "~/components/PageLayout";
 import { StarIcon } from "~/components/StarIcon";
 import { getLevelLabel } from "~/shared/understandingLevels";
 import {
@@ -590,18 +591,8 @@ export default function UserProfilePage() {
             : "User | AFFINE Tech Tree"}
         </title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-6 flex items-center justify-between">
-            <Link
-              href="/"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              ← Back to topics
-            </Link>
-            <AuthHeader />
-          </div>
-
+      <PageLayout>
+        <div>
           {(viewingSelf || data) && (
             <div className="mb-4 flex items-start justify-between gap-4">
               <h1 className="text-3xl font-bold text-zinc-100">
@@ -613,16 +604,19 @@ export default function UserProfilePage() {
                 )}
               </h1>
               {viewingSelf && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void utils.userStatus.getAll.reset();
-                    void authClient.signOut();
-                  }}
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
-                >
-                  Sign out
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <AvailabilityToggle />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void utils.userStatus.getAll.reset();
+                      void authClient.signOut();
+                    }}
+                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
+                  >
+                    Sign out
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -847,22 +841,24 @@ export default function UserProfilePage() {
               {/* Availability */}
               <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
                 <h2 className="mb-2 text-zinc-200">Availability</h2>
-                {data.isSelf ? (
-                  <AvailabilityToggle />
-                ) : (
-                  <div className="text-sm">
-                    <span className="text-zinc-500">Available: </span>
-                    <span
-                      className={
-                        data.user.availableForTutoring
-                          ? "text-green-400"
-                          : "text-zinc-400"
-                      }
-                    >
-                      {data.user.availableForTutoring ? "Yes" : "No"}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-zinc-500">Status:</span>
+                  <AvailabilityCircle
+                    available={data.user.availableForTutoring}
+                    className="shrink-0"
+                  />
+                  <span
+                    className={
+                      data.user.availableForTutoring
+                        ? "text-orange-400"
+                        : "text-zinc-400"
+                    }
+                  >
+                    {data.user.availableForTutoring
+                      ? "Available for tutoring"
+                      : "Unavailable"}
+                  </span>
+                </div>
               </div>
 
               {/* Excited to teach */}
@@ -905,7 +901,7 @@ export default function UserProfilePage() {
             </div>
           )}
         </div>
-      </main>
+      </PageLayout>
     </>
   );
 }

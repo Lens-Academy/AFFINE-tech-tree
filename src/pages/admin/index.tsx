@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { AuthHeader } from "~/components/AuthHeader";
+import { PageLayout } from "~/components/PageLayout";
 import { getSegmentLabel } from "~/shared/userSegments";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
@@ -133,18 +133,8 @@ export default function AdminHomePage() {
       <Head>
         <title>Admin | AFFINE Tech Tree</title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-6 flex items-center justify-between">
-            <Link
-              href="/"
-              className="text-sm text-zinc-500 hover:text-zinc-300"
-            >
-              ← Back to topics
-            </Link>
-            <AuthHeader />
-          </div>
-
+      <PageLayout>
+        <div>
           <h1 className="mb-4 text-3xl font-bold text-zinc-100">Admin</h1>
           {isPending && <p className="text-zinc-500">Loading session…</p>}
           {!isPending && !rawUser && (
@@ -346,7 +336,7 @@ export default function AdminHomePage() {
             </div>
           )}
         </div>
-      </main>
+      </PageLayout>
     </>
   );
 }
