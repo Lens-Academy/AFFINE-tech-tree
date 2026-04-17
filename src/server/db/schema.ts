@@ -23,6 +23,7 @@ export const user = sqliteTable("user", (d) => ({
   image: d.text({ length: 255 }),
   availableForTutoring: d.integer({ mode: "boolean" }).notNull().default(false),
   segment: d.text({ length: 32, enum: USER_SEGMENTS }),
+  infoPaneClosedVersion: d.text({ length: 32 }),
   createdAt: d
     .integer({ mode: "timestamp" })
     .default(sql`(unixepoch())`)

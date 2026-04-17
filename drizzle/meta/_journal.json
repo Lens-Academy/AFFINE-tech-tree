@@ -43,6 +43,13 @@
       "when": 1776427934443,
       "tag": "0005_moaning_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1776437210397,
+      "tag": "0006_high_nuke",
+      "breakpoints": true
     }
   ]
 }

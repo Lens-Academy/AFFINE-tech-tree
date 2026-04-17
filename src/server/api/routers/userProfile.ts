@@ -52,6 +52,7 @@ export const userProfileRouter = createTRPCRouter({
           isNonUser: true,
           availableForTutoring: true,
           segment: true,
+          infoPaneClosedVersion: true,
           createdAt: true,
         },
       });
@@ -122,6 +123,7 @@ export const userProfileRouter = createTRPCRouter({
         userId: z.string().min(1),
         name: z.string().trim().min(1).max(255).optional(),
         email: z.string().trim().email().optional(),
+        infoPaneClosedVersion: z.string().max(32).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -135,14 +137,32 @@ export const userProfileRouter = createTRPCRouter({
         });
       }
 
-      const set: Partial<{ name: string; email: string }> = {};
+      const set: Partial<{
+        name: string;
+        email: string;
+        infoPaneClosedVersion: string | null;
+      }> = {};
       if (input.name) set.name = input.name;
       if (input.email) set.email = input.email;
+      if (input.infoPaneClosedVersion !== undefined) {
+        set.infoPaneClosedVersion =
+          input.infoPaneClosedVersion === "" ? null : input.infoPaneClosedVersion;
+      }
 
       if (Object.keys(set).length > 0) {
         await ctx.db.update(user).set(set).where(eq(user.id, input.userId));
       }
 
+      return { ok: true };
+    }),
+
+  setInfoPaneClosedVersion: protectedProcedure
+    .input(z.object({ version: z.string().max(32) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(user)
+        .set({ infoPaneClosedVersion: input.version || null })
+        .where(eq(user.id, ctx.session.user.id));
       return { ok: true };
     }),
 

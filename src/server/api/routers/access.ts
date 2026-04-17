@@ -9,6 +9,7 @@ export const accessRouter = createTRPCRouter({
         isApproved: false,
         isPendingApproval: false,
         isAdmin: false,
+        infoPaneClosedVersion: null as string | null,
         user: null,
       };
     }
@@ -20,6 +21,7 @@ export const accessRouter = createTRPCRouter({
         name: true,
         email: true,
         isApproved: true,
+        infoPaneClosedVersion: true,
       },
       with: {
         roles: {
@@ -37,6 +39,7 @@ export const accessRouter = createTRPCRouter({
       isApproved,
       isPendingApproval: !isApproved,
       isAdmin,
+      infoPaneClosedVersion: dbUser?.infoPaneClosedVersion ?? null,
       user: dbUser
         ? { id: dbUser.id, name: dbUser.name, email: dbUser.email }
         : {

@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `infoPaneClosedVersion` text(32);

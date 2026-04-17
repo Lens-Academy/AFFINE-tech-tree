@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { InfoPane } from "~/components/InfoPane";
 import { PageLayout } from "~/components/PageLayout";
 import { TopicList } from "~/components/TopicList";
 
@@ -17,6 +18,7 @@ export default function Home() {
         <h1 className="mb-6 bg-linear-60 from-orange-400 to-zinc-100 to-15% bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl">
           AFFINE Tech Tree
         </h1>
+        <InfoPane />
         <TopicList />
       </PageLayout>
     </>

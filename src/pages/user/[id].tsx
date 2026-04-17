@@ -7,6 +7,7 @@ import { AvailabilityCircle } from "~/components/AvailabilityCircle";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
 import { PageLayout } from "~/components/PageLayout";
 import { StarIcon } from "~/components/StarIcon";
+import { INFO_PANE_VERSIONS } from "~/shared/infoPane";
 import { getLevelLabel } from "~/shared/understandingLevels";
 import {
   USER_SEGMENTS,
@@ -68,7 +69,9 @@ function EditableField({
       <div>
         <label className="mb-1 block text-sm text-zinc-500">{label}</label>
         <div className="flex items-baseline gap-2">
-          <span className="text-zinc-200">{value || "(not set)"}</span>
+          <span className={value ? "text-zinc-200" : "text-zinc-500"}>
+            {value || "(not set)"}
+          </span>
           {!disabled && (
             <button
               type="button"
@@ -424,6 +427,10 @@ export default function UserProfilePage() {
                   ...old.user,
                   name: vars.name ?? old.user.name,
                   email: vars.email ?? old.user.email,
+                  infoPaneClosedVersion:
+                    vars.infoPaneClosedVersion !== undefined
+                      ? (vars.infoPaneClosedVersion ?? null)
+                      : old.user.infoPaneClosedVersion,
                 },
               }
             : old,
@@ -445,6 +452,7 @@ export default function UserProfilePage() {
       refresh: [
         () => utils.userProfile.get.invalidate(),
         () => utils.admin.listUsersForAdmin.invalidate(),
+        () => utils.access.me.invalidate(),
       ],
     },
   );
@@ -717,7 +725,7 @@ export default function UserProfilePage() {
                             })
                           }
                           disabled={setUserSegment.isPending}
-                          className="rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
+                          className="w-36 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
                         >
                           <option value="">Unassigned</option>
                           {USER_SEGMENTS.map((seg) => (
@@ -739,6 +747,31 @@ export default function UserProfilePage() {
                       )}
                     </div>
                   </div>
+                  {(data.isSelf || data.viewerIsAdmin) && (
+                    <div>
+                      <label className="mb-1 block text-sm text-zinc-500">
+                        Info pane closed version
+                      </label>
+                      <select
+                        value={data.user.infoPaneClosedVersion ?? ""}
+                        onChange={(e) =>
+                          updateProfile.mutate({
+                            userId: data.user.id,
+                            infoPaneClosedVersion: e.target.value,
+                          })
+                        }
+                        disabled={updateProfile.isPending}
+                        className="w-36 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
+                      >
+                        <option value="">(not closed)</option>
+                        {INFO_PANE_VERSIONS.map((v) => (
+                          <option key={v.version} value={v.version}>
+                            {v.version}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {data.user.isNonUser && (
                     <div className="text-sm text-zinc-500">
                       Non-user teacher account
