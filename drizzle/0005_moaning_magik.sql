@@ -1,0 +1,1 @@
+ALTER TABLE `topic` ADD `importance` integer DEFAULT 0 NOT NULL;

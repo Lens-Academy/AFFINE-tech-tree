@@ -136,6 +136,7 @@ type TopicRow = {
   rawResources: string | null;
   tags: string;
   rawPrerequisites: string | null;
+  importance: number;
 };
 
 async function fetchTopics(): Promise<TopicRow[]> {
@@ -146,6 +147,7 @@ async function fetchTopics(): Promise<TopicRow[]> {
     Resources: string;
     Tags: string;
     Prerequisites: string;
+    Importance: string;
   }>;
 
   return rows
@@ -155,6 +157,7 @@ async function fetchTopics(): Promise<TopicRow[]> {
       rawResources: row.Resources?.trim() || null,
       tags: row.Tags?.trim() ?? "",
       rawPrerequisites: row.Prerequisites?.trim() || null,
+      importance: Math.trunc(Number(row.Importance) || 0),
     }))
     .filter((t) => t.name !== "");
 }
@@ -218,6 +221,7 @@ async function main() {
             description,
             rawPrerequisites,
             spreadsheetRow: rowNum,
+            importance: t.importance,
             updatedAt: new Date(),
           })
           .where(eq(topic.id, existing.id));
@@ -233,6 +237,7 @@ async function main() {
             description,
             rawPrerequisites,
             spreadsheetRow: rowNum,
+            importance: t.importance,
           })
           .returning({ id: topic.id });
         if (!inserted) throw new Error(`Failed to insert topic: ${name}`);

@@ -148,6 +148,7 @@ export const topic = sqliteTable(
     description: d.text(),
     rawPrerequisites: d.text(),
     spreadsheetRow: d.integer({ mode: "number" }),
+    importance: d.integer({ mode: "number" }).default(0).notNull(),
     createdAt: d
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)

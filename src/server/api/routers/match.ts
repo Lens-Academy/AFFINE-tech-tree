@@ -324,7 +324,14 @@ export const matchRouter = createTRPCRouter({
         where: (s, { inArray }) => inArray(s.userId, [viewerId, otherId]),
         columns: { userId: true, topicId: true, level: true },
         with: {
-          topic: { columns: { id: true, name: true, spreadsheetRow: true } },
+          topic: {
+            columns: {
+              id: true,
+              name: true,
+              spreadsheetRow: true,
+              importance: true,
+            },
+          },
         },
       });
       const bookmarkRows = await ctx.db.query.bookmark.findMany({
@@ -340,6 +347,7 @@ export const matchRouter = createTRPCRouter({
         topicId: number;
         name: string;
         spreadsheetRow: number | null;
+        importance: number;
         levels: Record<string, UnderstandingLevel | undefined>;
       };
       const topicsById = new Map<number, PerTopic>();
@@ -348,6 +356,7 @@ export const matchRouter = createTRPCRouter({
           topicId: row.topicId,
           name: row.topic.name,
           spreadsheetRow: row.topic.spreadsheetRow,
+          importance: row.topic.importance,
           levels: {},
         };
         existing.levels[row.userId] = row.level;
@@ -373,6 +382,7 @@ export const matchRouter = createTRPCRouter({
         learnerBookmarked: boolean;
         teacherStarred: boolean;
         teacherAdvanced: boolean;
+        importance: number;
         spreadsheetRow: number | null;
       };
 
@@ -409,6 +419,7 @@ export const matchRouter = createTRPCRouter({
           learnerBookmarked: bookmarkedBy.has(`${learnerId}:${t.topicId}`),
           teacherStarred: starredBy.has(`${teacherId}:${t.topicId}`),
           teacherAdvanced: teacherLevel === "advanced_questions_welcome",
+          importance: t.importance,
           spreadsheetRow: t.spreadsheetRow,
         });
       }
@@ -423,6 +434,7 @@ export const matchRouter = createTRPCRouter({
         if (a.teacherAdvanced !== b.teacherAdvanced) {
           return a.teacherAdvanced ? -1 : 1;
         }
+        if (a.importance !== b.importance) return b.importance - a.importance;
         const ar = a.spreadsheetRow ?? Number.MAX_SAFE_INTEGER;
         const br = b.spreadsheetRow ?? Number.MAX_SAFE_INTEGER;
         if (ar !== br) return ar - br;

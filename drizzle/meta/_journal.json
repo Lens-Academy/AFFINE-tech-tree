@@ -36,6 +36,13 @@
       "when": 1776260377661,
       "tag": "0004_previous_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1776427934443,
+      "tag": "0005_moaning_magik",
+      "breakpoints": true
     }
   ]
 }
