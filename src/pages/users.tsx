@@ -156,7 +156,8 @@ export default function UsersPage() {
                         className="flex items-center justify-between gap-3 rounded border border-zinc-800 px-3 py-2"
                       >
                         <span className="text-sm text-zinc-200">
-                          {r.fromUser.name ?? r.fromUser.email} wants to match
+                          {r.fromUser.name ?? r.fromUser.email}
+                          <AvailabilityDot user={r.fromUser} /> wants to match
                           for peer tuition.
                         </span>
                         <div className="flex gap-2">
@@ -205,6 +206,7 @@ export default function UsersPage() {
                         >
                           <span className="text-sm text-zinc-200">
                             {m.other.name ?? m.other.email}
+                            <AvailabilityDot user={m.other} />
                           </span>
                           <span className="text-xs text-orange-400">
                             View tuition topics →
@@ -306,6 +308,7 @@ function PeerSummary({
     id: string;
     name: string | null;
     email: string;
+    availableForTutoring: boolean;
     starredTopics: { id: number; name: string }[];
   };
   actionLabel: string;
@@ -313,7 +316,10 @@ function PeerSummary({
   return (
     <>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm text-zinc-100">{peer.name ?? peer.email}</span>
+        <span className="text-sm text-zinc-100">
+          {peer.name ?? peer.email}
+          <AvailabilityDot user={peer} />
+        </span>
         <span className="text-xs text-orange-400">{actionLabel}</span>
       </div>
       {peer.starredTopics.length > 0 ? (
@@ -333,5 +339,19 @@ function PeerSummary({
         </div>
       )}
     </>
+  );
+}
+
+function AvailabilityDot({
+  user,
+}: {
+  user: { availableForTutoring: boolean };
+}) {
+  if (!user.availableForTutoring) return null;
+  return (
+    <span
+      className="ml-2 inline-block h-2 w-2 rounded-full bg-orange-400"
+      title="Available for tutoring"
+    />
   );
 }

@@ -33,7 +33,12 @@ export const matchRouter = createTRPCRouter({
           eq(u.isNonUser, false),
           eq(u.isApproved, true),
         ),
-      columns: { id: true, name: true, email: true },
+      columns: {
+        id: true,
+        name: true,
+        email: true,
+        availableForTutoring: true,
+      },
       with: {
         excitedToTeach: {
           columns: { topicId: true },
@@ -42,7 +47,11 @@ export const matchRouter = createTRPCRouter({
           },
         },
       },
-      orderBy: (u, { asc }) => [asc(u.name), asc(u.email)],
+      orderBy: (u, { desc, asc }) => [
+        desc(u.availableForTutoring),
+        asc(u.name),
+        asc(u.email),
+      ],
     });
 
     const peerIds = peers.map((peer) => peer.id);
@@ -92,6 +101,7 @@ export const matchRouter = createTRPCRouter({
           id: p.id,
           name: p.name,
           email: p.email,
+          availableForTutoring: p.availableForTutoring,
           matchState,
           matchId,
           starredTopics: p.excitedToTeach.map((e) => ({
@@ -229,7 +239,14 @@ export const matchRouter = createTRPCRouter({
       where: (m, { and, eq }) =>
         and(eq(m.toUserId, ctx.session.user.id), eq(m.status, "pending")),
       with: {
-        fromUser: { columns: { id: true, name: true, email: true } },
+        fromUser: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            availableForTutoring: true,
+          },
+        },
       },
       orderBy: (m) => [desc(m.createdAt)],
     });
@@ -245,8 +262,22 @@ export const matchRouter = createTRPCRouter({
           or(eq(m.fromUserId, viewerId), eq(m.toUserId, viewerId)),
         ),
       with: {
-        fromUser: { columns: { id: true, name: true, email: true } },
-        toUser: { columns: { id: true, name: true, email: true } },
+        fromUser: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            availableForTutoring: true,
+          },
+        },
+        toUser: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            availableForTutoring: true,
+          },
+        },
       },
       orderBy: (m) => [desc(m.respondedAt)],
     });
