@@ -134,7 +134,7 @@ export default function AdminHomePage() {
         <title>Admin | AFFINE Tech Tree</title>
       </Head>
       <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-4xl">
           <div className="mb-6 flex items-center justify-between">
             <Link
               href="/"

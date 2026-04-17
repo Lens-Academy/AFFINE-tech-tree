@@ -571,7 +571,11 @@ export default function UserProfilePage() {
   const [confirmDeleteArmed, setConfirmDeleteArmed] = useState(false);
 
   const data = profile.data;
-  const displayName = data?.user.name ?? data?.user.email ?? "";
+  const viewingSelf = !!viewerUser && viewerUser.id === userId;
+  const displayName =
+    data?.user.name ??
+    data?.user.email ??
+    (viewingSelf ? (viewerUser.name ?? viewerUser.email) : "");
 
   useEffect(() => {
     setConfirmDeleteArmed(false);
@@ -587,7 +591,7 @@ export default function UserProfilePage() {
         </title>
       </Head>
       <main className="min-h-screen bg-zinc-950 px-4 py-6 md:px-8 md:py-10">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-4xl">
           <div className="mb-6 flex items-center justify-between">
             <Link
               href="/"
@@ -597,6 +601,31 @@ export default function UserProfilePage() {
             </Link>
             <AuthHeader />
           </div>
+
+          {(viewingSelf || data) && (
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h1 className="text-3xl font-bold text-zinc-100">
+                {displayName}
+                {(data?.isSelf ?? viewingSelf) && (
+                  <span className="ml-2 text-base font-normal text-zinc-500">
+                    (you)
+                  </span>
+                )}
+              </h1>
+              {viewingSelf && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void utils.userStatus.getAll.reset();
+                    void authClient.signOut();
+                  }}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
+                >
+                  Sign out
+                </button>
+              )}
+            </div>
+          )}
 
           {viewerPending && <p className="text-zinc-500">Loading session...</p>}
           {!viewerPending && !viewerUser && (
@@ -613,15 +642,6 @@ export default function UserProfilePage() {
 
           {data && (
             <div className="space-y-4">
-              <h1 className="text-3xl font-bold text-zinc-100">
-                {displayName}
-                {data.isSelf && (
-                  <span className="ml-2 text-base font-normal text-zinc-500">
-                    (you)
-                  </span>
-                )}
-              </h1>
-
               {/* Profile info */}
               <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
                 <div className="space-y-3">

@@ -42,12 +42,6 @@ export function AuthHeader() {
         <TestEnvBadge />
         <GitHubLink />
         <Link
-          href={`/user/${viewerUser.id}`}
-          className="rounded px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
-        >
-          {viewerUser.name ?? viewerUser.email}
-        </Link>
-        <Link
           href="/users"
           className="relative rounded px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
         >
@@ -67,16 +61,12 @@ export function AuthHeader() {
           </Link>
         )}
         <NotificationBell />
-        <button
-          type="button"
-          onClick={() => {
-            void utils.userStatus.getAll.reset();
-            void authClient.signOut();
-          }}
+        <Link
+          href={`/user/${viewerUser.id}`}
           className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
         >
-          Sign out
-        </button>
+          {viewerUser.name ?? viewerUser.email}
+        </Link>
       </div>
     );
   }
