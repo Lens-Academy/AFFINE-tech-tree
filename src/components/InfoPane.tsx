@@ -1,31 +1,31 @@
+import { useState } from "react";
+
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { INFO_PANE_CURRENT, shouldShowInfoPane } from "~/shared/infoPane";
 import { api } from "~/utils/api";
 
-export function InfoPane() {
-  const { viewerUser } = useViewerAccess();
-  const utils = api.useUtils();
-  const access = api.access.me.useQuery(undefined, { enabled: !!viewerUser });
-  const setClosed = api.userProfile.setInfoPaneClosedVersion.useMutation({
-    onMutate: async ({ version }) => {
-      await utils.access.me.cancel();
-      const previous = utils.access.me.getData();
-      utils.access.me.setData(undefined, (old) =>
-        old ? { ...old, infoPaneClosedVersion: version || null } : old,
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) utils.access.me.setData(undefined, ctx.previous);
-    },
-    onSettled: () => {
-      void utils.access.me.invalidate();
-      void utils.userProfile.get.invalidate();
-    },
-  });
+const CLOSED_STORAGE_KEY = "infoPaneClosedVersion";
 
-  if (!viewerUser) return null;
-  if (!shouldShowInfoPane(access.data?.infoPaneClosedVersion)) return null;
+export function InfoPane() {
+  const { viewerUser, isPending } = useViewerAccess();
+  const access = api.access.me.useQuery(undefined, { enabled: !!viewerUser });
+  const setClosed = api.userProfile.setInfoPaneClosedVersion.useMutation();
+  const [closedLocal, setClosedLocal] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(CLOSED_STORAGE_KEY) ===
+        INFO_PANE_CURRENT.version,
+  );
+
+  if (closedLocal || isPending) return null;
+  if (viewerUser && !shouldShowInfoPane(access.data?.infoPaneClosedVersion))
+    return null;
+
+  const handleClose = () => {
+    setClosedLocal(true);
+    window.localStorage.setItem(CLOSED_STORAGE_KEY, INFO_PANE_CURRENT.version);
+    if (viewerUser) setClosed.mutate({ version: INFO_PANE_CURRENT.version });
+  };
 
   return (
     <div className="relative mb-3 rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 pr-10 text-sm text-zinc-300">
@@ -33,7 +33,7 @@ export function InfoPane() {
       <button
         type="button"
         aria-label="Close info pane"
-        onClick={() => setClosed.mutate({ version: INFO_PANE_CURRENT.version })}
+        onClick={handleClose}
         className="absolute top-2 right-2 rounded p-1 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200"
       >
         <svg

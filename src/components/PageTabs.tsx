@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { InfoPane } from "~/components/InfoPane";
 import { useActivePath } from "~/hooks/useActivePath";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { SUGGESTIONS_SHEET_URL } from "~/shared/constants";
@@ -122,6 +123,7 @@ export function PageTabs() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4">
+      <InfoPane />
       <nav className="relative z-10 -mb-px flex gap-x-1 overflow-x-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((tab) => (
           <TabItem
