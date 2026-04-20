@@ -28,7 +28,7 @@ export function InfoPane() {
   if (!shouldShowInfoPane(access.data?.infoPaneClosedVersion)) return null;
 
   return (
-    <div className="relative mb-6 rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 pr-10 text-sm text-zinc-300">
+    <div className="relative mb-3 rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 pr-10 text-sm text-zinc-300">
       <p>{INFO_PANE_CURRENT.content}</p>
       <button
         type="button"

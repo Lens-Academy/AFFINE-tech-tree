@@ -1,5 +1,4 @@
 import Head from "next/head";
-import { InfoPane } from "~/components/InfoPane";
 import { PageLayout } from "~/components/PageLayout";
 import { TopicList } from "~/components/TopicList";
 
@@ -15,7 +14,6 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <PageLayout>
-        <InfoPane />
         <TopicList />
       </PageLayout>
     </>
