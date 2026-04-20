@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { useAppMutation } from "~/hooks/useAppMutation";
+import { useInitialActiveTopicScroll } from "~/hooks/useInitialActiveTopicScroll";
+import { useTopicListFilters } from "~/hooks/useTopicListFilters";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 import {
@@ -22,13 +24,10 @@ type ExcitedToTeachMutationOptions = Exclude<
 
 export function TopicList() {
   const router = useRouter();
-  const isTopicRoute = router.pathname === "/topic/[id]";
   const activeTopicId =
-    isTopicRoute && typeof router.query.id === "string"
+    router.pathname === "/topic/[id]" && typeof router.query.id === "string"
       ? Number(router.query.id)
       : undefined;
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [topicOrder, setTopicOrder] = useState<number[]>([]);
   const [lastAppliedSortKey, setLastAppliedSortKey] = useState("");
   const [initialSortApplied, setInitialSortApplied] = useState(false);
@@ -40,7 +39,14 @@ export function TopicList() {
   >(null);
   const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
-  const { data: tags } = api.topic.listTags.useQuery();
+  const { data: tags, isPending: tagsPending } = api.topic.listTags.useQuery();
+  const {
+    searchQuery,
+    tagFilter,
+    setTagFilter,
+    updateSearchQuery,
+    isStoredTagLoaded,
+  } = useTopicListFilters(tags);
   const { data: statuses, isFetched: statusesFetched } =
     api.userStatus.getAll.useQuery(undefined, {
       enabled: !!viewerUser,
@@ -183,14 +189,26 @@ export function TopicList() {
     currentSortKey,
   ]);
   const sortDirty = initialSortApplied && currentSortKey !== lastAppliedSortKey;
-  const shouldHoldForInitialSort =
-    viewerPending || (!!viewerUser && !initialSortApplied);
+  const shouldHoldForInitialRender =
+    isLoading ||
+    !isStoredTagLoaded ||
+    tagsPending ||
+    viewerPending ||
+    (!!viewerUser && !initialSortReady);
+  const isListRendered = !shouldHoldForInitialRender;
+  useInitialActiveTopicScroll(activeTopicId, isListRendered);
   const topicsById = useMemo(
     () => new Map(allTopicsList.map((topic) => [topic.id, topic])),
     [allTopicsList],
   );
   const orderedTopics = useMemo(() => {
-    if (topicOrder.length === 0) return visibleTopics;
+    if (topicOrder.length === 0) {
+      return sortTopicsByBookmarkAndUnderstanding(
+        visibleTopics,
+        bookmarkedSet,
+        serverStatusByTopic,
+      );
+    }
     const visibleIds = new Set(visibleTopics.map((topic) => topic.id));
     const ordered = topicOrder.reduce<typeof visibleTopics>((acc, topicId) => {
       const topic = topicsById.get(topicId);
@@ -204,7 +222,13 @@ export function TopicList() {
       (topic) => !orderedIds.has(topic.id),
     );
     return [...ordered, ...missingVisible];
-  }, [topicOrder, topicsById, visibleTopics]);
+  }, [
+    topicOrder,
+    topicsById,
+    visibleTopics,
+    bookmarkedSet,
+    serverStatusByTopic,
+  ]);
   const applySort = () => {
     const sorted = sortTopicsByBookmarkAndUnderstanding(
       allTopicsList,
@@ -219,18 +243,15 @@ export function TopicList() {
     setTagFilter(nextTagFilter);
   };
 
+  if (shouldHoldForInitialRender) {
+    return <TopicListSkeleton />;
+  }
+
   return (
     <>
-      <div
-        className={
-          isTopicRoute
-            ? "mb-4 flex flex-wrap gap-2"
-            : "mb-6 flex flex-wrap gap-2"
-        }
-      >
+      <div className="mb-4 flex flex-wrap gap-2">
         <TagFilterButton
           label="All"
-          dense={isTopicRoute}
           selected={tagFilter === null}
           onClick={() => handleTagFilterChange(null)}
         />
@@ -238,89 +259,64 @@ export function TopicList() {
           <TagFilterButton
             key={t.name}
             label={t.name}
-            dense={isTopicRoute}
             selected={tagFilter === t.name}
             onClick={() => handleTagFilterChange(t.name)}
           />
         ))}
-        {sortDirty && (
-          <SortLinkButton dense={isTopicRoute} onClick={applySort} />
-        )}
+        {sortDirty && <SortLinkButton onClick={applySort} />}
       </div>
+      <input
+        type="search"
+        placeholder="Search topics by name or description…"
+        value={searchQuery}
+        onChange={(e) => updateSearchQuery(e.target.value)}
+        className="mb-4 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
+      />
 
-      {!isTopicRoute && (
-        <input
-          type="search"
-          placeholder="Search topics by name or description…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="mb-6 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
-        />
-      )}
-
-      <div
-        className={
-          isTopicRoute
-            ? "min-h-0 flex-1 overflow-y-auto pb-2 [scrollbar-gutter:stable] lg:pb-4"
-            : undefined
-        }
-      >
-        <div className={isTopicRoute ? "pr-2 lg:pr-4" : undefined}>
-          {isLoading || shouldHoldForInitialSort ? (
-            isTopicRoute ? (
-              <TopicListSkeleton />
-            ) : (
-              <p className="text-zinc-500">Loading topics…</p>
-            )
-          ) : (
-            <ul className="space-y-4">
-              {orderedTopics.map((t) => (
-                <TopicCard
-                  key={t.id}
-                  topic={t}
-                  currentLevel={serverStatusByTopic.get(t.id)}
-                  onLevelChange={(level) => {
-                    if (level === undefined) {
-                      removeStatus.mutate({ topicId: t.id });
-                    } else {
-                      setStatus.mutate({ topicId: t.id, level });
-                    }
-                  }}
-                  canEdit={!!viewerUser}
-                  bookmarked={bookmarkedSet.has(t.id)}
-                  onBookmarkToggle={() => {
-                    if (bookmarkSet.isPending) return;
-                    bookmarkSet.mutate({
-                      topicId: t.id,
-                      bookmarked: !bookmarkedSet.has(t.id),
-                    });
-                  }}
-                  canBookmark={!!viewerUser}
-                  bookmarkDisabled={
-                    bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
-                  }
-                  canMarkExcitedToTeach={isTeacherLevel(
-                    serverStatusByTopic.get(t.id),
-                  )}
-                  excitedToTeach={excitedToTeachSetIds.has(t.id)}
-                  onExcitedToTeachToggle={() => {
-                    if (excitedToTeachSet.isPending) return;
-                    excitedToTeachSet.mutate({
-                      topicId: t.id,
-                      excited: !excitedToTeachSetIds.has(t.id),
-                    });
-                  }}
-                  excitedToTeachDisabled={
-                    excitedToTeachSet.isPending &&
-                    excitedUpdatingTopicId === t.id
-                  }
-                  isActive={activeTopicId === t.id}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+      <ul className="space-y-4">
+        {orderedTopics.map((t) => (
+          <TopicCard
+            key={t.id}
+            topic={t}
+            currentLevel={serverStatusByTopic.get(t.id)}
+            onLevelChange={(level) => {
+              if (level === undefined) {
+                removeStatus.mutate({ topicId: t.id });
+              } else {
+                setStatus.mutate({ topicId: t.id, level });
+              }
+            }}
+            canEdit={!!viewerUser}
+            bookmarked={bookmarkedSet.has(t.id)}
+            onBookmarkToggle={() => {
+              if (bookmarkSet.isPending) return;
+              bookmarkSet.mutate({
+                topicId: t.id,
+                bookmarked: !bookmarkedSet.has(t.id),
+              });
+            }}
+            canBookmark={!!viewerUser}
+            bookmarkDisabled={
+              bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
+            }
+            canMarkExcitedToTeach={isTeacherLevel(
+              serverStatusByTopic.get(t.id),
+            )}
+            excitedToTeach={excitedToTeachSetIds.has(t.id)}
+            onExcitedToTeachToggle={() => {
+              if (excitedToTeachSet.isPending) return;
+              excitedToTeachSet.mutate({
+                topicId: t.id,
+                excited: !excitedToTeachSetIds.has(t.id),
+              });
+            }}
+            excitedToTeachDisabled={
+              excitedToTeachSet.isPending && excitedUpdatingTopicId === t.id
+            }
+            isActive={activeTopicId === t.id}
+          />
+        ))}
+      </ul>
     </>
   );
 }
@@ -393,12 +389,10 @@ function TopicListSkeleton() {
 
 function TagFilterButton({
   label,
-  dense,
   selected,
   onClick,
 }: {
   label: string;
-  dense: boolean;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -408,12 +402,8 @@ function TagFilterButton({
       onClick={onClick}
       className={
         selected
-          ? dense
-            ? "rounded-full bg-orange-500/20 px-3 py-1.5 text-xs font-medium text-orange-400 ring-1 ring-orange-500/30 transition"
-            : "rounded-full bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-400 ring-1 ring-orange-500/30 transition"
-          : dense
-            ? "rounded-full bg-zinc-800/80 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700/80 hover:text-zinc-300"
-            : "rounded-full bg-zinc-800/80 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:bg-zinc-700/80 hover:text-zinc-300"
+          ? "rounded-full bg-orange-500/20 px-3 py-1.5 text-xs font-medium text-orange-400 ring-1 ring-orange-500/30 transition"
+          : "rounded-full bg-zinc-800/80 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700/80 hover:text-zinc-300"
       }
     >
       {label}
@@ -421,23 +411,13 @@ function TagFilterButton({
   );
 }
 
-function SortLinkButton({
-  dense,
-  onClick,
-}: {
-  dense: boolean;
-  onClick: () => void;
-}) {
+function SortLinkButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title="Sort by learning level"
-      className={
-        dense
-          ? "px-1 py-1.5 text-xs text-orange-400 underline decoration-orange-400/40 underline-offset-2 transition hover:text-orange-300"
-          : "px-1 py-2 text-sm text-orange-400 underline decoration-orange-400/40 underline-offset-2 transition hover:text-orange-300"
-      }
+      className="px-1 py-1.5 text-xs text-orange-400 underline decoration-orange-400/40 underline-offset-2 transition hover:text-orange-300"
     >
       Sort
     </button>

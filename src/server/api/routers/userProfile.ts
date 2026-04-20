@@ -146,7 +146,9 @@ export const userProfileRouter = createTRPCRouter({
       if (input.email) set.email = input.email;
       if (input.infoPaneClosedVersion !== undefined) {
         set.infoPaneClosedVersion =
-          input.infoPaneClosedVersion === "" ? null : input.infoPaneClosedVersion;
+          input.infoPaneClosedVersion === ""
+            ? null
+            : input.infoPaneClosedVersion;
       }
 
       if (Object.keys(set).length > 0) {

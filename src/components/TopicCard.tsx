@@ -40,9 +40,18 @@ export function TopicCard({
 }) {
   const router = useRouter();
   const isTopicRoute = router.pathname === "/topic/[id]";
+  const q = typeof router.query.q === "string" ? router.query.q : undefined;
+  const topicHref = {
+    pathname: "/topic/[id]",
+    query: {
+      id: String(topic.id),
+      ...(q ? { q } : {}),
+    },
+  };
 
   return (
     <li
+      data-topic-id={topic.id}
       className={`group relative rounded-lg border bg-zinc-900/50 transition ${
         isTopicRoute ? "p-3 lg:p-4" : "p-4 md:p-5"
       } ${
@@ -50,7 +59,7 @@ export function TopicCard({
       }`}
     >
       <div className="flex items-start gap-2">
-        <Link href={`/topic/${topic.id}`} className="block min-w-0 flex-1">
+        <Link href={topicHref} className="block min-w-0 flex-1">
           <h2
             className={`-mt-0.5 bg-linear-60 from-orange-400 to-zinc-100 bg-clip-text text-lg font-semibold text-transparent ${
               isActive ? "to-200%" : "to-1% group-hover:to-100%"
@@ -114,7 +123,7 @@ export function TopicCard({
             isActive={isActive}
             onLevelChange={(level) => {
               onLevelChange(level);
-              void router.push(`/topic/${topic.id}`);
+              void router.push(topicHref);
             }}
           />
         </div>

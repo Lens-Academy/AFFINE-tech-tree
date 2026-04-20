@@ -78,13 +78,12 @@ export default function ResourcesPage() {
       </Head>
       <PageLayout>
         <div>
-          <h1 className="mb-4 text-3xl font-bold text-zinc-100">Resources</h1>
           <input
             type="search"
             placeholder="Search by title, author, or topic…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="mb-6 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
+            className="mb-4 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
           />
 
           {isLoading && <p className="text-zinc-500">Loading resources…</p>}

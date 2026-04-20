@@ -110,8 +110,6 @@ export default function UsersPage() {
       </Head>
       <PageLayout>
         <div>
-          <h1 className="mb-4 text-3xl font-bold text-zinc-100">Match</h1>
-
           {isPending && <p className="text-zinc-500">Loading session…</p>}
           {!isPending && !rawUser && (
             <p className="text-zinc-400">

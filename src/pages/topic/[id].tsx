@@ -17,6 +17,7 @@ import {
   FeedbackSection,
   HelpfulnessSelect,
 } from "~/components/FeedbackSection";
+import { PageTabs } from "~/components/PageTabs";
 import { TopicList } from "~/components/TopicList";
 import { TopNav } from "~/components/TopNav";
 import { api, type RouterOutputs } from "~/utils/api";
@@ -251,34 +252,34 @@ export default function TopicPage() {
             : "AFFINE Tech Tree"}
         </title>
       </Head>
-      <main className="min-h-screen bg-zinc-950 md:h-screen md:overflow-hidden">
+      <main className="min-h-screen bg-zinc-950">
         <TopNav />
+        <PageTabs />
 
         <div
-          className={`mx-auto max-w-7xl pl-4 md:h-[calc(100%-4rem)] md:pl-2 lg:pl-4 ${
+          className={`mx-auto w-full max-w-7xl px-4 pb-4 md:pb-6 ${
             hasLoadedTopicListPreference ? "md:visible" : "md:invisible"
           }`}
         >
           <div
-            className={`grid h-full min-h-0 md:gap-2 lg:gap-4 ${
+            className={`grid overflow-y-clip rounded-lg border border-zinc-800 bg-zinc-900 ${
               isTopicListCollapsed ? "md:grid-cols-1" : "md:grid-cols-2"
             }`}
           >
             <section
-              className={`hidden min-h-0 flex-col border-r border-zinc-800/80 ${
+              // negative bottom margin (-mb and matching pb) to avoid double scroll at bottom of page - adjust when adding footer
+              className={`hidden flex-col border-r border-zinc-800/80 p-4 md:sticky md:top-0 md:-mb-10 md:max-h-screen md:scroll-pt-4 md:overflow-y-auto md:pb-10 ${
                 isTopicListCollapsed ? "md:hidden" : "md:flex"
               }`}
             >
               <TopicList />
             </section>
 
-            <div className="relative min-h-0">
+            <div className="relative">
               <button
                 type="button"
                 onClick={toggleTopicList}
-                className={`absolute z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex ${
-                  isTopicListCollapsed ? "left-0" : "-left-4 lg:-left-6"
-                }`}
+                className="absolute -left-2 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex"
                 aria-label={
                   isTopicListCollapsed ? "Show topic list" : "Hide topic list"
                 }
@@ -301,8 +302,8 @@ export default function TopicPage() {
                   )}
                 </svg>
               </button>
-              <section className="h-full min-h-0 overflow-y-auto pt-2 pb-2 [scrollbar-gutter:stable] lg:pt-4 lg:pb-4">
-                <div className="mx-auto max-w-3xl pr-2 lg:pr-3">
+              <section className="p-4">
+                <div className="mx-auto max-w-3xl">
                   {isTopicLoading && <p className="text-zinc-500">Loading…</p>}
 
                   {isTopicMissing && (

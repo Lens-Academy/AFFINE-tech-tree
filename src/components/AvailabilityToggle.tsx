@@ -5,7 +5,7 @@ import { api } from "~/utils/api";
 export function AvailabilityToggle() {
   const utils = api.useUtils();
   const { viewerUser } = useViewerAccess();
-  const { data: status } = api.availability.getMyStatus.useQuery();
+  const { data: status, isPending } = api.availability.getMyStatus.useQuery();
   const profileKey = viewerUser ? { userId: viewerUser.id } : undefined;
 
   const toggle = useMutation({
@@ -54,6 +54,7 @@ export function AvailabilityToggle() {
     },
   });
 
+  if (isPending) return null;
   const available = status?.available ?? false;
 
   return (

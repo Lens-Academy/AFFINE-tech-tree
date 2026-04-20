@@ -31,7 +31,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+        className="relative -ml-1 rounded p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
         title="Learning feedback"
       >
         <svg
