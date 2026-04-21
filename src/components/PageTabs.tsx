@@ -39,13 +39,6 @@ const TABS: Tab[] = [
     requiresAuth: true,
     isActive: (p) => p === "/progress",
   },
-  {
-    label: "Suggest",
-    href: SUGGESTIONS_SHEET_URL,
-    external: true,
-    requiresAuth: true,
-    isActive: () => false,
-  },
 ];
 
 const BASE =
@@ -113,6 +106,36 @@ function TabItem({
   );
 }
 
+const SUGGEST_BASE =
+  "group px-4 py-2 text-sm font-medium transition border border-transparent";
+const SUGGEST_TEXT =
+  "bg-linear-60 from-[#00ac47] to-zinc-100 bg-clip-text text-transparent to-1% group-hover:to-100%";
+
+function SuggestLink({ disabled }: { disabled: boolean }) {
+  if (disabled) {
+    return (
+      <span
+        className={`${SUGGEST_BASE} cursor-not-allowed text-zinc-600`}
+        title="Sign in to use"
+        aria-disabled="true"
+      >
+        Suggest
+      </span>
+    );
+  }
+  return (
+    <a
+      href={SUGGESTIONS_SHEET_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={SUGGEST_BASE}
+      title="Suggest edits google sheet"
+    >
+      <span className={SUGGEST_TEXT}>Suggest</span>
+    </a>
+  );
+}
+
 export function PageTabs() {
   const pathname = useActivePath();
   const { viewerUser } = useViewerAccess();
@@ -140,6 +163,7 @@ export function PageTabs() {
             }
           />
         ))}
+        <SuggestLink disabled={!viewerUser} />
       </nav>
     </div>
   );
