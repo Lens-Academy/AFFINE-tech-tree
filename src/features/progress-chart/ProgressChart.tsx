@@ -49,12 +49,12 @@ function toIsoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function utcDayStart(key: string): Date {
-  return new Date(`${key}T00:00:00.000Z`);
+function toUtcHhMm(d: Date): string {
+  return d.toISOString().slice(11, 16);
 }
 
-function formatLevel(l: UnderstandingLevel | null) {
-  return l ? getLevelShortLabel(l) : "none";
+function utcDayStart(key: string): Date {
+  return new Date(`${key}T00:00:00.000Z`);
 }
 
 export function ProgressChart({
@@ -207,7 +207,11 @@ export function ProgressChart({
 
     const xt = x.ticks(8).map((d) => ({
       x: x(d),
-      label: toIsoDay(d).slice(5),
+      label: d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
     }));
     const yt = y.ticks(5).map((v) => ({ y: y(v), label: String(v) }));
 
@@ -423,7 +427,7 @@ function DayTooltip({
 
   return (
     <div
-      className="absolute top-2 max-w-xs rounded-md border border-zinc-700 bg-zinc-900/95 p-3 text-xs shadow-lg"
+      className="absolute top-2 max-w-sm rounded-md border border-zinc-700 bg-zinc-900/95 p-3 text-xs shadow-lg"
       style={style}
     >
       <div className="mb-1.5 font-medium text-zinc-200">{day.date} Changes</div>
@@ -435,46 +439,58 @@ function DayTooltip({
       </div>
 
       {day.changes.length > 0 ? (
-        <div>
-          <ul className="space-y-0.5">
-            {day.changes.map((c, i) => (
-              <li key={i} className="flex items-start gap-1.5">
+        <ul className="space-y-0.5">
+          {day.changes.map((c, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <span
+                className="inline-flex h-4 shrink-0 items-center gap-0.5 text-zinc-500"
+                aria-label={`${c.from ? getLevelShortLabel(c.from) : "none"} to ${c.to ? getLevelShortLabel(c.to) : "none"}`}
+              >
+                <LevelDot level={c.from} />
+                <span aria-hidden className="text-[10px] text-zinc-600">
+                  ➜
+                </span>
+                <LevelDot level={c.to} />
+              </span>
+              <span className="shrink-0 text-zinc-600 tabular-nums">
+                {toUtcHhMm(new Date(c.at))}
+              </span>
+              <span className="min-w-0 flex-1 text-zinc-100">
+                {c.topicName}
+              </span>
+              <span className="ml-auto flex shrink-0 items-start">
+                {c.isExcited ? (
+                  <span className="mr-1 inline-flex text-zinc-600 [&>svg]:h-4 [&>svg]:w-4">
+                    <StarIcon filled />
+                  </span>
+                ) : null}
                 <span
-                  className="mt-1 inline-block h-2 w-2 shrink-0 rounded-sm"
-                  style={{
-                    background: c.to ? LEVEL_COLORS[c.to] : "transparent",
-                    border: c.to ? "none" : "1px dashed #71717a",
-                  }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 text-zinc-300">
-                  <span className="text-zinc-100">{c.topicName}</span>
-                  <span className="text-zinc-500">
-                    {" "}
-                    {formatLevel(c.from)} → {formatLevel(c.to)}
-                  </span>
+                  className="inline-flex text-zinc-600 [&>svg]:h-4 [&>svg]:w-4"
+                  title="Bookmarked"
+                >
+                  <BookmarkIcon filled={c.isBookmarked} />
                 </span>
-                <span className="ml-auto flex shrink-0 items-start">
-                  {c.isExcited ? (
-                    <span className="mr-1 inline-flex text-zinc-600 [&>svg]:h-4 [&>svg]:w-4">
-                      <StarIcon filled />
-                    </span>
-                  ) : null}
-                  <span
-                    className="inline-flex text-zinc-600 [&>svg]:h-4 [&>svg]:w-4"
-                    title="Bookmarked"
-                  >
-                    <BookmarkIcon filled={c.isBookmarked} />
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : (
         <div className="text-zinc-500">No changes this day.</div>
       )}
     </div>
+  );
+}
+
+function LevelDot({ level }: { level: UnderstandingLevel | null }) {
+  return (
+    <span
+      className="inline-block h-2 w-2 shrink-0 rounded-sm"
+      style={{
+        background: level ? LEVEL_COLORS[level] : "transparent",
+        border: level ? "none" : "1px dashed #71717a",
+      }}
+      aria-hidden
+    />
   );
 }
 
