@@ -40,7 +40,7 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - Header includes a link to the GitHub repository.
 - Test/staging deployments show a "Test env" badge with deploy date, commit link, and production URL.
 - Admin area includes a prerequisite network graph visualization (`/graph`).
-- Progress page (`/progress`) shows a cumulative stacked area chart of understanding levels per day, with a hover tooltip listing that day's per-level totals and the topic transitions that happened that day. Each transition is annotated with bookmark / excited-to-teach icons based on the topic's current state.
+- Progress pages (`/progress/{userId}`) show a cumulative stacked chart of understanding levels over time, with a hover/click tooltip listing that day's per-level totals and topic transitions. User profiles link to the corresponding progress page; admins can view other users' progress there too.
 - User segments (SAS, Online SAS, BARYCENTER) and peer match system:
   - Admins assign each user to a segment from the user profile page.
   - `/match` lists peers in your own segment with their starred topics.

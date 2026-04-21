@@ -1,11 +1,18 @@
 import Head from "next/head";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
 
 import { PageLayout } from "~/components/PageLayout";
-import { ProgressChart } from "~/features/progress-chart/ProgressChart";
-import { api } from "~/utils/api";
+import { useViewerAccess } from "~/hooks/useViewerAccess";
 
 export default function ProgressPage() {
-  const { data, isLoading } = api.progress.overTime.useQuery();
+  const router = useRouter();
+  const { viewerUser, isPending } = useViewerAccess();
+
+  useEffect(() => {
+    if (!viewerUser) return;
+    void router.replace(`/progress/${viewerUser.id}`);
+  }, [router, viewerUser]);
 
   return (
     <>
@@ -13,11 +20,12 @@ export default function ProgressPage() {
         <title>Progress | AFFINE Tech Tree</title>
       </Head>
       <PageLayout>
-        <h1 className="mb-4 text-lg font-semibold text-zinc-100">
-          Your progress over time
-        </h1>
-        {isLoading && <p className="text-zinc-500">Loading…</p>}
-        {data && <ProgressChart days={data.days} />}
+        <h1 className="mb-4 text-lg font-semibold text-zinc-100">Progress</h1>
+        {isPending && <p className="text-zinc-500">Loading session...</p>}
+        {!isPending && !viewerUser && (
+          <p className="text-zinc-400">Please sign in to view progress.</p>
+        )}
+        {viewerUser && <p className="text-zinc-500">Redirecting…</p>}
       </PageLayout>
     </>
   );

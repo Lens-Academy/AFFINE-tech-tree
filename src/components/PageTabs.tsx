@@ -9,7 +9,7 @@ import { api } from "~/utils/api";
 
 type Tab = {
   label: string;
-  href: string;
+  href: string | ((viewerUserId: string | null) => string);
   external?: boolean;
   requiresAuth?: boolean;
   isActive: (pathname: string) => boolean;
@@ -35,9 +35,10 @@ const TABS: Tab[] = [
   { label: "Graph", href: "/graph", isActive: (p) => p === "/graph" },
   {
     label: "Progress",
-    href: "/progress",
+    href: (viewerUserId) =>
+      viewerUserId ? `/progress/${viewerUserId}` : "/progress",
     requiresAuth: true,
-    isActive: (p) => p === "/progress",
+    isActive: (p) => p === "/progress" || p.startsWith("/progress/"),
   },
 ];
 
@@ -57,11 +58,13 @@ function TabItem({
   tab,
   isActive,
   disabled,
+  viewerUserId,
   suffix,
 }: {
   tab: Tab;
   isActive: boolean;
   disabled: boolean;
+  viewerUserId: string | null;
   suffix?: ReactNode;
 }) {
   const className = disabled ? DISABLED : isActive ? ACTIVE : INACTIVE;
@@ -76,6 +79,8 @@ function TabItem({
       {suffix}
     </span>
   );
+  const href =
+    typeof tab.href === "function" ? tab.href(viewerUserId) : tab.href;
   if (disabled) {
     return (
       <span className={className} title="Sign in to use" aria-disabled="true">
@@ -86,7 +91,7 @@ function TabItem({
   if (tab.external) {
     return (
       <a
-        href={tab.href}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         className={className}
@@ -97,7 +102,7 @@ function TabItem({
   }
   return (
     <Link
-      href={tab.href}
+      href={href}
       className={className}
       aria-current={isActive ? "page" : undefined}
     >
@@ -154,8 +159,9 @@ export function PageTabs() {
             tab={tab}
             isActive={tab.isActive(pathname)}
             disabled={!!tab.requiresAuth && !viewerUser}
+            viewerUserId={viewerUser?.id ?? null}
             suffix={
-              tab.href === "/match" && incomingCount > 0 ? (
+              tab.label === "Match" && incomingCount > 0 ? (
                 <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold text-white">
                   {incomingCount > 9 ? "9+" : incomingCount}
                 </span>
