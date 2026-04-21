@@ -1,6 +1,6 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
-import { eq } from "drizzle-orm";
+import { eq, notInArray } from "drizzle-orm";
 
 import * as schema from "../server/db/schema.ts";
 import { parseTags } from "./parseTags.ts";
@@ -277,6 +277,24 @@ async function main() {
       upserted++;
     }
   });
+
+  // Delete topics that are no longer in the spreadsheet
+  const sheetNames = new Set(topics.map((t) => t.name));
+  const allDbTopics = await db.query.topic.findMany({
+    columns: { id: true, name: true },
+  });
+  const toDelete = allDbTopics.filter((t) => !sheetNames.has(t.name));
+  if (toDelete.length > 0) {
+    await db
+      .delete(topic)
+      .where(
+        notInArray(
+          topic.name,
+          [...sheetNames],
+        ),
+      );
+    console.log(`Deleted ${toDelete.length} topics removed from sheet: ${toDelete.map((t) => t.name).join(", ")}`);
+  }
 
   // Second pass: resolve prerequisite relationships (topics must all exist first)
   let prereqCount = 0;

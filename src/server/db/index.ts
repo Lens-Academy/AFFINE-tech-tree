@@ -10,12 +10,13 @@ type GlobalForDb = typeof globalThis & {
 
 const globalForDb = globalThis as GlobalForDb;
 
-const client =
-  globalForDb.__libsqlClient ?? createClient({ url: env.DATABASE_URL });
+// Use HTTPS for serverless environments to avoid WebSocket connection overhead.
+// libsql:// uses WebSocket which adds 1-3s on cold starts and can exceed Vercel's timeout.
+const dbUrl = env.DATABASE_URL.replace(/^libsql:\/\//, "https://");
 
-if (env.NODE_ENV !== "production") {
-  globalForDb.__libsqlClient = client;
-}
+const client = globalForDb.__libsqlClient ?? createClient({ url: dbUrl });
+
+globalForDb.__libsqlClient = client;
 
 export const db = drizzle(client, { schema });
 export type Db = typeof db;
