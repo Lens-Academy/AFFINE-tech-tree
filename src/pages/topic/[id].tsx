@@ -17,9 +17,8 @@ import {
   FeedbackSection,
   HelpfulnessSelect,
 } from "~/components/FeedbackSection";
-import { PageTabs } from "~/components/PageTabs";
+import { PageShell } from "~/components/PageShell";
 import { TopicList } from "~/components/TopicList";
-import { TopNav } from "~/components/TopNav";
 import { api, type RouterOutputs } from "~/utils/api";
 
 type BookmarkMutationOptions = Exclude<
@@ -252,385 +251,373 @@ export default function TopicPage() {
             : "AFFINE Tech Tree"}
         </title>
       </Head>
-      <main className="min-h-screen bg-zinc-950">
-        <TopNav />
-        <PageTabs />
-
+      <PageShell
+        mainClassName={`max-w-7xl ${
+          hasLoadedTopicListPreference ? "md:visible" : "md:invisible"
+        }`}
+      >
         <div
-          className={`mx-auto w-full max-w-7xl px-4 pb-4 md:pb-6 ${
-            hasLoadedTopicListPreference ? "md:visible" : "md:invisible"
+          className={`grid overflow-y-clip rounded-lg border border-zinc-800 bg-zinc-900 ${
+            isTopicListCollapsed ? "md:grid-cols-1" : "md:grid-cols-2"
           }`}
         >
-          <div
-            className={`grid overflow-y-clip rounded-lg border border-zinc-800 bg-zinc-900 ${
-              isTopicListCollapsed ? "md:grid-cols-1" : "md:grid-cols-2"
+          <section
+            // negative bottom margin (-mb and larger pb) to avoid double scroll of sticky column at bottom of page - adjust with footer height
+            className={`hidden flex-col border-r border-zinc-800/80 p-4 md:sticky md:top-0 md:-mb-18 md:max-h-screen md:scroll-pt-4 md:overflow-y-auto md:pb-20 ${
+              isTopicListCollapsed ? "md:hidden" : "md:flex"
             }`}
           >
-            <section
-              // negative bottom margin (-mb and matching pb) to avoid double scroll at bottom of page - adjust when adding footer
-              className={`hidden flex-col border-r border-zinc-800/80 p-4 md:sticky md:top-0 md:-mb-10 md:max-h-screen md:scroll-pt-4 md:overflow-y-auto md:pb-10 ${
-                isTopicListCollapsed ? "md:hidden" : "md:flex"
-              }`}
+            <TopicList />
+          </section>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={toggleTopicList}
+              className="absolute -left-2 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex"
+              aria-label={
+                isTopicListCollapsed ? "Show topic list" : "Hide topic list"
+              }
+              aria-expanded={!isTopicListCollapsed}
+              title={
+                isTopicListCollapsed ? "Show topic list" : "Hide topic list"
+              }
             >
-              <TopicList />
-            </section>
-
-            <div className="relative">
-              <button
-                type="button"
-                onClick={toggleTopicList}
-                className="absolute -left-2 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex"
-                aria-label={
-                  isTopicListCollapsed ? "Show topic list" : "Hide topic list"
-                }
-                aria-expanded={!isTopicListCollapsed}
-                title={
-                  isTopicListCollapsed ? "Show topic list" : "Hide topic list"
-                }
+              <svg
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
               >
-                <svg
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                  fill="none"
-                  stroke="currentColor"
-                >
-                  <path d="M7 5V15" opacity="0.55" />
-                  {isTopicListCollapsed ? (
-                    <path d="M10 8L13 10L10 12" />
-                  ) : (
-                    <path d="M14 8L11 10L14 12" />
-                  )}
-                </svg>
-              </button>
-              <section className="p-4">
-                <div className="mx-auto max-w-3xl">
-                  {isTopicLoading && <p className="text-zinc-500">Loading…</p>}
+                <path d="M7 5V15" opacity="0.55" />
+                {isTopicListCollapsed ? (
+                  <path d="M10 8L13 10L10 12" />
+                ) : (
+                  <path d="M14 8L11 10L14 12" />
+                )}
+              </svg>
+            </button>
+            <section className="p-4">
+              <div className="mx-auto max-w-3xl">
+                {isTopicLoading && <p className="text-zinc-500">Loading…</p>}
 
-                  {isTopicMissing && (
-                    <p className="text-zinc-500">Topic not found</p>
-                  )}
+                {isTopicMissing && (
+                  <p className="text-zinc-500">Topic not found</p>
+                )}
 
-                  {topic && (
-                    <>
-                      <div className="mb-2 flex items-center gap-3">
-                        <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-5% bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
-                          {topic.name}
-                        </h1>
-                        {viewerUser && (
-                          <div className="flex shrink-0 items-center">
-                            {isTeacherLevel(currentLevel) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (excitedToTeachSet.isPending) return;
-                                  excitedToTeachSet.mutate({
-                                    topicId: topic.id,
-                                    excited: !isExcitedToTeach,
-                                  });
-                                }}
-                                disabled={excitedToTeachSet.isPending}
-                                aria-label={
-                                  isExcitedToTeach
-                                    ? "Remove excited to teach"
-                                    : "Mark excited to teach"
-                                }
-                                aria-pressed={isExcitedToTeach}
-                                title="Excited to teach"
-                                className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                                  isExcitedToTeach
-                                    ? "text-orange-400"
-                                    : "text-zinc-600 hover:text-zinc-400"
-                                }`}
-                              >
-                                <StarIcon filled={isExcitedToTeach} />
-                              </button>
-                            )}
+                {topic && (
+                  <>
+                    <div className="mb-2 flex items-center gap-3">
+                      <h1 className="bg-linear-60 from-orange-400 to-zinc-100 to-5% bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
+                        {topic.name}
+                      </h1>
+                      {viewerUser && (
+                        <div className="flex shrink-0 items-center">
+                          {isTeacherLevel(currentLevel) && (
                             <button
                               type="button"
                               onClick={() => {
-                                if (bookmarkSet.isPending) return;
-                                bookmarkSet.mutate({
+                                if (excitedToTeachSet.isPending) return;
+                                excitedToTeachSet.mutate({
                                   topicId: topic.id,
-                                  bookmarked: !isBookmarked,
+                                  excited: !isExcitedToTeach,
                                 });
                               }}
-                              disabled={bookmarkSet.isPending}
-                              title="I'd like to learn this topic"
+                              disabled={excitedToTeachSet.isPending}
+                              aria-label={
+                                isExcitedToTeach
+                                  ? "Remove excited to teach"
+                                  : "Mark excited to teach"
+                              }
+                              aria-pressed={isExcitedToTeach}
+                              title="Excited to teach"
                               className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                                isBookmarked
+                                isExcitedToTeach
                                   ? "text-orange-400"
                                   : "text-zinc-600 hover:text-zinc-400"
                               }`}
                             >
-                              <BookmarkIcon filled={isBookmarked} />
+                              <StarIcon filled={isExcitedToTeach} />
                             </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mb-4 flex flex-wrap gap-1">
-                        {topic.topicTags.map((tt) => (
-                          <span
-                            key={tt.tag.name}
-                            className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (bookmarkSet.isPending) return;
+                              bookmarkSet.mutate({
+                                topicId: topic.id,
+                                bookmarked: !isBookmarked,
+                              });
+                            }}
+                            disabled={bookmarkSet.isPending}
+                            title="I'd like to learn this topic"
+                            className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                              isBookmarked
+                                ? "text-orange-400"
+                                : "text-zinc-600 hover:text-zinc-400"
+                            }`}
                           >
-                            {tt.tag.name}
-                          </span>
-                        ))}
-                      </div>
-
-                      {topic.description && (
-                        <p className="mb-6 text-zinc-400">
-                          {topic.description}
-                        </p>
+                            <BookmarkIcon filled={isBookmarked} />
+                          </button>
+                        </div>
                       )}
+                    </div>
 
-                      <div id="feedback" />
-                      {viewerUser && !Number.isNaN(id) && (
-                        <FeedbackSection
-                          topicId={id}
-                          topicLinks={topic.topicLinks ?? []}
-                        />
-                      )}
+                    <div className="mb-4 flex flex-wrap gap-1">
+                      {topic.topicTags.map((tt) => (
+                        <span
+                          key={tt.tag.name}
+                          className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"
+                        >
+                          {tt.tag.name}
+                        </span>
+                      ))}
+                    </div>
 
-                      {topic.topicLinks && topic.topicLinks.length > 0 && (
-                        <section className="mb-8">
-                          <div className="mb-3 flex items-center gap-2">
-                            <h2 className="bg-clip-text text-lg font-semibold text-zinc-100">
-                              Resources
-                            </h2>
-                            {viewerUser && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRateMode((v) => {
-                                    const next = !v;
-                                    if (next) {
-                                      setManualRateLevel(currentLevel ?? null);
-                                    }
-                                    return next;
+                    {topic.description && (
+                      <p className="mb-6 text-zinc-400">{topic.description}</p>
+                    )}
+
+                    <div id="feedback" />
+                    {viewerUser && !Number.isNaN(id) && (
+                      <FeedbackSection
+                        topicId={id}
+                        topicLinks={topic.topicLinks ?? []}
+                      />
+                    )}
+
+                    {topic.topicLinks && topic.topicLinks.length > 0 && (
+                      <section className="mb-8">
+                        <div className="mb-3 flex items-center gap-2">
+                          <h2 className="bg-clip-text text-lg font-semibold text-zinc-100">
+                            Resources
+                          </h2>
+                          {viewerUser && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRateMode((v) => {
+                                  const next = !v;
+                                  if (next) {
+                                    setManualRateLevel(currentLevel ?? null);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={`rounded p-1 transition ${
+                                rateMode
+                                  ? "text-orange-400 hover:bg-zinc-800"
+                                  : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                              }`}
+                              title={
+                                rateMode ? "Exit rating mode" : "Rate resources"
+                              }
+                            >
+                              <svg
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="h-4 w-4"
+                              >
+                                <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                              </svg>
+                            </button>
+                          )}
+                          <div className="flex-1" />
+                          {!rateMode && (
+                            <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
+                              {HELPFULNESS_RATINGS.map((r) => (
+                                <span
+                                  key={r}
+                                  className="w-4 text-center"
+                                  title={HELPFULNESS_RATING_HEADER_TITLES[r]}
+                                >
+                                  {HELPFULNESS_RATING_GLYPHS[r]}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <ul className="space-y-2 text-sm">
+                          {topic.topicLinks.map((link) => (
+                            <li key={link.id}>
+                              <InlineRateableResource
+                                link={link}
+                                rateMode={rateMode}
+                                manualFeedbackItems={
+                                  manualFeedback?.feedbackItems ?? []
+                                }
+                                onUpsert={async (input) => {
+                                  let transitionId =
+                                    manualFeedback?.transitionId ?? null;
+                                  if (transitionId == null) {
+                                    const created =
+                                      await ensureManualTransition.mutateAsync({
+                                        topicId: id,
+                                        level: manualRateLevel,
+                                      });
+                                    transitionId = created.transitionId;
+                                  }
+                                  upsertManualFeedback.mutate({
+                                    ...input,
+                                    topicId: id,
+                                    transitionId,
                                   });
                                 }}
-                                className={`rounded p-1 transition ${
-                                  rateMode
-                                    ? "text-orange-400 hover:bg-zinc-800"
-                                    : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                                }`}
-                                title={
-                                  rateMode
-                                    ? "Exit rating mode"
-                                    : "Rate resources"
-                                }
-                              >
-                                <svg
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                  className="h-4 w-4"
-                                >
-                                  <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-                                </svg>
-                              </button>
-                            )}
-                            <div className="flex-1" />
-                            {!rateMode && (
-                              <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
-                                {HELPFULNESS_RATINGS.map((r) => (
-                                  <span
-                                    key={r}
-                                    className="w-4 text-center"
-                                    title={HELPFULNESS_RATING_HEADER_TITLES[r]}
-                                  >
-                                    {HELPFULNESS_RATING_GLYPHS[r]}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+
+                    {viewerUser &&
+                      !isTeacherLevel(currentLevel) &&
+                      teachers &&
+                      teachers.length > 0 && (
+                        <section className="mb-8">
+                          <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                            People who can help
+                          </h2>
+                          <ul className="space-y-2">
+                            {teachers.map((t) => (
+                              <li key={t.userId}>
+                                <div className="flex items-center gap-2 text-sm text-zinc-300">
+                                  <span>{t.name ?? "Anonymous"}</span>
+                                  {t.excitedToTeach && (
+                                    <span
+                                      className="text-orange-400"
+                                      title="Excited to teach"
+                                    >
+                                      <StarIcon filled />
+                                    </span>
+                                  )}
+                                  <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                                    {getLevelLabel(t.level)}
                                   </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <ul className="space-y-2 text-sm">
-                            {topic.topicLinks.map((link) => (
-                              <li key={link.id}>
-                                <InlineRateableResource
-                                  link={link}
-                                  rateMode={rateMode}
-                                  manualFeedbackItems={
-                                    manualFeedback?.feedbackItems ?? []
-                                  }
-                                  onUpsert={async (input) => {
-                                    let transitionId =
-                                      manualFeedback?.transitionId ?? null;
-                                    if (transitionId == null) {
-                                      const created =
-                                        await ensureManualTransition.mutateAsync(
-                                          {
-                                            topicId: id,
-                                            level: manualRateLevel,
-                                          },
-                                        );
-                                      transitionId = created.transitionId;
-                                    }
-                                    upsertManualFeedback.mutate({
-                                      ...input,
-                                      topicId: id,
-                                      transitionId,
-                                    });
-                                  }}
-                                />
+                                  {t.available && (
+                                    <span className="rounded bg-orange-500/20 px-2 py-0.5 text-xs text-orange-400">
+                                      Available
+                                    </span>
+                                  )}
+                                </div>
                               </li>
                             ))}
                           </ul>
                         </section>
                       )}
 
-                      {viewerUser &&
-                        !isTeacherLevel(currentLevel) &&
-                        teachers &&
-                        teachers.length > 0 && (
-                          <section className="mb-8">
-                            <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                              People who can help
-                            </h2>
-                            <ul className="space-y-2">
-                              {teachers.map((t) => (
-                                <li key={t.userId}>
-                                  <div className="flex items-center gap-2 text-sm text-zinc-300">
-                                    <span>{t.name ?? "Anonymous"}</span>
-                                    {t.excitedToTeach && (
-                                      <span
-                                        className="text-orange-400"
-                                        title="Excited to teach"
-                                      >
-                                        <StarIcon filled />
-                                      </span>
-                                    )}
-                                    <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                                      {getLevelLabel(t.level)}
-                                    </span>
-                                    {t.available && (
-                                      <span className="rounded bg-orange-500/20 px-2 py-0.5 text-xs text-orange-400">
-                                        Available
-                                      </span>
-                                    )}
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          </section>
-                        )}
-
-                      <section className="mb-8">
-                        <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                          Add resource for review
-                        </h2>
-                        {resourceSuggestionMessage && (
-                          <p
-                            className={`mb-3 rounded border px-3 py-2 text-sm ${
-                              resourceSuggestionMessage.type === "error"
-                                ? "border-red-500/30 bg-red-500/10 text-red-300"
-                                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            }`}
-                          >
-                            {resourceSuggestionMessage.text}
-                          </p>
-                        )}
-                        {!viewerUser && (
-                          <p className="mb-2 text-sm text-zinc-500">
-                            Sign in to submit a resource for review.
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Add resource URL, person, or note..."
-                            value={resourceSuggestionInput}
-                            onChange={(e) =>
-                              setResourceSuggestionInput(e.target.value)
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key !== "Enter") return;
-                              e.preventDefault();
-                              const value = resourceSuggestionInput.trim();
-                              if (
-                                !viewerUser ||
-                                !value ||
-                                submitTopicSuggestion.isPending ||
-                                Number.isNaN(id)
-                              ) {
-                                return;
-                              }
-                              submitTopicSuggestion.mutate({
-                                topicId: id,
-                                value,
-                              });
-                            }}
-                            disabled={!viewerUser}
-                            className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                          />
-                          <button
-                            type="button"
-                            disabled={
+                    <section className="mb-8">
+                      <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                        Add resource for review
+                      </h2>
+                      {resourceSuggestionMessage && (
+                        <p
+                          className={`mb-3 rounded border px-3 py-2 text-sm ${
+                            resourceSuggestionMessage.type === "error"
+                              ? "border-red-500/30 bg-red-500/10 text-red-300"
+                              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                          }`}
+                        >
+                          {resourceSuggestionMessage.text}
+                        </p>
+                      )}
+                      {!viewerUser && (
+                        <p className="mb-2 text-sm text-zinc-500">
+                          Sign in to submit a resource for review.
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Add resource URL, person, or note..."
+                          value={resourceSuggestionInput}
+                          onChange={(e) =>
+                            setResourceSuggestionInput(e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            const value = resourceSuggestionInput.trim();
+                            if (
                               !viewerUser ||
+                              !value ||
                               submitTopicSuggestion.isPending ||
-                              !resourceSuggestionInput.trim()
+                              Number.isNaN(id)
+                            ) {
+                              return;
                             }
-                            onClick={() => {
-                              const value = resourceSuggestionInput.trim();
-                              if (
-                                !viewerUser ||
-                                !value ||
-                                submitTopicSuggestion.isPending ||
-                                Number.isNaN(id)
-                              ) {
-                                return;
-                              }
-                              submitTopicSuggestion.mutate({
-                                topicId: id,
-                                value,
-                              });
-                            }}
-                            className="rounded bg-orange-500/20 px-3 py-1.5 text-sm text-orange-400 hover:bg-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Add
-                          </button>
+                            submitTopicSuggestion.mutate({
+                              topicId: id,
+                              value,
+                            });
+                          }}
+                          disabled={!viewerUser}
+                          className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                        <button
+                          type="button"
+                          disabled={
+                            !viewerUser ||
+                            submitTopicSuggestion.isPending ||
+                            !resourceSuggestionInput.trim()
+                          }
+                          onClick={() => {
+                            const value = resourceSuggestionInput.trim();
+                            if (
+                              !viewerUser ||
+                              !value ||
+                              submitTopicSuggestion.isPending ||
+                              Number.isNaN(id)
+                            ) {
+                              return;
+                            }
+                            submitTopicSuggestion.mutate({
+                              topicId: id,
+                              value,
+                            });
+                          }}
+                          className="rounded bg-orange-500/20 px-3 py-1.5 text-sm text-orange-400 hover:bg-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </section>
+
+                    {((topic.prerequisites && topic.prerequisites.length > 0) ||
+                      (topic.dependents && topic.dependents.length > 0)) && (
+                      <section className="mb-6">
+                        <h2 className="mb-3 text-lg font-semibold text-zinc-100">
+                          Related Topics
+                        </h2>
+                        <div className="flex flex-wrap gap-1.5">
+                          {topic.prerequisites.map((p) => (
+                            <Link
+                              key={`pre-${p.prerequisiteTopic.id}`}
+                              href={`/topic/${p.prerequisiteTopic.id}`}
+                              className="rounded bg-zinc-800 px-2 py-0.5 text-sm text-orange-400 hover:bg-zinc-700 hover:text-orange-300"
+                            >
+                              {p.prerequisiteTopic.name}
+                            </Link>
+                          ))}
+                          {topic.dependents.map((d) => (
+                            <Link
+                              key={`dep-${d.topic.id}`}
+                              href={`/topic/${d.topic.id}`}
+                              className="rounded bg-zinc-800 px-2 py-0.5 text-sm text-orange-400 hover:bg-zinc-700 hover:text-orange-300"
+                            >
+                              {d.topic.name}
+                            </Link>
+                          ))}
                         </div>
                       </section>
-
-                      {((topic.prerequisites &&
-                        topic.prerequisites.length > 0) ||
-                        (topic.dependents && topic.dependents.length > 0)) && (
-                        <section className="mb-6">
-                          <h2 className="mb-3 text-lg font-semibold text-zinc-100">
-                            Related Topics
-                          </h2>
-                          <div className="flex flex-wrap gap-1.5">
-                            {topic.prerequisites.map((p) => (
-                              <Link
-                                key={`pre-${p.prerequisiteTopic.id}`}
-                                href={`/topic/${p.prerequisiteTopic.id}`}
-                                className="rounded bg-zinc-800 px-2 py-0.5 text-sm text-orange-400 hover:bg-zinc-700 hover:text-orange-300"
-                              >
-                                {p.prerequisiteTopic.name}
-                              </Link>
-                            ))}
-                            {topic.dependents.map((d) => (
-                              <Link
-                                key={`dep-${d.topic.id}`}
-                                href={`/topic/${d.topic.id}`}
-                                className="rounded bg-zinc-800 px-2 py-0.5 text-sm text-orange-400 hover:bg-zinc-700 hover:text-orange-300"
-                              >
-                                {d.topic.name}
-                              </Link>
-                            ))}
-                          </div>
-                        </section>
-                      )}
-                    </>
-                  )}
-                </div>
-              </section>
-            </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
           </div>
         </div>
-      </main>
+      </PageShell>
     </>
   );
 }

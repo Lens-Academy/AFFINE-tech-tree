@@ -13,8 +13,7 @@ import {
   type UnderstandingLevel,
   UNDERSTANDING_LEVEL_LABELS,
 } from "~/shared/understandingLevels";
-import { PageTabs } from "~/components/PageTabs";
-import { TopNav } from "~/components/TopNav";
+import { PageShell } from "~/components/PageShell";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { api, type RouterOutputs } from "~/utils/api";
 
@@ -331,144 +330,139 @@ export default function AdminFeedbackPage() {
       <Head>
         <title>Feedback overview | Admin | AFFINE Tech Tree</title>
       </Head>
-      <main className="flex min-h-screen flex-col bg-zinc-950 md:h-screen md:overflow-hidden">
-        <TopNav />
+      {/*
+        Paddings look asymmetric across panes (pl-4 on container, pr-2 on
+        the sidebar, pr-3 inside the right pane) but the inner scrolling
+        sections use [scrollbar-gutter:stable], which reserves the gutter
+        on the right edge — so visually the right-side breathing room
+        matches the left. Don't "normalize" these without checking in-browser.
+      */}
+      <PageShell className="md:h-screen md:overflow-hidden">
+        <div
+          className={`rounded-lg border border-zinc-800 bg-zinc-900 pl-2 md:min-h-0 md:flex-1 ${
+            hasLoadedSidebarPref ? "md:visible" : "md:invisible"
+          }`}
+        >
+          {!viewerUser && !sessionPending && (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-zinc-500">Please sign in.</p>
+            </div>
+          )}
+          {viewerUser && !isAdmin && status.data !== undefined && (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-zinc-500">Admin access required.</p>
+            </div>
+          )}
+          {showContent && (
+            <div
+              className={`grid h-full min-h-0 md:gap-4 ${
+                sidebarCollapsed ? "md:grid-cols-1" : "md:grid-cols-2"
+              }`}
+            >
+              <section
+                className={`min-h-0 flex-col border-r border-zinc-800/80 py-4 pr-2 ${
+                  selectedTopicId == null ? "flex" : "hidden"
+                } ${sidebarCollapsed ? "md:hidden" : "md:flex"}`}
+              >
+                <h1 className="mb-4 pl-2 text-lg font-semibold text-zinc-100">
+                  Feedback overview
+                </h1>
+                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto [scrollbar-gutter:stable]">
+                  {topicStats.data?.map((t) => (
+                    <AdminTopicRow
+                      key={t.id}
+                      topic={t}
+                      isSelected={selectedTopicId === t.id}
+                      onSelect={() => selectTopic(t.id)}
+                    />
+                  ))}
+                </div>
+              </section>
 
-        {/*
-          Paddings look asymmetric across panes (pl-4 on container, pr-2 on
-          the sidebar, pr-3 inside the right pane) but the inner scrolling
-          sections use [scrollbar-gutter:stable], which reserves the gutter
-          on the right edge — so visually the right-side breathing room
-          matches the left. Don't "normalize" these without checking in-browser.
-        */}
-        <PageTabs />
-        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 md:min-h-0 md:flex-1">
-          <div
-            className={`rounded-lg border border-zinc-800 bg-zinc-900 pl-2 md:min-h-0 md:flex-1 ${
-              hasLoadedSidebarPref ? "md:visible" : "md:invisible"
-            }`}
-          >
-            {!viewerUser && !sessionPending && (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-zinc-500">Please sign in.</p>
-              </div>
-            )}
-            {viewerUser && !isAdmin && status.data !== undefined && (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-zinc-500">Admin access required.</p>
-              </div>
-            )}
-            {showContent && (
               <div
-                className={`grid h-full min-h-0 md:gap-4 ${
-                  sidebarCollapsed ? "md:grid-cols-1" : "md:grid-cols-2"
+                className={`relative min-h-0 ${
+                  selectedTopicId == null ? "hidden md:block" : "block"
                 }`}
               >
-                <section
-                  className={`min-h-0 flex-col border-r border-zinc-800/80 py-4 pr-2 ${
-                    selectedTopicId == null ? "flex" : "hidden"
-                  } ${sidebarCollapsed ? "md:hidden" : "md:flex"}`}
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="absolute -left-6 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex"
+                  aria-label={
+                    sidebarCollapsed ? "Show topic list" : "Hide topic list"
+                  }
+                  aria-expanded={!sidebarCollapsed}
+                  title={
+                    sidebarCollapsed ? "Show topic list" : "Hide topic list"
+                  }
                 >
-                  <h1 className="mb-4 pl-2 text-lg font-semibold text-zinc-100">
-                    Feedback overview
-                  </h1>
-                  <div className="min-h-0 flex-1 space-y-1 overflow-y-auto [scrollbar-gutter:stable]">
-                    {topicStats.data?.map((t) => (
-                      <AdminTopicRow
-                        key={t.id}
-                        topic={t}
-                        isSelected={selectedTopicId === t.id}
-                        onSelect={() => selectTopic(t.id)}
-                      />
-                    ))}
-                  </div>
-                </section>
-
-                <div
-                  className={`relative min-h-0 ${
-                    selectedTopicId == null ? "hidden md:block" : "block"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={toggleSidebar}
-                    className="absolute -left-6 z-20 hidden h-24 w-4 rounded-full border border-transparent text-zinc-400 hover:border-orange-500/40 hover:bg-zinc-900/95 hover:text-orange-300 md:flex"
-                    aria-label={
-                      sidebarCollapsed ? "Show topic list" : "Hide topic list"
-                    }
-                    aria-expanded={!sidebarCollapsed}
-                    title={
-                      sidebarCollapsed ? "Show topic list" : "Hide topic list"
-                    }
+                  <svg
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    fill="none"
+                    stroke="currentColor"
                   >
-                    <svg
-                      viewBox="0 0 20 20"
-                      aria-hidden="true"
-                      fill="none"
-                      stroke="currentColor"
+                    <path d="M7 5V15" opacity="0.55" />
+                    {sidebarCollapsed ? (
+                      <path d="M10 8L13 10L10 12" />
+                    ) : (
+                      <path d="M14 8L11 10L14 12" />
+                    )}
+                  </svg>
+                </button>
+                <section className="h-full min-h-0 overflow-y-auto py-2 [scrollbar-gutter:stable] md:py-4">
+                  <div className="mx-auto max-w-3xl pr-3">
+                    <button
+                      type="button"
+                      onClick={() => selectTopic(null)}
+                      className="mb-3 text-sm text-zinc-500 hover:text-zinc-300 md:hidden"
                     >
-                      <path d="M7 5V15" opacity="0.55" />
-                      {sidebarCollapsed ? (
-                        <path d="M10 8L13 10L10 12" />
-                      ) : (
-                        <path d="M14 8L11 10L14 12" />
-                      )}
-                    </svg>
-                  </button>
-                  <section className="h-full min-h-0 overflow-y-auto py-2 [scrollbar-gutter:stable] md:py-4">
-                    <div className="mx-auto max-w-3xl pr-3">
-                      <button
-                        type="button"
-                        onClick={() => selectTopic(null)}
-                        className="mb-3 text-sm text-zinc-500 hover:text-zinc-300 md:hidden"
-                      >
-                        ← Back to topics
-                      </button>
-                      {selectedTopicId == null ? (
-                        <p className="text-zinc-500">
-                          Select a topic to view feedback events.
-                        </p>
-                      ) : transitions.isLoading ? (
-                        <p className="text-zinc-500">Loading…</p>
-                      ) : (
-                        <>
-                          <h2 className="mb-3 text-lg font-semibold text-zinc-100">
-                            {topicStats.data?.find(
-                              (t) => t.id === selectedTopicId,
-                            )?.name ?? "Topic"}
-                          </h2>
-                          <div className="space-y-2">
-                            {transitionList.map((transition) => {
-                              const hasRated =
-                                transition.feedbackItems.some(hasRatedFeedback);
-                              if (!hasRated) {
-                                return (
-                                  <AdminTransitionEmpty
-                                    key={`transition-empty-${transition.id}`}
-                                    transition={transition}
-                                  />
-                                );
-                              }
+                      ← Back to topics
+                    </button>
+                    {selectedTopicId == null ? (
+                      <p className="text-zinc-500">
+                        Select a topic to view feedback events.
+                      </p>
+                    ) : transitions.isLoading ? (
+                      <p className="text-zinc-500">Loading…</p>
+                    ) : (
+                      <>
+                        <h2 className="mb-3 text-lg font-semibold text-zinc-100">
+                          {topicStats.data?.find(
+                            (t) => t.id === selectedTopicId,
+                          )?.name ?? "Topic"}
+                        </h2>
+                        <div className="space-y-2">
+                          {transitionList.map((transition) => {
+                            const hasRated =
+                              transition.feedbackItems.some(hasRatedFeedback);
+                            if (!hasRated) {
                               return (
-                                <AdminTransitionAccordion
-                                  key={`transition-${transition.id}`}
+                                <AdminTransitionEmpty
+                                  key={`transition-empty-${transition.id}`}
                                   transition={transition}
-                                  isExpanded={expandedIds.has(transition.id)}
-                                  onToggle={() => toggleExpanded(transition.id)}
                                 />
                               );
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </section>
-                </div>
+                            }
+                            return (
+                              <AdminTransitionAccordion
+                                key={`transition-${transition.id}`}
+                                transition={transition}
+                                isExpanded={expandedIds.has(transition.id)}
+                                onToggle={() => toggleExpanded(transition.id)}
+                              />
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </section>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </main>
+      </PageShell>
     </>
   );
 }
