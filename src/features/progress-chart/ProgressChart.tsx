@@ -430,7 +430,10 @@ function DayTooltip({
       className="absolute top-2 max-w-sm rounded-md border border-zinc-700 bg-zinc-900/95 p-3 text-xs shadow-lg"
       style={style}
     >
-      <div className="mb-1.5 font-medium text-zinc-200">{day.date} Changes</div>
+      <div className="mb-1.5 font-medium text-zinc-200">
+        {day.date}
+        <span className="pl-1 text-zinc-600">Changes in UTC time</span>
+      </div>
 
       <div className="mb-2 ml-auto grid w-fit grid-cols-[auto_max-content] gap-x-2 gap-y-0.5">
         {UNDERSTANDING_LEVELS.map((l) => (
@@ -442,15 +445,18 @@ function DayTooltip({
         <ul className="space-y-0.5">
           {day.changes.map((c, i) => (
             <li key={i} className="flex items-start gap-1.5">
-              <span
-                className="inline-flex h-4 shrink-0 items-center gap-0.5 text-zinc-500"
-                aria-label={`${c.from ? getLevelShortLabel(c.from) : "none"} to ${c.to ? getLevelShortLabel(c.to) : "none"}`}
-              >
-                <LevelDot level={c.from} />
+              <span className="inline-flex h-4 shrink-0 items-center gap-0.5 text-zinc-500">
+                <LevelDot
+                  level={c.from}
+                  label={`From ${c.from ? getLevelShortLabel(c.from) : "none"}`}
+                />
                 <span aria-hidden className="text-[10px] text-zinc-600">
                   ➜
                 </span>
-                <LevelDot level={c.to} />
+                <LevelDot
+                  level={c.to}
+                  label={`To ${c.to ? getLevelShortLabel(c.to) : "none"}`}
+                />
               </span>
               <span className="shrink-0 text-zinc-600 tabular-nums">
                 {toUtcHhMm(new Date(c.at))}
@@ -481,7 +487,13 @@ function DayTooltip({
   );
 }
 
-function LevelDot({ level }: { level: UnderstandingLevel | null }) {
+function LevelDot({
+  level,
+  label,
+}: {
+  level: UnderstandingLevel | null;
+  label: string;
+}) {
   return (
     <span
       className="inline-block h-2 w-2 shrink-0 rounded-sm"
@@ -489,7 +501,8 @@ function LevelDot({ level }: { level: UnderstandingLevel | null }) {
         background: level ? LEVEL_COLORS[level] : "transparent",
         border: level ? "none" : "1px dashed #71717a",
       }}
-      aria-hidden
+      role="img"
+      aria-label={label}
     />
   );
 }
