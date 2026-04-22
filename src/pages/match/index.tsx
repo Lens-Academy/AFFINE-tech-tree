@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { AvailabilityCircle } from "~/components/AvailabilityCircle";
 import { PageLayout } from "~/components/PageLayout";
-import { StarIcon } from "~/components/StarIcon";
+import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { getSegmentLabel } from "~/shared/userSegments";
@@ -315,9 +315,12 @@ function PeerSummary({
         <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
           {peer.starredTopics.map((t) => (
             <li key={t.id} className="flex items-center gap-1">
-              <span className="text-orange-400" title="Excited to teach">
-                <StarIcon filled />
-              </span>
+              <TopicAffordanceIcon
+                variant="read-only"
+                kind="star"
+                filled
+                title="Excited to teach"
+              />
               {t.name}
             </li>
           ))}

@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { BookmarkIcon } from "~/components/BookmarkIcon";
 import { CommentIcon } from "~/components/CommentIcon";
 import {
   DebouncedTextarea,
   FeedbackSection,
   HelpfulnessSelect,
 } from "~/components/FeedbackSection";
-import { StarIcon } from "~/components/StarIcon";
+import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import { UnderstandingLevelCheckboxes } from "~/components/UnderstandingLevelCheckboxes";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
@@ -100,7 +99,10 @@ export function TopicDetail({
           utils.bookmark.getAll.setData(undefined, context.previous);
         }
       },
-      refresh: [() => utils.bookmark.getAll.invalidate()],
+      refresh: [
+        () => utils.bookmark.getAll.invalidate(),
+        () => utils.match.invalidate(),
+      ],
     },
   );
   // Preview mode (used inside the graph page) hides the topic list sidebar,
@@ -132,6 +134,7 @@ export function TopicDetail({
       refresh: [
         () => utils.excitedToTeach.getAll.invalidate(),
         () => utils.topic.getTeachers.invalidate({ topicId: id }),
+        () => utils.match.invalidate(),
       ],
     },
   );
@@ -220,6 +223,12 @@ export function TopicDetail({
       ? statuses.find((s) => s.topicId === topic.id)?.level
       : undefined;
   const currentLevel = serverLevel;
+  // Un-starring is always allowed (cleans up stale records after a level downgrade);
+  // only new excited-to-teach marks require a teacher level.
+  const starDisabledReason =
+    !isExcitedToTeach && !isTeacherLevel(currentLevel)
+      ? "Set level to 'Can Teach' or higher to mark as excited to teach"
+      : null;
   const isTopicLoading = !Number.isNaN(id) && isLoading;
   const isTopicMissing = !isTopicLoading && !topic;
 
@@ -265,36 +274,34 @@ export function TopicDetail({
               </h1>
             )}
             {viewerUser && (
-              <div className="flex shrink-0 items-center">
-                {isTeacherLevel(currentLevel) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (excitedToTeachSet.isPending) return;
-                      excitedToTeachSet.mutate({
-                        topicId: topic.id,
-                        excited: !isExcitedToTeach,
-                      });
-                    }}
-                    disabled={excitedToTeachSet.isPending}
-                    aria-label={
-                      isExcitedToTeach
-                        ? "Remove excited to teach"
-                        : "Mark excited to teach"
-                    }
-                    aria-pressed={isExcitedToTeach}
-                    title="Excited to teach"
-                    className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isExcitedToTeach
-                        ? "text-orange-400"
-                        : "text-zinc-600 hover:text-zinc-400"
-                    }`}
-                  >
-                    <StarIcon filled={isExcitedToTeach} />
-                  </button>
-                )}
-                <button
-                  type="button"
+              <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
+                <TopicAffordanceIcon
+                  variant="interactive"
+                  kind="star"
+                  filled={isExcitedToTeach}
+                  onClick={() => {
+                    if (excitedToTeachSet.isPending) return;
+                    excitedToTeachSet.mutate({
+                      topicId: topic.id,
+                      excited: !isExcitedToTeach,
+                    });
+                  }}
+                  disabled={
+                    !!starDisabledReason || excitedToTeachSet.isPending
+                  }
+                  ariaLabel={
+                    starDisabledReason ??
+                    (isExcitedToTeach
+                      ? "Remove excited to teach"
+                      : "Mark excited to teach")
+                  }
+                  ariaPressed={isExcitedToTeach}
+                  title={starDisabledReason ?? "Excited to teach"}
+                />
+                <TopicAffordanceIcon
+                  variant="interactive"
+                  kind="bookmark"
+                  filled={isBookmarked}
                   onClick={() => {
                     if (bookmarkSet.isPending) return;
                     bookmarkSet.mutate({
@@ -303,15 +310,14 @@ export function TopicDetail({
                     });
                   }}
                   disabled={bookmarkSet.isPending}
-                  title="I'd like to learn this topic"
-                  className={`rounded-lg p-2 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  ariaLabel={
                     isBookmarked
-                      ? "text-orange-400"
-                      : "text-zinc-600 hover:text-zinc-400"
-                  }`}
-                >
-                  <BookmarkIcon filled={isBookmarked} />
-                </button>
+                      ? "Remove bookmark"
+                      : "I'd like to learn this topic"
+                  }
+                  ariaPressed={isBookmarked}
+                  title="I'd like to learn this topic"
+                />
               </div>
             )}
           </div>
@@ -445,12 +451,12 @@ export function TopicDetail({
                       <div className="flex items-center gap-2 text-sm text-zinc-300">
                         <span>{t.name ?? "Anonymous"}</span>
                         {t.excitedToTeach && (
-                          <span
-                            className="text-orange-400"
+                          <TopicAffordanceIcon
+                            variant="read-only"
+                            kind="star"
+                            filled
                             title="Excited to teach"
-                          >
-                            <StarIcon filled />
-                          </span>
+                          />
                         )}
                         <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
                           {getLevelLabel(t.level)}

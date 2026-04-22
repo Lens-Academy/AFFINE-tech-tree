@@ -30,7 +30,9 @@ export function FloatingTopicPreview({
   const [rect, setRect] = useState<Rect | null>(null);
   // Off-screen on first paint, then transitions to its resting position for a slide-in reveal.
   // Skipped on deep-link / reload and for users who prefer reduced motion.
-  const [slidIn, setSlidIn] = useState(() => !animateIn || prefersReducedMotion());
+  const [slidIn, setSlidIn] = useState(
+    () => !animateIn || prefersReducedMotion(),
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 

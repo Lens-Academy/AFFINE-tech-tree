@@ -85,7 +85,10 @@ export function TopicList() {
       onSettled: () => {
         setBookmarkUpdatingTopicId(null);
       },
-      refresh: [() => utils.bookmark.getAll.invalidate()],
+      refresh: [
+        () => utils.bookmark.getAll.invalidate(),
+        () => utils.match.invalidate(),
+      ],
     },
   );
   const excitedToTeachSet = useAppMutation(
@@ -114,7 +117,10 @@ export function TopicList() {
       onSettled: () => {
         setExcitedUpdatingTopicId(null);
       },
-      refresh: [() => utils.excitedToTeach.getAll.invalidate()],
+      refresh: [
+        () => utils.excitedToTeach.getAll.invalidate(),
+        () => utils.match.invalidate(),
+      ],
     },
   );
 

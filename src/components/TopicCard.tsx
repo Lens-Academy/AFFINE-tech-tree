@@ -3,8 +3,7 @@ import { useRouter } from "next/router";
 
 import { type UnderstandingLevel } from "~/shared/understandingLevels";
 import { type RouterOutputs } from "~/utils/api";
-import { BookmarkIcon } from "./BookmarkIcon";
-import { StarIcon } from "./StarIcon";
+import { TopicAffordanceIcon } from "./TopicAffordanceIcon";
 import { UnderstandingLevelCheckboxes } from "./UnderstandingLevelCheckboxes";
 
 type Topic = RouterOutputs["topic"]["list"][number];
@@ -76,43 +75,37 @@ export function TopicCard({
         {canBookmark && (
           <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
             {canMarkExcitedToTeach && (
-              <button
-                type="button"
+              <TopicAffordanceIcon
+                variant="interactive"
+                kind="star"
+                filled={!!excitedToTeach}
                 onClick={onExcitedToTeachToggle}
                 disabled={excitedToTeachDisabled}
-                aria-label={
+                ariaLabel={
                   excitedToTeach
                     ? "Remove excited to teach"
                     : "Mark excited to teach"
                 }
-                aria-pressed={!!excitedToTeach}
+                ariaPressed={!!excitedToTeach}
                 title="Excited to teach"
-                className={`rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                  excitedToTeach
-                    ? isActive
-                      ? "text-orange-400"
-                      : "text-zinc-600 group-hover:text-orange-400"
-                    : "text-zinc-600 hover:text-orange-400"
-                }`}
-              >
-                <StarIcon filled={!!excitedToTeach} />
-              </button>
+                groupHover
+                active={!!excitedToTeach && !!isActive}
+              />
             )}
-            <button
-              type="button"
+            <TopicAffordanceIcon
+              variant="interactive"
+              kind="bookmark"
+              filled={!!bookmarked}
               onClick={onBookmarkToggle}
               disabled={bookmarkDisabled}
+              ariaLabel={
+                bookmarked ? "Remove bookmark" : "I'd like to learn this topic"
+              }
+              ariaPressed={!!bookmarked}
               title="I'd like to learn this topic"
-              className={`rounded-lg p-1 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                bookmarked
-                  ? isActive
-                    ? "text-orange-400"
-                    : "text-zinc-600 group-hover:text-orange-400"
-                  : "text-zinc-600 hover:text-orange-400"
-              }`}
-            >
-              <BookmarkIcon filled={!!bookmarked} />
-            </button>
+              groupHover
+              active={!!bookmarked && !!isActive}
+            />
           </div>
         )}
       </div>

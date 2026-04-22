@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { scaleLinear, scaleTime } from "d3";
 
-import { BookmarkIcon } from "~/components/BookmarkIcon";
-import { StarIcon } from "~/components/StarIcon";
+import { LevelDot } from "~/components/LevelDot";
+import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import {
   LEVEL_COLORS,
   UNDERSTANDING_LEVELS,
@@ -466,16 +466,21 @@ function DayTooltip({
               </span>
               <span className="ml-auto flex shrink-0 items-start">
                 {c.isExcited ? (
-                  <span className="mr-1 inline-flex text-zinc-600 [&>svg]:h-4 [&>svg]:w-4">
-                    <StarIcon filled />
-                  </span>
+                  <TopicAffordanceIcon
+                    variant="read-only"
+                    kind="star"
+                    filled
+                    title="Excited to teach"
+                    className="mr-1 inline-flex [&>svg]:h-4 [&>svg]:w-4"
+                  />
                 ) : null}
-                <span
-                  className="inline-flex text-zinc-600 [&>svg]:h-4 [&>svg]:w-4"
-                  title="Bookmarked"
-                >
-                  <BookmarkIcon filled={c.isBookmarked} />
-                </span>
+                <TopicAffordanceIcon
+                  variant="read-only"
+                  kind="bookmark"
+                  filled={c.isBookmarked}
+                  title={c.isBookmarked ? "Bookmarked" : "Not bookmarked"}
+                  className="inline-flex [&>svg]:h-4 [&>svg]:w-4"
+                />
               </span>
             </li>
           ))}
@@ -484,26 +489,6 @@ function DayTooltip({
         <div className="text-zinc-500">No changes this day.</div>
       )}
     </div>
-  );
-}
-
-function LevelDot({
-  level,
-  label,
-}: {
-  level: UnderstandingLevel | null;
-  label: string;
-}) {
-  return (
-    <span
-      className="inline-block h-2 w-2 shrink-0 rounded-sm"
-      style={{
-        background: level ? LEVEL_COLORS[level] : "transparent",
-        border: level ? "none" : "1px dashed #71717a",
-      }}
-      role="img"
-      aria-label={label}
-    />
   );
 }
 
