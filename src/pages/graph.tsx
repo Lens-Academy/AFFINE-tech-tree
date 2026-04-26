@@ -85,23 +85,22 @@ export function PrerequisiteGraphView({
         const label =
           node.name.length > 22 ? `${node.name.slice(0, 20)}...` : node.name;
         return (
-          <g
-            key={node.id}
-            onMouseEnter={() => setHoveredNode(node.id)}
-            onMouseLeave={() => setHoveredNode(null)}
-            className="cursor-pointer"
-          >
-            <rect
-              x={node.x}
-              y={node.y}
-              width={NODE_W}
-              height={NODE_H}
-              rx={6}
-              fill={isHovered ? "#27272a" : "#18181b"}
-              stroke={isHovered ? "#fb923c" : "#3f3f46"}
-              strokeWidth={isHovered ? 2 : 1}
-            />
-            <a href={`/topic/${node.id}`}>
+          <a key={node.id} href={`/topic/${node.id}`}>
+            <g
+              onMouseEnter={() => setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
+              className="cursor-pointer"
+            >
+              <rect
+                x={node.x}
+                y={node.y}
+                width={NODE_W}
+                height={NODE_H}
+                rx={6}
+                fill={isHovered ? "#27272a" : "#18181b"}
+                stroke={isHovered ? "#fb923c" : "#3f3f46"}
+                strokeWidth={isHovered ? 2 : 1}
+              />
               <text
                 x={node.x + NODE_W / 2}
                 y={node.y + NODE_H / 2 + 1}
@@ -112,8 +111,8 @@ export function PrerequisiteGraphView({
               >
                 {label}
               </text>
-            </a>
-          </g>
+            </g>
+          </a>
         );
       })}
       {hoveredNode !== null &&
