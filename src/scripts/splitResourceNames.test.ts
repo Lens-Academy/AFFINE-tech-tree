@@ -8,11 +8,11 @@ import { describe, it, expect } from "vitest";
  */
 function splitResourceNames(raw: string): string[] {
   if (!raw.trim()) return [];
-  
+
   let insideQuotes = false;
   let lastSplitPos = 0;
   const results: string[] = [];
-  
+
   for (let i = 0; i < raw.length; i++) {
     if (raw[i] === '"') {
       // Check if this is an escaped quote ("")
@@ -22,21 +22,24 @@ function splitResourceNames(raw: string): string[] {
         // Regular quote - toggle inside/outside state
         insideQuotes = !insideQuotes;
       }
-    } else if (!insideQuotes && raw[i] === ',') {
+    } else if (!insideQuotes && raw[i] === ",") {
       results.push(raw.slice(lastSplitPos, i));
       lastSplitPos = i + 1;
     }
   }
-  
+
   // Capture the final item (everything after the last comma)
   if (lastSplitPos < raw.length) {
     results.push(raw.slice(lastSplitPos));
   }
-  
+
   // Clean up each item: strip leading comma/space, strip outer quotes, unescape doubled quotes
   return results
-    .map(item => {
-      let s = item.replace(/^,?\s*/, '').replace(/,?\s*$/, '').trim();
+    .map((item) => {
+      let s = item
+        .replace(/^,?\s*/, "")
+        .replace(/,?\s*$/, "")
+        .trim();
       if (s.startsWith('"') && s.endsWith('"') && s.length >= 2) {
         s = s.slice(1, -1);
       }
@@ -55,15 +58,18 @@ describe("splitResourceNames", () => {
   });
 
   it("handles quoted items with commas inside", () => {
-    expect(
-      splitResourceNames('"Resource A, with comma", Resource B'),
-    ).toEqual(["Resource A, with comma", "Resource B"]);
+    expect(splitResourceNames('"Resource A, with comma", Resource B')).toEqual([
+      "Resource A, with comma",
+      "Resource B",
+    ]);
   });
 
   it("unescapes doubled quotes", () => {
-    expect(splitResourceNames('"""Sharp Left Turn"" discourse: An opinionated review"')).toEqual([
-      '"Sharp Left Turn" discourse: An opinionated review',
-    ]);
+    expect(
+      splitResourceNames(
+        '"""Sharp Left Turn"" discourse: An opinionated review"',
+      ),
+    ).toEqual(['"Sharp Left Turn" discourse: An opinionated review']);
   });
 
   it("handles multiple quoted items", () => {

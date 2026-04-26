@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source ~/.nvm/nvm.sh
+nvm use 22
+
+cd "$SCRIPT_DIR"
+
+case "$1" in
+  deploy)   pnpm run deploy ;;
+  dbsync)   pnpm run db:sync ;;
+  check)    pnpm check ;;
+  *)
+    echo "Usage: run <command>"
+    echo "Commands: deploy, dbsync, check"
+    exit 1
+    ;;
+esac

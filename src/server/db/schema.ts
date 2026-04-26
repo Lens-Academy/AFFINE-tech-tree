@@ -147,6 +147,7 @@ export const topic = sqliteTable(
     id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
     name: d.text({ length: 512 }).notNull().unique(),
     description: d.text(),
+    guidance: d.text(),
     rawPrerequisites: d.text(),
     spreadsheetRow: d.integer({ mode: "number" }),
     importance: d.integer({ mode: "number" }).default(0).notNull(),

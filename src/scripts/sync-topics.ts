@@ -93,11 +93,11 @@ function csvToObjects(rows: string[][]): Record<string, string>[] {
  */
 function splitResourceNames(raw: string): string[] {
   if (!raw.trim()) return [];
-  
+
   let insideQuotes = false;
   let lastSplitPos = 0;
   const results: string[] = [];
-  
+
   for (let i = 0; i < raw.length; i++) {
     if (raw[i] === '"') {
       // Check if this is an escaped quote ("")
@@ -107,21 +107,24 @@ function splitResourceNames(raw: string): string[] {
         // Regular quote - toggle inside/outside state
         insideQuotes = !insideQuotes;
       }
-    } else if (!insideQuotes && raw[i] === ',') {
+    } else if (!insideQuotes && raw[i] === ",") {
       results.push(raw.slice(lastSplitPos, i));
       lastSplitPos = i + 1;
     }
   }
-  
+
   // Capture the final item (everything after the last comma)
   if (lastSplitPos < raw.length) {
     results.push(raw.slice(lastSplitPos));
   }
-  
+
   // Clean up each item: strip leading comma/space, strip outer quotes, unescape doubled quotes
   return results
-    .map(item => {
-      let s = item.replace(/^,?\s*/, '').replace(/,?\s*$/, '').trim();
+    .map((item) => {
+      let s = item
+        .replace(/^,?\s*/, "")
+        .replace(/,?\s*$/, "")
+        .trim();
       if (s.startsWith('"') && s.endsWith('"') && s.length >= 2) {
         s = s.slice(1, -1);
       }
@@ -133,6 +136,7 @@ function splitResourceNames(raw: string): string[] {
 type TopicRow = {
   name: string;
   description: string | null;
+  guidance: string | null;
   rawResources: string | null;
   tags: string;
   rawPrerequisites: string | null;
@@ -144,6 +148,7 @@ async function fetchTopics(): Promise<TopicRow[]> {
   const rows = csvToObjects(parseCSV(csv)) as Array<{
     Name: string;
     "Description+Relevance": string;
+    Guidance: string;
     Resources: string;
     Tags: string;
     Prerequisites: string;
@@ -154,6 +159,7 @@ async function fetchTopics(): Promise<TopicRow[]> {
     .map((row) => ({
       name: row.Name?.trim() ?? "",
       description: row["Description+Relevance"]?.trim() || null,
+      guidance: row.Guidance?.trim() || null,
       rawResources: row.Resources?.trim() || null,
       tags: row.Tags?.trim() ?? "",
       rawPrerequisites: row.Prerequisites?.trim() || null,
@@ -225,6 +231,7 @@ async function main() {
           .update(topic)
           .set({
             description,
+            guidance: t.guidance,
             rawPrerequisites,
             spreadsheetRow: rowNum,
             importance: t.importance,
@@ -241,6 +248,7 @@ async function main() {
           .values({
             name,
             description,
+            guidance: t.guidance,
             rawPrerequisites,
             spreadsheetRow: rowNum,
             importance: t.importance,
@@ -271,7 +279,9 @@ async function main() {
         const title = resourceNames[pos]!;
         const info = resourceMap.get(title);
         if (!info) {
-          console.warn(`  [WARN] Topic "${t.name}": resource not found in Resources sheet: "${title}"`);
+          console.warn(
+            `  [WARN] Topic "${t.name}": resource not found in Resources sheet: "${title}"`,
+          );
         }
         await tx.insert(topicLink).values({
           topicId,
