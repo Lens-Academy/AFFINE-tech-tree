@@ -147,7 +147,7 @@ async function fetchTopics(): Promise<TopicRow[]> {
   const csv = await fetchSheetCSV("Topics");
   const rows = csvToObjects(parseCSV(csv)) as Array<{
     Name: string;
-    "Description+Relevance": string;
+    Description: string;
     Guidance: string;
     Resources: string;
     Tags: string;
@@ -158,7 +158,7 @@ async function fetchTopics(): Promise<TopicRow[]> {
   return rows
     .map((row) => ({
       name: row.Name?.trim() ?? "",
-      description: row["Description+Relevance"]?.trim() || null,
+      description: row.Description?.trim() || null,
       guidance: row.Guidance?.trim() || null,
       rawResources: row.Resources?.trim() || null,
       tags: row.Tags?.trim() ?? "",
