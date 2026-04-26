@@ -265,6 +265,7 @@ export function TopicList() {
           <TagFilterButton
             key={t.name}
             label={t.name}
+            description={t.description}
             selected={tagFilter === t.name}
             onClick={() => handleTagFilterChange(t.name)}
           />
@@ -395,25 +396,34 @@ function TopicListSkeleton() {
 
 function TagFilterButton({
   label,
+  description,
   selected,
   onClick,
 }: {
   label: string;
+  description?: string | null;
   selected: boolean;
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        selected
-          ? "rounded-full bg-orange-500/20 px-3 py-1.5 text-xs font-medium text-orange-400 ring-1 ring-orange-500/30 transition"
-          : "rounded-full bg-zinc-800/80 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700/80 hover:text-zinc-300"
-      }
-    >
-      {label}
-    </button>
+    <span className="group relative">
+      <button
+        type="button"
+        onClick={onClick}
+        className={
+          selected
+            ? "rounded-full bg-orange-500/20 px-3 py-1.5 text-xs font-medium text-orange-400 ring-1 ring-orange-500/30 transition"
+            : "rounded-full bg-zinc-800/80 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700/80 hover:text-zinc-300"
+        }
+      >
+        {label}
+      </button>
+      {description && (
+        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-56 -translate-x-1/2 rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-200 opacity-0 shadow-lg ring-1 ring-zinc-700 transition-opacity group-hover:opacity-100">
+          {description}
+        </span>
+      )}
+    </span>
   );
 }
 

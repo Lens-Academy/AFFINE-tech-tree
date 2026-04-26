@@ -196,10 +196,26 @@ async function fetchResourceMap(): Promise<Map<string, ResourceInfo>> {
   return map;
 }
 
+async function fetchTagDescriptionMap(): Promise<Map<string, string | null>> {
+  const csv = await fetchSheetCSV("Topic tags");
+  const rows = csvToObjects(parseCSV(csv)) as Array<{
+    Name: string;
+    Description: string;
+  }>;
+
+  const map = new Map<string, string | null>();
+  for (const row of rows) {
+    const name = row.Name?.trim();
+    if (name) map.set(name, row.Description?.trim() || null);
+  }
+  return map;
+}
+
 async function main() {
-  const [topics, resourceMap] = await Promise.all([
+  const [topics, resourceMap, tagDescriptionMap] = await Promise.all([
     fetchTopics(),
     fetchResourceMap(),
+    fetchTagDescriptionMap(),
   ]);
 
   let upserted = 0;
@@ -261,10 +277,14 @@ async function main() {
       // Tags
       const tagNames = parseTags(t.tags || undefined);
       for (const tagName of tagNames) {
+        const tagDescription = tagDescriptionMap.get(tagName) ?? null;
         await tx
           .insert(tag)
-          .values({ name: tagName })
-          .onConflictDoNothing({ target: tag.name });
+          .values({ name: tagName, description: tagDescription })
+          .onConflictDoUpdate({
+            target: tag.name,
+            set: { description: tagDescription },
+          });
         await tx
           .insert(topicTag)
           .values({ topicId, tagName })
@@ -309,6 +329,18 @@ async function main() {
     console.log(
       `Deleted ${toDelete.length} topics removed from sheet: ${toDelete.map((t) => t.name).join(", ")}`,
     );
+  }
+
+  // Delete tags that are no longer referenced by any topic
+  const usedTags = await db
+    .selectDistinct({ name: topicTag.tagName })
+    .from(topicTag);
+  const usedTagNames = usedTags.map((r) => r.name);
+  if (usedTagNames.length > 0) {
+    await db.delete(tag).where(notInArray(tag.name, usedTagNames));
+  } else {
+    // eslint-disable-next-line drizzle/enforce-delete-with-where
+    await db.delete(tag);
   }
 
   // Second pass: resolve prerequisite relationships (topics must all exist first)

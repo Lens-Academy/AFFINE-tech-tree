@@ -179,6 +179,7 @@ export const topicLink = sqliteTable(
 
 export const tag = sqliteTable("tag", (d) => ({
   name: d.text({ length: 255 }).notNull().primaryKey(),
+  description: d.text(),
 }));
 
 export const topicTag = sqliteTable(

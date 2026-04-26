@@ -9,12 +9,31 @@ nvm use 22
 cd "$SCRIPT_DIR"
 
 case "$1" in
-  deploy)   pnpm run deploy ;;
-  dbsync)   pnpm run db:sync ;;
-  check)    pnpm check ;;
+  deploy)
+    # Build and push to Vercel production. Run after check + format:write.
+    pnpm run deploy
+    ;;
+  dbsync)
+    # Pull Topics, Resources, and Topic tags sheets from Google Sheets and upsert into Turso.
+    # Run whenever the spreadsheet content changes.
+    pnpm run db:sync
+    ;;
+  check)
+    # Run TypeScript type-check and ESLint. Run before deploying.
+    pnpm check
+    ;;
+  format)
+    # Auto-format all source files with Prettier. Run before deploying.
+    pnpm format:write
+    ;;
   *)
     echo "Usage: run <command>"
-    echo "Commands: deploy, dbsync, check"
+    echo ""
+    echo "Commands:"
+    echo "  check    — TypeScript + ESLint. Run before deploying."
+    echo "  format   — Auto-format with Prettier. Run before deploying."
+    echo "  deploy   — Build and push to Vercel production. Run after check + format."
+    echo "  dbsync   — Sync DB from Google Sheets. Run when spreadsheet content changes."
     exit 1
     ;;
 esac
