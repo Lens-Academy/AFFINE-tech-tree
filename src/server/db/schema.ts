@@ -170,6 +170,7 @@ export const topicLink = sqliteTable(
     title: d.text({ length: 512 }).notNull(),
     url: d.text({ length: 2048 }),
     author: d.text({ length: 512 }),
+    comment: d.text(),
     position: d.integer({ mode: "number" }).notNull().default(0),
   }),
   (t) => [index("topic_link_topic_idx").on(t.topicId)],

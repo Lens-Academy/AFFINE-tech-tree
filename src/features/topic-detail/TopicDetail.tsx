@@ -286,9 +286,7 @@ export function TopicDetail({
                       excited: !isExcitedToTeach,
                     });
                   }}
-                  disabled={
-                    !!starDisabledReason || excitedToTeachSet.isPending
-                  }
+                  disabled={!!starDisabledReason || excitedToTeachSet.isPending}
                   ariaLabel={
                     starDisabledReason ??
                     (isExcitedToTeach
@@ -626,6 +624,7 @@ function InlineRateableResource({
     id: number;
     title: string;
     url: string | null;
+    comment: string | null;
     ratingCounts: Record<HelpfulnessRating, number>;
   };
   rateMode: boolean;
@@ -684,24 +683,29 @@ function InlineRateableResource({
 
   if (!rateMode) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">{linkEl}</div>
-        <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
-          {HELPFULNESS_RATINGS.map((r) => {
-            const count = link.ratingCounts[r];
-            return (
-              <span
-                key={r}
-                className={`w-4 text-center tabular-nums ${
-                  count === 0 ? "text-zinc-700" : ""
-                }`}
-                title={HELPFULNESS_RATING_HEADER_TITLES[r]}
-              >
-                {count}
-              </span>
-            );
-          })}
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">{linkEl}</div>
+          <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
+            {HELPFULNESS_RATINGS.map((r) => {
+              const count = link.ratingCounts[r];
+              return (
+                <span
+                  key={r}
+                  className={`w-4 text-center tabular-nums ${
+                    count === 0 ? "text-zinc-700" : ""
+                  }`}
+                  title={HELPFULNESS_RATING_HEADER_TITLES[r]}
+                >
+                  {count}
+                </span>
+              );
+            })}
+          </div>
         </div>
+        {link.comment && (
+          <p className="text-xs text-zinc-500 italic">{link.comment}</p>
+        )}
       </div>
     );
   }

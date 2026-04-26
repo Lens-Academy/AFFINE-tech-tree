@@ -87,47 +87,47 @@ function csvToObjects(rows: string[][]): Record<string, string>[] {
 
 /**
  * Split the Resources cell value into individual resource names.
- * Items are separated by ", "; items containing commas are wrapped in "...".
+ * Splits on commas, but only when outside quotes.
+ * Handles CSV escaped quotes ("" → ").
+ * Strips outer wrapper quotes and unescapes doubled quotes.
  */
 function splitResourceNames(raw: string): string[] {
   if (!raw.trim()) return [];
+  
+  let insideQuotes = false;
+  let lastSplitPos = 0;
   const results: string[] = [];
-  let i = 0;
-
-  while (i < raw.length) {
-    while (i < raw.length && raw[i] === " ") i++;
-    if (i >= raw.length) break;
-
+  
+  for (let i = 0; i < raw.length; i++) {
     if (raw[i] === '"') {
-      i++; // skip opening quote
-      let item = "";
-      while (i < raw.length && raw[i] !== '"') {
-        item += raw[i++];
+      // Check if this is an escaped quote ("")
+      if (i + 1 < raw.length && raw[i + 1] === '"') {
+        i++; // Skip the second quote of the pair
+      } else {
+        // Regular quote - toggle inside/outside state
+        insideQuotes = !insideQuotes;
       }
-      if (raw[i] === '"') i++; // skip closing quote
-      const trimmed = item.trim();
-      if (trimmed) results.push(trimmed);
-      // skip trailing ", "
-      while (i < raw.length && (raw[i] === "," || raw[i] === " ")) i++;
-    } else {
-      let item = "";
-      while (i < raw.length) {
-        // separator is ", " (comma followed by space)
-        if (raw[i] === "," && raw[i + 1] === " ") {
-          i++; // skip comma
-          break;
-        } else if (raw[i] === "," && i + 1 >= raw.length) {
-          i++; // skip trailing comma
-          break;
-        }
-        item += raw[i++];
-      }
-      const trimmed = item.trim();
-      if (trimmed) results.push(trimmed);
+    } else if (!insideQuotes && raw[i] === ',') {
+      results.push(raw.slice(lastSplitPos, i));
+      lastSplitPos = i + 1;
     }
   }
-
-  return results;
+  
+  // Capture the final item (everything after the last comma)
+  if (lastSplitPos < raw.length) {
+    results.push(raw.slice(lastSplitPos));
+  }
+  
+  // Clean up each item: strip leading comma/space, strip outer quotes, unescape doubled quotes
+  return results
+    .map(item => {
+      let s = item.replace(/^,?\s*/, '').replace(/,?\s*$/, '').trim();
+      if (s.startsWith('"') && s.endsWith('"') && s.length >= 2) {
+        s = s.slice(1, -1);
+      }
+      return s.replace(/""/g, '"');
+    })
+    .filter(Boolean);
 }
 
 type TopicRow = {
@@ -162,7 +162,11 @@ async function fetchTopics(): Promise<TopicRow[]> {
     .filter((t) => t.name !== "");
 }
 
-type ResourceInfo = { url: string | null; author: string | null };
+type ResourceInfo = {
+  url: string | null;
+  author: string | null;
+  comment: string | null;
+};
 
 async function fetchResourceMap(): Promise<Map<string, ResourceInfo>> {
   const csv = await fetchSheetCSV("Resources");
@@ -170,6 +174,7 @@ async function fetchResourceMap(): Promise<Map<string, ResourceInfo>> {
     Name: string;
     Link: string;
     Author: string;
+    Comments: string;
   }>;
 
   const map = new Map<string, ResourceInfo>();
@@ -179,6 +184,7 @@ async function fetchResourceMap(): Promise<Map<string, ResourceInfo>> {
       map.set(name, {
         url: row.Link?.trim() || null,
         author: row.Author?.trim() || null,
+        comment: row.Comments?.trim() || null,
       });
   }
   return map;
@@ -264,11 +270,15 @@ async function main() {
       for (let pos = 0; pos < resourceNames.length; pos++) {
         const title = resourceNames[pos]!;
         const info = resourceMap.get(title);
+        if (!info) {
+          console.warn(`  [WARN] Topic "${t.name}": resource not found in Resources sheet: "${title}"`);
+        }
         await tx.insert(topicLink).values({
           topicId,
           title,
           url: info?.url ?? null,
           author: info?.author ?? null,
+          comment: info?.comment ?? null,
           position: pos,
         });
         linkCount++;
@@ -285,15 +295,10 @@ async function main() {
   });
   const toDelete = allDbTopics.filter((t) => !sheetNames.has(t.name));
   if (toDelete.length > 0) {
-    await db
-      .delete(topic)
-      .where(
-        notInArray(
-          topic.name,
-          [...sheetNames],
-        ),
-      );
-    console.log(`Deleted ${toDelete.length} topics removed from sheet: ${toDelete.map((t) => t.name).join(", ")}`);
+    await db.delete(topic).where(notInArray(topic.name, [...sheetNames]));
+    console.log(
+      `Deleted ${toDelete.length} topics removed from sheet: ${toDelete.map((t) => t.name).join(", ")}`,
+    );
   }
 
   // Second pass: resolve prerequisite relationships (topics must all exist first)

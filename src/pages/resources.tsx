@@ -9,6 +9,7 @@ type ResourceRow = {
   title: string;
   url: string | null;
   author: string | null;
+  comment: string | null;
   topic: { id: number; name: string };
 };
 
@@ -16,6 +17,7 @@ type GroupedResource = {
   title: string;
   url: string | null;
   authors: string[];
+  comment: string | null;
   topics: { id: number; name: string }[];
 };
 
@@ -45,6 +47,7 @@ function groupResources(rows: ResourceRow[]): GroupedResource[] {
         title: row.title,
         url: row.url,
         authors,
+        comment: row.comment ?? null,
         topics: [row.topic],
       });
     }
@@ -131,6 +134,11 @@ export default function ResourcesPage() {
                       </span>
                     ))}
                   </div>
+                )}
+                {r.comment && (
+                  <p className="mt-1 text-xs text-zinc-500 italic">
+                    {r.comment}
+                  </p>
                 )}
               </li>
             ))}
