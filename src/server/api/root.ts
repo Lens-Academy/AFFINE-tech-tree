@@ -6,6 +6,7 @@ import { bookmarkRouter } from "~/server/api/routers/bookmark";
 import { excitedToTeachRouter } from "~/server/api/routers/excitedToTeach";
 import { feedbackRouter } from "~/server/api/routers/feedback";
 import { matchRouter } from "~/server/api/routers/match";
+import { progressRouter } from "~/server/api/routers/progress";
 import { topicRouter } from "~/server/api/routers/topic";
 import { userProfileRouter } from "~/server/api/routers/userProfile";
 import { userStatusRouter } from "~/server/api/routers/userStatus";
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   excitedToTeach: excitedToTeachRouter,
   feedback: feedbackRouter,
   match: matchRouter,
+  progress: progressRouter,
   topic: topicRouter,
   userProfile: userProfileRouter,
   userStatus: userStatusRouter,

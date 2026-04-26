@@ -613,18 +613,28 @@ export default function UserProfilePage() {
                   </span>
                 )}
               </h1>
-              {viewingSelf && (
-                <div className="flex flex-wrap items-center gap-3">
-                  <AvailabilityToggle />
-                  <button
-                    type="button"
-                    onClick={() => void signOut()}
+              <div className="flex flex-wrap items-center gap-3">
+                {data && (
+                  <Link
+                    href={`/progress/${data.user.id}`}
                     className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
                   >
-                    Sign out
-                  </button>
-                </div>
-              )}
+                    View progress
+                  </Link>
+                )}
+                {viewingSelf && (
+                  <>
+                    <AvailabilityToggle />
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:border-orange-500/50 hover:bg-zinc-700"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
