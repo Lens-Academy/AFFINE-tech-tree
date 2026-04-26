@@ -419,7 +419,7 @@ function TagFilterButton({
         {label}
       </button>
       {description && (
-        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-56 -translate-x-1/2 rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-200 opacity-0 shadow-lg ring-1 ring-zinc-700 transition-opacity group-hover:opacity-100">
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-56 -translate-x-1/2 rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 opacity-0 shadow-lg ring-1 ring-zinc-600 transition-opacity group-hover:opacity-100">
           {description}
         </span>
       )}
