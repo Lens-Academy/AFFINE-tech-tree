@@ -348,12 +348,11 @@ export function TopicDetail({
           )}
 
           {topic.description && (
-            <p className="mb-4 text-zinc-400">{topic.description}</p>
-          )}
-          {topic.guidance && (
-            <p className="mb-6 rounded-md border border-amber-800/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-400/90">
-              {topic.guidance}
-            </p>
+            <div className="mb-4 space-y-3 text-zinc-400">
+              {topic.description.split(/\n\n+/).map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+            </div>
           )}
 
           <div id="feedback" />
@@ -410,6 +409,9 @@ export function TopicDetail({
                   </div>
                 )}
               </div>
+              {topic.guidance && (
+                <p className="mb-3 text-sm text-zinc-400">{topic.guidance}</p>
+              )}
               <ul className="space-y-2 text-sm">
                 {topic.topicLinks.map((link) => (
                   <li key={link.id}>
