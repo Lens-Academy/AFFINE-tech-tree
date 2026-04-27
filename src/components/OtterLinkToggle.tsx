@@ -13,12 +13,12 @@ export function OtterLinkToggle() {
   return (
     <ToggleSwitch
       checked={visible}
-      label="Show Otter"
+      label="Show Record"
       onClick={() => setVisible(!visible)}
       title={
         visible
-          ? "Hide the Otter header button on this device"
-          : "Show the Otter header button on this device"
+          ? "Hide the Record header button on this device"
+          : "Show the Record header button on this device"
       }
     />
   );

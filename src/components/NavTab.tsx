@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 export const NAV_TAB_BASE =
-  "group border bg-zinc-900/50 px-4 py-2 text-sm font-medium transition";
+  "group border bg-zinc-900/50 px-2 py-1.5 text-sm font-medium transition sm:px-4 sm:py-2";
 export const NAV_TAB_ACTIVE = `${NAV_TAB_BASE} relative z-10 border-orange-500`;
 export const NAV_TAB_INACTIVE = `${NAV_TAB_BASE} border-zinc-800 hover:border-zinc-700`;
 

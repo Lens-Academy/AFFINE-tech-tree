@@ -1,9 +1,12 @@
 import Link from "next/link";
 
 import { AvailabilityCircle } from "~/components/AvailabilityCircle";
-import { NavTab, NAV_TAB_INACTIVE } from "~/components/NavTab";
+import {
+  NavTab,
+  NAV_TAB_INACTIVE,
+  NAV_TAB_TEXT_INACTIVE,
+} from "~/components/NavTab";
 import { NotificationBell } from "~/components/NotificationBell";
-import { OtterLogo } from "~/components/OtterLogo";
 import { TestEnvBadge } from "~/components/TestEnvBadge";
 import { useLocalStorageBoolean } from "~/hooks/useLocalStorageBoolean";
 import { useActivePath } from "~/hooks/useActivePath";
@@ -40,7 +43,26 @@ function OtterLink() {
       title="Record transcript in Otter"
       aria-label="Record transcript in Otter"
     >
-      <OtterLogo className="h-5 w-5 text-zinc-100 transition group-hover:text-orange-400" />
+      <span className="flex items-center gap-1.5">
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4 w-4 text-zinc-100 transition group-hover:text-orange-400"
+          aria-hidden="true"
+        >
+          <rect x="7.5" y="2.5" width="5" height="10" rx="2.5" />
+          <path d="M5 9.5a5 5 0 0 0 10 0" />
+          <path d="M10 14.5V17.5" />
+          <path d="M7 17.5h6" />
+        </svg>
+        <span className={`${NAV_TAB_TEXT_INACTIVE} hidden sm:inline`}>
+          Record
+        </span>
+      </span>
     </a>
   );
 }
