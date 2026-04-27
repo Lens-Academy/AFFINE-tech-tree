@@ -441,9 +441,58 @@ export const matchRouter = createTRPCRouter({
         return a.name.localeCompare(b.name);
       });
 
+      const meetingPoint =
+        match.meetX !== null && match.meetY !== null
+          ? {
+              x: match.meetX,
+              y: match.meetY,
+              updatedAt: match.meetUpdatedAt,
+              updatedBy: match.meetUpdatedBy,
+            }
+          : null;
+
       return {
         otherUser,
         entries,
+        meetingPoint,
       };
+    }),
+
+  setMeetingPoint: protectedProcedure
+    .input(
+      z.object({
+        matchId: z.number().int().positive(),
+        point: z
+          .object({
+            x: z.number().min(0).max(1),
+            y: z.number().min(0).max(1),
+          })
+          .nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const viewerId = ctx.session.user.id;
+      const match = await ctx.db.query.matchRequest.findFirst({
+        where: (m, { eq }) => eq(m.id, input.matchId),
+      });
+      if (
+        match?.status !== "accepted" ||
+        (match.fromUserId !== viewerId && match.toUserId !== viewerId)
+      ) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Match not found",
+        });
+      }
+      await ctx.db
+        .update(matchRequest)
+        .set({
+          meetX: input.point?.x ?? null,
+          meetY: input.point?.y ?? null,
+          meetUpdatedAt: input.point ? new Date() : null,
+          meetUpdatedBy: input.point ? viewerId : null,
+        })
+        .where(eq(matchRequest.id, input.matchId));
+      return { ok: true };
     }),
 });

@@ -47,7 +47,9 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - `/match` lists peers in your own segment with their starred topics.
   - Clicking a peer prompts to send a match request; the recipient can accept
     or decline.
-  - Accepted matches open `/match/[id]`, a sorted list of peer tuition topics:
+  - Accepted matches open `/match/[id]`, with a venue wayfinding map at the top
+    where either user can click to set a shared "meet here" orange dot
+    (stored on the match row), followed by a sorted list of tuition topics:
     topics where one side can teach and the other is at a lower level, ranked
     by learner bookmark, teacher star, "advanced" level, then the topic
     prioritization from the sheet.

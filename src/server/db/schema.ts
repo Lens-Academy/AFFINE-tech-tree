@@ -457,6 +457,12 @@ export const matchRequest = sqliteTable(
       .default(sql`(unixepoch())`)
       .notNull(),
     respondedAt: d.integer({ mode: "timestamp" }),
+    meetX: d.real(),
+    meetY: d.real(),
+    meetUpdatedAt: d.integer({ mode: "timestamp" }),
+    meetUpdatedBy: d
+      .text({ length: 255 })
+      .references(() => user.id, { onDelete: "set null" }),
   }),
   (t) => [
     uniqueIndex("match_request_pair_key_unique").on(t.pairKey),
