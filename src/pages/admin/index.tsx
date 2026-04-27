@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { PageLayout } from "~/components/PageLayout";
+import { ToggleSwitch } from "~/components/ToggleSwitch";
 import { getSegmentLabel } from "~/shared/userSegments";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
@@ -223,19 +224,17 @@ export default function AdminHomePage() {
                           approved by an admin before they can use features.
                         </p>
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={status.data.allowNewUsersWithoutApproval}
-                          onChange={(e) =>
-                            setAllowNewUsersWithoutApproval.mutate({
-                              enabled: e.target.checked,
-                            })
-                          }
-                          disabled={setAllowNewUsersWithoutApproval.isPending}
-                        />
-                        Enabled
-                      </label>
+                      <ToggleSwitch
+                        ariaLabel="Allow new users without approval"
+                        checked={status.data.allowNewUsersWithoutApproval}
+                        disabled={setAllowNewUsersWithoutApproval.isPending}
+                        label="Enabled"
+                        onClick={() =>
+                          setAllowNewUsersWithoutApproval.mutate({
+                            enabled: !status.data.allowNewUsersWithoutApproval,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 
@@ -248,17 +247,17 @@ export default function AdminHomePage() {
                           this page.
                         </p>
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={status.data.honorSystemEnabled}
-                          onChange={(e) =>
-                            setHonorSystem.mutate({ enabled: e.target.checked })
-                          }
-                          disabled={setHonorSystem.isPending}
-                        />
-                        Enabled
-                      </label>
+                      <ToggleSwitch
+                        ariaLabel="Admin honor system"
+                        checked={status.data.honorSystemEnabled}
+                        disabled={setHonorSystem.isPending}
+                        label="Enabled"
+                        onClick={() =>
+                          setHonorSystem.mutate({
+                            enabled: !status.data.honorSystemEnabled,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 

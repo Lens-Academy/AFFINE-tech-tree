@@ -38,7 +38,7 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - Sign-up deduplicates non-user teacher emails by claiming and converting records.
 - Topic detail shows "Related Topics" section with prerequisites and dependents (below "Add resource").
 - Header includes a link to the GitHub repository.
-- Header includes an Otter link for recording seminar transcripts.
+- Header includes an Otter link for seminar transcripts, with a per-device profile toggle stored in localStorage.
 - Test/staging deployments show a "Test env" badge with deploy date, commit link, and production URL.
 - Prerequisite network graph (`/graph`): clicking a node opens a sticky preview column on the right with a slide-in reveal; the column follows the page as you scroll and tucks up above the footer. On tablet+ it caps at 60% of the viewport and the graph gets matching right-padding so SVG content can scroll out from under it; on phones the preview takes over the screen. Selection is reflected in the URL (`?topic=<id>`) so browser back/forward walks selection history. Selected (orange), hovered (neutral), and idle nodes/edges use distinct color tiers.
 - Progress pages (`/progress/{userId}`) show a cumulative stacked chart of understanding levels over time, with a hover/click tooltip listing that day's per-level totals and topic transitions. User profiles link to the corresponding progress page; admins can view other users' progress there too.

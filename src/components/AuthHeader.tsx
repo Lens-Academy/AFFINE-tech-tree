@@ -5,9 +5,11 @@ import { NavTab, NAV_TAB_INACTIVE } from "~/components/NavTab";
 import { NotificationBell } from "~/components/NotificationBell";
 import { OtterLogo } from "~/components/OtterLogo";
 import { TestEnvBadge } from "~/components/TestEnvBadge";
+import { useLocalStorageBoolean } from "~/hooks/useLocalStorageBoolean";
 import { useActivePath } from "~/hooks/useActivePath";
 import { useSignOut } from "~/hooks/useSignOut";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
+import { OTTER_LINK_VISIBLE_STORAGE_KEY } from "~/shared/devicePreferences";
 import { GITHUB_REPO } from "~/shared/constants";
 import { api } from "~/utils/api";
 
@@ -48,6 +50,10 @@ export function AuthHeader() {
   const { rawUser, viewerUser, isPending, isPendingApproval, isAdmin } =
     useViewerAccess();
   const signOut = useSignOut();
+  const [showOtterLink, , otterPreferenceLoaded] = useLocalStorageBoolean(
+    OTTER_LINK_VISIBLE_STORAGE_KEY,
+    true,
+  );
   const availability = api.availability.getMyStatus.useQuery(undefined, {
     enabled: !!viewerUser,
   });
@@ -65,7 +71,7 @@ export function AuthHeader() {
         <GitHubLink />
         <NotificationBell />
         <div className="ml-2 flex *:-ml-px *:first:ml-0 *:first:rounded-l-lg *:last:rounded-r-lg">
-          <OtterLink />
+          {otterPreferenceLoaded && showOtterLink && <OtterLink />}
           {isAdmin && (
             <NavTab href="/admin" isActive={isAdminRoute}>
               Admin
