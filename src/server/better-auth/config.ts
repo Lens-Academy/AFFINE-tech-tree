@@ -12,8 +12,21 @@ import { user } from "~/server/db/schema";
  *  retrieve the link that Better Auth generates inside sendResetPassword. */
 export const pendingResetUrls = new Map<string, string>();
 
+// Vercel may serve the same deployment under several hostnames (the
+// per-deploy VERCEL_URL, the per-branch VERCEL_BRANCH_URL, and the
+// production alias). Trust whichever the browser actually used.
+const vercelOrigins = [
+  process.env.VERCEL_URL,
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_PROJECT_PRODUCTION_URL,
+]
+  .filter((v): v is string => Boolean(v))
+  .map((host) => `https://${host}`);
+const baseURL = env.BETTER_AUTH_URL ?? vercelOrigins[0];
+
 export const auth = betterAuth({
-  baseURL: env.BETTER_AUTH_URL,
+  baseURL,
+  trustedOrigins: vercelOrigins,
   database: drizzleAdapter(db, {
     provider: "sqlite",
   }),

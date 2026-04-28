@@ -15,10 +15,7 @@ export const env = createEnv({
     // BETTER_AUTH_GITHUB_CLIENT_ID: z.string(),
     // BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
     DATABASE_URL: z.string().url(),
-    BETTER_AUTH_URL:
-      process.env.NODE_ENV === "production"
-        ? z.string().url()
-        : z.string().url().optional(),
+    BETTER_AUTH_URL: z.string().url().optional(),
     AIRTABLE_API_KEY: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
