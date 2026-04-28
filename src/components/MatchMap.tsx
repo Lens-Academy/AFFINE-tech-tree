@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from "react";
 
-const VB_W = 1122.5197;
-const VB_H = 793.70079;
+const VB_W = 960.74587;
+const VB_H = 552.37823;
 
 export type MeetPoint = { x: number; y: number };
 
