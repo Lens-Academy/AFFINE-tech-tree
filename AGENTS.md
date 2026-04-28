@@ -10,7 +10,7 @@ Admins can optionally require approval for newly self-created user accounts.
 - Drizzle ORM
 - SQLite via libSQL (`@libsql/client`)
 - Deployment target: Vercel
-- Better Auth (email/password)
+- Better Auth (Discord OAuth only)
 - Tailwind CSS 4
 
 ## Project Principles

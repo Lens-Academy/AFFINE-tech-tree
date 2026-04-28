@@ -2,7 +2,6 @@ import { TRPCError } from "@trpc/server";
 import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 
-import { auth } from "~/server/better-auth";
 import {
   ALLOW_NEW_USERS_WITHOUT_APPROVAL_KEY,
   getAllowNewUsersWithoutApproval,
@@ -13,7 +12,6 @@ import {
   authenticatedProcedure,
   createTRPCRouter,
   protectedProcedure,
-  publicProcedure,
 } from "~/server/api/trpc";
 import type { Db } from "~/server/db";
 import { normalizeUrl } from "~/server/urlUtils";
@@ -1210,105 +1208,6 @@ export const adminRouter = createTRPCRouter({
           deleteTeachingStatusHistory: input.deleteTeachingStatusHistory,
         },
       });
-      return { ok: true };
-    }),
-
-  claimNonUserTeacherAccount: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email(),
-        password: z.string().min(8),
-        name: z.string().trim().min(1),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const email = normalizeEmail(input.email);
-      const existing = await ctx.db.query.user.findFirst({
-        where: (u, { and, eq }) =>
-          and(eq(u.email, email), eq(u.isNonUser, true)),
-      });
-      if (!existing) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No claimable non-user teacher found for this email",
-        });
-      }
-
-      const archivedEmail = `claimed+${existing.id}@local.invalid`;
-      await ctx.db
-        .update(user)
-        .set({
-          email: archivedEmail,
-          isNonUser: false,
-        })
-        .where(eq(user.id, existing.id));
-
-      let createdUserId: string | null = null;
-      try {
-        const signUpResult = await auth.api.signUpEmail({
-          body: {
-            email,
-            password: input.password,
-            name: input.name,
-          },
-          headers: new Headers(),
-        });
-        createdUserId = signUpResult.user.id;
-        await ctx.db
-          .update(user)
-          .set({ isApproved: true })
-          .where(eq(user.id, createdUserId));
-      } catch (error) {
-        await ctx.db
-          .update(user)
-          .set({
-            email,
-            isNonUser: true,
-          })
-          .where(eq(user.id, existing.id));
-        throw error;
-      }
-      if (!createdUserId) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create account for claimed teacher",
-        });
-      }
-
-      await ctx.db
-        .update(userTopicStatus)
-        .set({ userId: createdUserId })
-        .where(eq(userTopicStatus.userId, existing.id));
-      await ctx.db
-        .update(levelTransition)
-        .set({ userId: createdUserId })
-        .where(eq(levelTransition.userId, existing.id));
-      await ctx.db
-        .update(feedbackItem)
-        .set({ userId: createdUserId })
-        .where(eq(feedbackItem.userId, existing.id));
-      await ctx.db
-        .update(feedbackItem)
-        .set({ referencedUserId: createdUserId })
-        .where(eq(feedbackItem.referencedUserId, existing.id));
-      await ctx.db
-        .update(bookmark)
-        .set({ userId: createdUserId })
-        .where(eq(bookmark.userId, existing.id));
-      await ctx.db
-        .update(excitedToTeach)
-        .set({ userId: createdUserId })
-        .where(eq(excitedToTeach.userId, existing.id));
-      await ctx.db
-        .update(teachingSession)
-        .set({ teacherId: createdUserId })
-        .where(eq(teachingSession.teacherId, existing.id));
-      await ctx.db
-        .update(teachingSession)
-        .set({ learnerId: createdUserId })
-        .where(eq(teachingSession.learnerId, existing.id));
-
-      await ctx.db.delete(user).where(eq(user.id, existing.id));
       return { ok: true };
     }),
 });

@@ -18,7 +18,6 @@ import {
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useSignOut } from "~/hooks/useSignOut";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
-import { authClient } from "~/server/better-auth/client";
 import { HELPFULNESS_RATING_LABELS } from "~/shared/feedbackTypes";
 import { formatDate } from "~/shared/formatDate";
 import type { HelpfulnessRating } from "~/shared/feedbackTypes";
@@ -135,203 +134,6 @@ function EditableField({
           Cancel
         </button>
       </form>
-    </div>
-  );
-}
-
-type ResetLinkMutationOptions = Exclude<
-  Parameters<typeof api.userProfile.generatePasswordResetLink.useMutation>[0],
-  undefined
->;
-
-function PasswordSection({
-  isSelf,
-  userId,
-}: {
-  isSelf: boolean;
-  userId: string;
-}) {
-  // Self: change password form
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Admin: generate reset link
-  const [resetUrl, setResetUrl] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
-    "idle",
-  );
-  const generateResetLink = useAppMutation(
-    (opts: ResetLinkMutationOptions) =>
-      api.userProfile.generatePasswordResetLink.useMutation(opts),
-    {
-      disableDefaultErrorToast: true,
-    },
-  );
-
-  async function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters");
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await authClient.changePassword({
-        currentPassword,
-        newPassword,
-      });
-      if (result.error) {
-        setError(result.error.message ?? "Failed to change password");
-        return;
-      }
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setSuccess("Password changed.");
-      setTimeout(() => setSuccess(null), 3000);
-    } catch {
-      setError("Failed to change password");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-      <h2 className="mb-3 text-zinc-200">Password</h2>
-      {isSelf ? (
-        <form
-          onSubmit={(e) => void handleChangePassword(e)}
-          className="space-y-3"
-        >
-          <label className="block">
-            <span className="mb-1 block text-sm text-zinc-500">
-              Current password
-            </span>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              className="w-64 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm text-zinc-500">
-              New password
-            </span>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-64 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm text-zinc-500">
-              Confirm new password
-            </span>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-64 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
-            />
-          </label>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          {success && <p className="text-sm text-green-400">{success}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded bg-orange-500 px-3 py-1.5 text-sm text-zinc-950 transition hover:bg-orange-400 disabled:opacity-50"
-          >
-            {loading ? "Changing..." : "Change password"}
-          </button>
-        </form>
-      ) : (
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={async () => {
-              setError(null);
-              setResetUrl(null);
-              try {
-                const result = await generateResetLink.mutateAsync({
-                  userId,
-                });
-                setResetUrl(result.url);
-                setCopyStatus("idle");
-              } catch (err) {
-                setError(
-                  err instanceof Error
-                    ? err.message
-                    : "Failed to generate link",
-                );
-              }
-            }}
-            disabled={generateResetLink.isPending}
-            className="rounded bg-orange-500 px-3 py-1.5 text-sm text-zinc-950 transition hover:bg-orange-400 disabled:opacity-50"
-          >
-            {generateResetLink.isPending
-              ? "Generating..."
-              : "Generate password reset link"}
-          </button>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          {resetUrl && (
-            <div className="space-y-1">
-              <p className="text-sm text-zinc-400">
-                Send this link to the user:
-              </p>
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  readOnly
-                  value={resetUrl}
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(resetUrl);
-                      setCopyStatus("copied");
-                    } catch {
-                      setCopyStatus("error");
-                    }
-                    setTimeout(() => setCopyStatus("idle"), 1500);
-                  }}
-                  className="w-full cursor-copy rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-300 outline-none"
-                />
-                <p
-                  className={`text-xs ${
-                    copyStatus === "copied"
-                      ? "text-green-400"
-                      : copyStatus === "error"
-                        ? "text-red-400"
-                        : "text-zinc-500"
-                  }`}
-                >
-                  {copyStatus === "copied"
-                    ? "✓ Copied"
-                    : copyStatus === "error"
-                      ? "Clipboard copy failed"
-                      : "Click field to copy"}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -672,7 +474,9 @@ export default function UserProfilePage() {
                     onSave={(email) =>
                       updateProfile.mutate({ userId: data.user.id, email })
                     }
-                    disabled={!data.isSelf && !data.viewerIsAdmin}
+                    // Email is owned by Discord for real users; only admins
+                    // can edit it on a non-user teacher placeholder.
+                    disabled={!data.viewerIsAdmin || !data.user.isNonUser}
                   />
                   <div>
                     <label className="mb-1 block text-sm text-zinc-500">
@@ -930,11 +734,6 @@ export default function UserProfilePage() {
                     ))}
                   </ul>
                 </div>
-              )}
-
-              {/* Password management */}
-              {(data.isSelf || data.viewerIsAdmin) && (
-                <PasswordSection isSelf={data.isSelf} userId={data.user.id} />
               )}
 
               {/* Feedback about this user */}

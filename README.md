@@ -19,11 +19,11 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - Header includes a notification bell with recent transitions and pending feedback signal.
 - User profile page (`/user/[id]`):
   - Edit name and email.
-  - Change password (self) or generate a password reset link (admin viewing another user).
   - Availability toggle.
   - View feedback left about this user by others.
   - Become admin (when honor system is enabled).
-- Auth page shows sign-up and sign-in side by side with shared fields.
+- Authentication is Discord-only. The first Discord login creates an account; subsequent logins re-use it.
+- A Discord login whose verified email matches an existing user (e.g. a non-user teacher placeholder added by an admin) attaches to that user instead of creating a duplicate, and promotes the placeholder to a real user.
 - Admin area (`/admin`) supports non-user teacher management:
   - DB-backed admin role checks (no env-based admin list).
   - Bootstrap flow for first admin user.
@@ -35,7 +35,6 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Feedback-linking review page with exact/fuzzy suggestions.
   - Feedback overview with per-topic statistics and transition matrices.
   - Optional deletion mode to also purge teaching-status history.
-- Sign-up deduplicates non-user teacher emails by claiming and converting records.
 - Topic detail shows "Related Topics" section with prerequisites and dependents (below "Add resource").
 - Header includes a link to the GitHub repository.
 - Header includes a Record button for seminar transcripts, with a per-device profile toggle stored in localStorage.
@@ -79,13 +78,50 @@ Sources: [Android App Links](https://developer.android.com/training/app-links/ab
 
 ### Environment variables
 
-| Variable             | Description                                                           |
-| -------------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL`       | SQLite connection string (default: `file:./db.sqlite`)                |
-| `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production)              |
-| `BETTER_AUTH_URL`    | Production base URL for Better Auth origin checks (optional locally)  |
-| `BETTER_AUTH_DISCORD_CLIENT_ID` / `_SECRET` | Optional Discord OAuth credentials. When both are set, a "Continue with Discord" button appears on `/auth`. Discord sign-ins auto-link to an existing account with the same verified email. |
-| `AIRTABLE_API_KEY`   | No longer required — topics are synced from Google Sheets |
+| Variable                            | Description                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                      | SQLite connection string (default: `file:./db.sqlite`)                                         |
+| `BETTER_AUTH_SECRET`                | Secret for Better Auth sessions (required in production; generate via `openssl rand -base64 32`) |
+| `BETTER_AUTH_URL`                   | Canonical base URL for Better Auth origin checks (optional locally; required for Vercel previews if you want OAuth there — pin to the per-branch alias) |
+| `BETTER_AUTH_DISCORD_CLIENT_ID`     | Discord application client ID (required to sign in)                                             |
+| `BETTER_AUTH_DISCORD_CLIENT_SECRET` | Discord application client secret (required to sign in)                                         |
+| `AIRTABLE_API_KEY`                  | Legacy. No longer required — topics now sync from a public Google Sheet                          |
+
+### Discord OAuth setup
+
+Authentication is Discord-only, so the app requires a Discord application before anyone can sign in.
+
+1. Open https://discord.com/developers/applications and click **New Application**. Name it (e.g. "AFFINE Tech Tree").
+2. Left sidebar → **OAuth2**. Copy the **Client ID** and click **Reset Secret** to obtain the **Client Secret** (shown only once).
+3. Under **Redirects**, register every URL the app will be reached at. Each entry must be exact (no trailing slash, correct protocol/port). Examples:
+   - `http://localhost:3000/api/auth/callback/discord`
+   - `https://<production-domain>/api/auth/callback/discord`
+   - `https://affine-tech-tree-git-<branch>-<vercel-scope>.vercel.app/api/auth/callback/discord` (per-branch preview alias)
+4. **Save Changes**. Discord rejects any callback URL not on this list.
+
+Local `.env.local` (gitignored — never commit, never deploy):
+
+```
+BETTER_AUTH_DISCORD_CLIENT_ID="..."
+BETTER_AUTH_DISCORD_CLIENT_SECRET="..."
+```
+
+Vercel: set the same two variables (and `BETTER_AUTH_SECRET`, `DATABASE_URL`) for each environment (Production / Preview) via dashboard or CLI:
+
+```sh
+vercel env add BETTER_AUTH_DISCORD_CLIENT_ID production
+vercel env add BETTER_AUTH_DISCORD_CLIENT_ID preview
+vercel env add BETTER_AUTH_DISCORD_CLIENT_SECRET production
+vercel env add BETTER_AUTH_DISCORD_CLIENT_SECRET preview
+```
+
+Mark the secret as **Sensitive** in the Vercel UI to keep it out of `vercel env pull`. After adding env vars, redeploy — Vercel does not hot-reload env into existing deploys.
+
+The same Discord application can hold many redirect URIs, so reuse one client across local + production + previews. Production deployment is handled by another team member; coordinate to ensure the production redirect URI is on the list before they ship.
+
+#### Migrating legacy email/password users
+
+Users who registered with email/password before the switch can sign in with Discord using a Discord account whose **verified email matches** the one stored on their record — Better Auth attaches the new Discord identity to the existing user (preserving topic data, feedback, roles, etc.). If their Discord email differs, an admin must update the `user.email` row to match the Discord email before that user's first Discord login.
 
 ### Database
 
@@ -138,14 +174,18 @@ pnpm add -g vercel                                # install Vercel CLI
 vercel link                                       # link repo to a Vercel project
 vercel env add DATABASE_URL                       # paste Turso URL with ?authToken=…
 vercel env add BETTER_AUTH_SECRET                 # generate: openssl rand -base64 32
+vercel env add BETTER_AUTH_DISCORD_CLIENT_ID      # from Discord developer portal
+vercel env add BETTER_AUTH_DISCORD_CLIENT_SECRET  # from Discord developer portal (mark Sensitive)
 pnpm run deploy                                   # deploy (passes git commit/date to the Vercel build)
 ```
 
-After the first deploy, set the production URL and redeploy:
+After the first deploy, set the canonical URL and redeploy:
 
 ```sh
-vercel env add BETTER_AUTH_URL                    # paste Aliased URL (e.g. https://learn.affi.ne)
-pnpm run deploy                                   # redeploy with the new variable
+vercel env add BETTER_AUTH_URL                    # paste aliased URL (e.g. https://learn.affi.ne)
+pnpm run deploy
 ```
+
+Then add `https://<that-url>/api/auth/callback/discord` to the Discord application's redirect list (see "Discord OAuth setup" above).
 
 Alternatively, import the repo in the [Vercel dashboard](https://vercel.com/new), set the environment variables there, and deploy from the UI.

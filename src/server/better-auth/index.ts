@@ -1,1 +1,1 @@
-export { auth, pendingResetUrls } from "./config";
+export { auth } from "./config";

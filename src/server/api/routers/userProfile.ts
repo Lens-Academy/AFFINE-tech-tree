@@ -10,7 +10,6 @@ import {
   user,
   userTopicStatus,
 } from "~/server/db/schema";
-import { auth, pendingResetUrls } from "~/server/better-auth";
 import { TEACHER_LEVELS } from "~/shared/understandingLevels";
 
 async function isAdminUser(db: Db, userId: string) {
@@ -137,6 +136,31 @@ export const userProfileRouter = createTRPCRouter({
         });
       }
 
+      if (input.email !== undefined) {
+        // Real users' emails are owned by Discord; changing them here
+        // desyncs login. Only allow editing on non-user teacher placeholders
+        // (and only admins ever see those rows).
+        const target = await ctx.db.query.user.findFirst({
+          where: (u, { eq }) => eq(u.id, input.userId),
+          columns: { isNonUser: true },
+        });
+        if (!target) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+        }
+        if (!target.isNonUser) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Email is managed by Discord and cannot be edited here.",
+          });
+        }
+        if (!viewerIsAdmin) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only admins can edit teacher placeholder emails",
+          });
+        }
+      }
+
       const set: Partial<{
         name: string;
         email: string;
@@ -166,60 +190,5 @@ export const userProfileRouter = createTRPCRouter({
         .set({ infoPaneClosedVersion: input.version || null })
         .where(eq(user.id, ctx.session.user.id));
       return { ok: true };
-    }),
-
-  generatePasswordResetLink: protectedProcedure
-    .input(z.object({ userId: z.string().min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      const isSelf = input.userId === ctx.session.user.id;
-      const viewerIsAdmin = await isAdminUser(ctx.db, ctx.session.user.id);
-
-      if (!isSelf && !viewerIsAdmin) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only admins can generate password reset links",
-        });
-      }
-
-      const targetUser = await ctx.db.query.user.findFirst({
-        where: (u, { eq }) => eq(u.id, input.userId),
-        columns: { email: true },
-      });
-      if (!targetUser) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-      }
-
-      const email = targetUser.email.toLowerCase();
-      try {
-        await auth.api.requestPasswordReset({
-          body: {
-            email: targetUser.email,
-            redirectTo: "/reset-password",
-          },
-          headers: new Headers(),
-        });
-      } catch (error) {
-        const fallbackUrl = pendingResetUrls.get(email);
-        if (fallbackUrl) {
-          return { url: fallbackUrl };
-        }
-
-        const message =
-          error instanceof Error ? error.message : "Unknown auth error";
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to generate reset link: ${message}`,
-        });
-      }
-
-      const url = pendingResetUrls.get(email);
-      if (url) {
-        return { url };
-      }
-
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to find generated reset link",
-      });
     }),
 });
