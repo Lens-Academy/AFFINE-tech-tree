@@ -84,6 +84,7 @@ Sources: [Android App Links](https://developer.android.com/training/app-links/ab
 | `DATABASE_URL`       | SQLite connection string (default: `file:./db.sqlite`)                |
 | `BETTER_AUTH_SECRET` | Secret for Better Auth sessions (required in production)              |
 | `BETTER_AUTH_URL`    | Production base URL for Better Auth origin checks (optional locally)  |
+| `BETTER_AUTH_DISCORD_CLIENT_ID` / `_SECRET` | Optional Discord OAuth credentials. When both are set, a "Continue with Discord" button appears on `/auth`. Discord sign-ins auto-link to an existing account with the same verified email. |
 | `AIRTABLE_API_KEY`   | No longer required — topics are synced from Google Sheets |
 
 ### Database

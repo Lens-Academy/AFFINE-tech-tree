@@ -11,9 +11,8 @@ export const env = createEnv({
       process.env.NODE_ENV === "production"
         ? z.string()
         : z.string().optional(),
-    // not using social providers yet
-    // BETTER_AUTH_GITHUB_CLIENT_ID: z.string(),
-    // BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
+    BETTER_AUTH_DISCORD_CLIENT_ID: z.string().optional(),
+    BETTER_AUTH_DISCORD_CLIENT_SECRET: z.string().optional(),
     DATABASE_URL: z.string().url(),
     BETTER_AUTH_URL: z.string().url().optional(),
     AIRTABLE_API_KEY: z.string().optional(),
@@ -37,8 +36,9 @@ export const env = createEnv({
    */
   runtimeEnv: {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    // BETTER_AUTH_GITHUB_CLIENT_ID: process.env.BETTER_AUTH_GITHUB_CLIENT_ID,
-    // BETTER_AUTH_GITHUB_CLIENT_SECRET: process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
+    BETTER_AUTH_DISCORD_CLIENT_ID: process.env.BETTER_AUTH_DISCORD_CLIENT_ID,
+    BETTER_AUTH_DISCORD_CLIENT_SECRET:
+      process.env.BETTER_AUTH_DISCORD_CLIENT_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     AIRTABLE_API_KEY: process.env.AIRTABLE_API_KEY,

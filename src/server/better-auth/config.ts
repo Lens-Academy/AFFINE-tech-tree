@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createAuthMiddleware } from "better-auth/api";
 import { eq } from "drizzle-orm";
 
 import { env } from "~/env";
@@ -30,19 +29,23 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "sqlite",
   }),
-  hooks: {
-    after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/sign-up/email") return;
-      const newUserId = ctx.context.newSession?.user.id;
-      if (!newUserId) return;
-      const allowNewUsersWithoutApproval =
-        await getAllowNewUsersWithoutApproval(db);
-      if (allowNewUsersWithoutApproval) return;
-      await db
-        .update(user)
-        .set({ isApproved: false })
-        .where(eq(user.id, newUserId));
-    }),
+  databaseHooks: {
+    // Fires on every new user row, regardless of provider (email/password,
+    // Discord, etc.). Account-linking does NOT create a new user, so existing
+    // users keep their approval status when they later attach Discord.
+    user: {
+      create: {
+        after: async (createdUser) => {
+          const allowNewUsersWithoutApproval =
+            await getAllowNewUsersWithoutApproval(db);
+          if (allowNewUsersWithoutApproval) return;
+          await db
+            .update(user)
+            .set({ isApproved: false })
+            .where(eq(user.id, createdUser.id));
+        },
+      },
+    },
   },
   emailAndPassword: {
     enabled: true,
@@ -65,13 +68,23 @@ export const auth = betterAuth({
     },
     sendOnSignUp: true,
   },
-  // socialProviders: {
-  //   github: {
-  //     clientId: env.BETTER_AUTH_GITHUB_CLIENT_ID,
-  //     clientSecret: env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
-  //     redirectURI: "http://localhost:3000/api/auth/callback/github",
-  //   },
-  // },
+  socialProviders:
+    env.BETTER_AUTH_DISCORD_CLIENT_ID && env.BETTER_AUTH_DISCORD_CLIENT_SECRET
+      ? {
+          discord: {
+            clientId: env.BETTER_AUTH_DISCORD_CLIENT_ID,
+            clientSecret: env.BETTER_AUTH_DISCORD_CLIENT_SECRET,
+          },
+        }
+      : undefined,
+  // De-duplicate by email: when a Discord sign-in arrives with an
+  // OAuth-verified email matching an existing user, attach it instead of
+  // erroring. Discord is intentionally NOT in `trustedProviders` — that flag
+  // would skip the verified-email check and allow takeover via an unverified
+  // Discord email.
+  account: {
+    accountLinking: { enabled: true },
+  },
 });
 
 export type Session = typeof auth.$Infer.Session;

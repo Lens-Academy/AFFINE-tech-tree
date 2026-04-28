@@ -1,11 +1,25 @@
+import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
+import { env } from "~/env";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { authClient } from "~/server/better-auth/client";
 import { api } from "~/utils/api";
+
+type AuthPageProps = { discordEnabled: boolean };
+
+export const getServerSideProps: GetServerSideProps<AuthPageProps> = () =>
+  Promise.resolve({
+    props: {
+      discordEnabled: Boolean(
+        env.BETTER_AUTH_DISCORD_CLIENT_ID &&
+        env.BETTER_AUTH_DISCORD_CLIENT_SECRET,
+      ),
+    },
+  });
 
 type ClaimNonUserMutationOptions = Exclude<
   Parameters<typeof api.admin.claimNonUserTeacherAccount.useMutation>[0],
@@ -15,7 +29,7 @@ type ClaimNonUserMutationOptions = Exclude<
 const inputClass =
   "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-100 placeholder:text-zinc-600 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none";
 
-export default function AuthPage() {
+export default function AuthPage({ discordEnabled }: AuthPageProps) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const [email, setEmail] = useState("");
@@ -120,6 +134,26 @@ export default function AuthPage() {
           >
             ← Back to topics
           </Link>
+          {discordEnabled && (
+            <div className="mb-8 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  void authClient.signIn.social({
+                    provider: "discord",
+                    callbackURL: "/",
+                  })
+                }
+                className="flex w-full max-w-sm items-center justify-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#4752c4]"
+              >
+                Continue with Discord
+              </button>
+              <p className="text-xs text-zinc-500">
+                If your Discord email matches an existing account, they will be
+                linked.
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-8 sm:flex-row sm:gap-12">
             {/* Sign up - left */}
             <div className="flex flex-1 flex-col">
