@@ -37,7 +37,7 @@ export function TopicList() {
   const [excitedUpdatingTopicId, setExcitedUpdatingTopicId] = useState<
     number | null
   >(null);
-  const { viewerUser, isPending: viewerPending } = useViewerAccess();
+  const { viewerUser } = useViewerAccess();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
   const { data: tags, isPending: tagsPending } = api.topic.listTags.useQuery();
   const {
@@ -196,11 +196,7 @@ export function TopicList() {
   ]);
   const sortDirty = initialSortApplied && currentSortKey !== lastAppliedSortKey;
   const shouldHoldForInitialRender =
-    isLoading ||
-    !isStoredTagLoaded ||
-    tagsPending ||
-    viewerPending ||
-    (!!viewerUser && !initialSortReady);
+    isLoading || !isStoredTagLoaded || tagsPending;
   const isListRendered = !shouldHoldForInitialRender;
   useInitialActiveTopicScroll(activeTopicId, isListRendered);
   const topicsById = useMemo(
