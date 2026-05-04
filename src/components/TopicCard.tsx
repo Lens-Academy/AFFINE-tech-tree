@@ -114,9 +114,7 @@ export function TopicCard({
           <UnderstandingLevelCheckboxes
             currentLevel={currentLevel}
             isActive={isActive}
-            onLevelChange={(level) => {
-              onLevelChange(level);
-            }}
+            onLevelChange={onLevelChange}
           />
         </div>
       )}

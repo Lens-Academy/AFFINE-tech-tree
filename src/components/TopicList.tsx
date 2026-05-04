@@ -277,11 +277,18 @@ export function TopicList() {
       />
 
       <ul className="space-y-4">
-        {orderedTopics.map((t) => (
+        {orderedTopics.map((t) => {
+          const displayLevel =
+            setStatus.isPending && setStatus.variables?.topicId === t.id
+              ? setStatus.variables.level
+              : removeStatus.isPending && removeStatus.variables?.topicId === t.id
+                ? undefined
+                : serverStatusByTopic.get(t.id);
+          return (
           <TopicCard
             key={t.id}
             topic={t}
-            currentLevel={serverStatusByTopic.get(t.id)}
+            currentLevel={displayLevel}
             onLevelChange={(level) => {
               if (level === undefined) {
                 removeStatus.mutate({ topicId: t.id });
@@ -302,9 +309,7 @@ export function TopicList() {
             bookmarkDisabled={
               bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
             }
-            canMarkExcitedToTeach={isTeacherLevel(
-              serverStatusByTopic.get(t.id),
-            )}
+            canMarkExcitedToTeach={isTeacherLevel(displayLevel)}
             excitedToTeach={excitedToTeachSetIds.has(t.id)}
             onExcitedToTeachToggle={() => {
               if (excitedToTeachSet.isPending) return;
@@ -318,7 +323,8 @@ export function TopicList() {
             }
             isActive={activeTopicId === t.id}
           />
-        ))}
+          );
+        })}
       </ul>
     </>
   );
