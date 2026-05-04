@@ -38,7 +38,8 @@ function OtterLink() {
   return (
     <a
       href={OTTER_URL}
-      // not _blank to support Android's Firefox setting to open links in app
+      target="_blank"
+      rel="noopener noreferrer"
       className={NAV_TAB_INACTIVE}
       title="Record transcript in Otter"
       aria-label="Record transcript in Otter"
