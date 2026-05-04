@@ -77,6 +77,16 @@ async function inferFreeTextLinkTargets(args: {
     }
   }
 
+  if (!matchedTopicLinkId && !matchedUserId) {
+    const looksStructured = !!normalizedUrl || !!extractEmailCandidate(raw);
+    if (looksStructured) {
+      console.warn(
+        `[feedback] free-text inference found no match for structured input`,
+        { topicId: args.topicId, raw },
+      );
+    }
+  }
+
   return {
     topicLinkId: matchedTopicLinkId,
     referencedUserId: matchedUserId,
