@@ -110,5 +110,6 @@ export const userStatusRouter = createTRPCRouter({
             eq(excitedToTeach.topicId, input.topicId),
           ),
         );
+      return { ok: true };
     }),
 });
