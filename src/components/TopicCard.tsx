@@ -116,7 +116,6 @@ export function TopicCard({
             isActive={isActive}
             onLevelChange={(level) => {
               onLevelChange(level);
-              void router.push(topicHref);
             }}
           />
         </div>
