@@ -443,7 +443,6 @@ export function TopicDetail({
           )}
 
           {viewerUser &&
-            !isTeacherLevel(currentLevel) &&
             teachers &&
             teachers.length > 0 && (
               <section className="mb-8">

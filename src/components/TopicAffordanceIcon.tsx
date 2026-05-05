@@ -60,7 +60,7 @@ function getColorClass(props: BaseProps): string {
     return "text-orange-400";
   }
   if (props.groupHover) {
-    return "text-zinc-600 transition group-hover:text-orange-400 hover:text-orange-400";
+    return "text-zinc-600 transition group-hover:text-orange-400 hover:text-orange-400 [@media(hover:none)]:text-orange-400";
   }
-  return "text-zinc-600 transition hover:text-orange-400";
+  return "text-zinc-600 transition hover:text-orange-400 [@media(hover:none)]:text-orange-400";
 }

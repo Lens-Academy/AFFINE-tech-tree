@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { InfoPane } from "~/components/InfoPane";
 import { useActivePath } from "~/hooks/useActivePath";
@@ -117,6 +117,15 @@ const SUGGEST_TEXT =
   "bg-linear-60 from-[#00ac47] to-zinc-100 bg-clip-text text-transparent to-1% group-hover:to-100%";
 
 function SuggestLink({ disabled }: { disabled: boolean }) {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: fine)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   if (disabled) {
     return (
       <span
@@ -131,8 +140,9 @@ function SuggestLink({ disabled }: { disabled: boolean }) {
   return (
     <a
       href={SUGGESTIONS_SHEET_URL}
-      target="_blank"
-      rel="noopener noreferrer"
+      {...(isDesktop
+        ? { target: "_blank", rel: "noopener noreferrer" }
+        : {})}
       className={SUGGEST_BASE}
       title="Suggest edits google sheet"
     >
