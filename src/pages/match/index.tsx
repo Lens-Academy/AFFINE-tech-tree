@@ -7,7 +7,6 @@ import { PageLayout } from "~/components/PageLayout";
 import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
-import { getSegmentLabel } from "~/shared/userSegments";
 import { api, type RouterInputs, type RouterOutputs } from "~/utils/api";
 
 type SendRequestOptions = Exclude<
@@ -40,7 +39,7 @@ export default function UsersPage() {
         await utils.match.listPeersInSegment.cancel();
         const previous = utils.match.listPeersInSegment.getData();
         utils.match.listPeersInSegment.setData(undefined, (old) => {
-          if (old?.segment == null) return old;
+          if (!old) return old;
           return {
             ...old,
             peers: old.peers.map((p) =>
@@ -98,10 +97,8 @@ export default function UsersPage() {
   const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null);
 
   const peersData = peers.data;
-  const assignedPeers =
-    peersData && peersData.segment !== null ? peersData : null;
   const visiblePeers =
-    assignedPeers?.peers.filter((peer) => peer.matchState !== "accepted") ?? [];
+    peersData?.peers.filter((peer) => peer.matchState !== "accepted") ?? [];
 
   return (
     <>
@@ -117,22 +114,8 @@ export default function UsersPage() {
             </p>
           )}
 
-          {rawUser && peersData?.segment === null && (
-            <p className="text-zinc-400">
-              You have not been assigned to a segment yet. Ask an admin to set
-              your segment (SAS, Online SAS, or BARYCENTER).
-            </p>
-          )}
-
-          {rawUser && assignedPeers && (
+          {rawUser && peersData && (
             <div className="space-y-6">
-              <p className="text-sm text-zinc-500">
-                Segment:{" "}
-                <span className="text-zinc-300">
-                  {getSegmentLabel(assignedPeers.segment)}
-                </span>
-              </p>
-
               {incoming.data && incoming.data.length > 0 && (
                 <div className="rounded-lg border border-orange-500/40 bg-zinc-900 p-4">
                   <h2 className="mb-3 text-zinc-200">
@@ -208,12 +191,10 @@ export default function UsersPage() {
               )}
 
               <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-                <h2 className="mb-3 text-zinc-200">
-                  Users in {getSegmentLabel(assignedPeers.segment)}
-                </h2>
+                <h2 className="mb-3 text-zinc-200">Peers</h2>
                 {visiblePeers.length === 0 ? (
                   <p className="text-sm text-zinc-500">
-                    No other peers in your segment need a new match request.
+                    No peers available for a new match request.
                   </p>
                 ) : (
                   <ul className="space-y-2">

@@ -9,20 +9,16 @@ import {
   UNDERSTANDING_LEVEL_LABELS,
   getLevelShortLabel,
   type UnderstandingLevel,
-  emptyUnderstandingLevelCounts,
   sumUnderstandingLevelCounts,
 } from "~/shared/understandingLevels";
 import { type RouterOutputs } from "~/utils/api";
 
 type ProgressDay = RouterOutputs["progress"]["overTime"]["days"][number];
 type ProgressChange = ProgressDay["changes"][number];
-type Point = { at: Date; counts: ProgressDay["counts"] };
-type RectSegment = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fill: string;
+type BarDatum = {
+  date: string;
+  cx: number; // center x in SVG inner coords
+  segments: Array<{ y: number; height: number; fill: string }>;
 };
 type ChartLayout = {
   containerWidth: number;
@@ -32,7 +28,7 @@ type ChartLayout = {
 
 const WIDTH = 880;
 const HEIGHT = 340;
-const MARGIN = { top: 16, right: 24, bottom: 28, left: 44 };
+const MARGIN = { top: 16, right: 24, bottom: 40, left: 44 };
 
 // Stable foundation at the bottom, achievement at the top.
 const STACK_ORDER: readonly UnderstandingLevel[] = [
@@ -43,11 +39,6 @@ const STACK_ORDER: readonly UnderstandingLevel[] = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const LIVE_LOOKAHEAD_MS = 6 * 60 * 60 * 1000;
-
-function toIsoDay(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 function toUtcHhMm(d: Date): string {
   return d.toISOString().slice(11, 16);
@@ -55,6 +46,14 @@ function toUtcHhMm(d: Date): string {
 
 function utcDayStart(key: string): Date {
   return new Date(`${key}T00:00:00.000Z`);
+}
+
+function formatBarLabel(isoDay: string): string {
+  return utcDayStart(isoDay).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export function ProgressChart({
@@ -111,126 +110,85 @@ export function ProgressChart({
     return () => resizeObserver.disconnect();
   }, []);
 
-  const {
-    xScale,
-    xTicks,
-    yTicks,
-    rectSegments,
-    daysByKey,
-    domainStart,
-    domainEnd,
-  } = useMemo(() => {
+  const { yTicks, bars, barWidth, daysByKey, labelEvery } = useMemo(() => {
     if (days.length === 0) {
       return {
-        xScale: null,
-        xTicks: [] as Array<{ x: number; label: string }>,
         yTicks: [] as Array<{ y: number; label: string }>,
-        rectSegments: [] as RectSegment[],
+        bars: [] as BarDatum[],
+        barWidth: 0,
         daysByKey: new Map<string, ProgressDay>(),
-        domainStart: new Date(),
-        domainEnd: new Date(),
+        labelEvery: 1,
       };
     }
 
-    const start = utcDayStart(days[0]!.date);
-    const now = new Date();
-    const todayEnd = new Date(utcDayStart(toIsoDay(now)).getTime() + DAY_MS);
-    const allChanges = days.flatMap((day) => day.changes);
-    const lastChange = allChanges[allChanges.length - 1];
-    const end = new Date(
-      Math.max(
-        todayEnd.getTime(),
-        now.getTime() + LIVE_LOOKAHEAD_MS,
-        lastChange ? new Date(lastChange.at).getTime() + LIVE_LOOKAHEAD_MS : 0,
-      ),
-    );
+    // ── Domain: half-day padding each side so bars aren't flush to edges ──────
+    const firstMidnight = utcDayStart(days[0]!.date);
+    const lastMidnight = utcDayStart(days[days.length - 1]!.date);
+    const domainStart = new Date(firstMidnight.getTime() - DAY_MS / 2);
+    const domainEnd = new Date(lastMidnight.getTime() + DAY_MS * 1.5);
 
-    // Build points at day granularity. `days[n].counts` is the end-of-day
-    // snapshot from the backend. Rewind day 0's changes to get the pre-history
-    // state, then step forward one point per day boundary.
-    const preCounts = { ...days[0]!.counts };
-    for (let index = days[0]!.changes.length - 1; index >= 0; index--) {
-      const change = days[0]!.changes[index]!;
-      if (change.to) preCounts[change.to] = Math.max(0, preCounts[change.to]! - 1);
-      if (change.from) preCounts[change.from]++;
-    }
+    // ── Scales ────────────────────────────────────────────────────────────────
+    const x = scaleTime().domain([domainStart, domainEnd]).range([0, innerW]);
 
-    const points: Point[] = [{ at: start, counts: preCounts }];
+    // Width of one day slot in pixels, used to size the bars.
+    const daySlotPx =
+      (innerW / (domainEnd.getTime() - domainStart.getTime())) * DAY_MS;
+    const barWidth = Math.min(48, Math.max(6, daySlotPx * 0.65));
 
-    for (const day of days) {
-      points.push({
-        at: new Date(utcDayStart(day.date).getTime() + DAY_MS),
-        counts: day.counts,
-      });
-    }
-
-    // Extend the final state to the domain end.
-    const lastCounts = days[days.length - 1]!.counts;
-    points.push({ at: end, counts: lastCounts });
-
-    const maxStack = Math.max(
+    const maxCount = Math.max(
       1,
-      ...points.map((point) => sumUnderstandingLevelCounts(point.counts)),
+      ...days.map((d) => sumUnderstandingLevelCounts(d.counts)),
     );
+    const y = scaleLinear().domain([0, maxCount]).nice(5).range([innerH, 0]);
 
-    const x = scaleTime().domain([start, end]).range([0, innerW]);
-    const y = scaleLinear().domain([0, maxStack]).nice(5).range([innerH, 0]);
-    const rects: RectSegment[] = [];
-
-    for (let i = 0; i < points.length - 1; i++) {
-      const point = points[i]!;
-      const nextPoint = points[i + 1]!;
-      const x0 = x(point.at);
-      const x1 = x(nextPoint.at);
-      const width = Math.max(0, x1 - x0);
+    // ── Bars ──────────────────────────────────────────────────────────────────
+    // Each bar shows one day's end-of-day counts (the authoritative backend
+    // snapshot). No forward/backward reconstruction needed here.
+    const bars: BarDatum[] = days.map((day) => {
+      const cx = x(new Date(utcDayStart(day.date).getTime() + DAY_MS / 2));
+      const segments: BarDatum["segments"] = [];
       let baseline = 0;
-
       for (const level of STACK_ORDER) {
-        const count = point.counts[level];
+        const count = day.counts[level];
         if (count <= 0) continue;
-        const top = baseline + count;
-        rects.push({
-          x: x0,
-          y: y(top),
-          width,
-          height: y(baseline) - y(top),
+        segments.push({
+          y: y(baseline + count),
+          height: y(baseline) - y(baseline + count),
           fill: LEVEL_COLORS[level],
         });
-        baseline = top;
+        baseline += count;
       }
-    }
+      return { date: day.date, cx, segments };
+    });
 
-    const xt = x.ticks(8).map((d) => ({
-      x: x(d),
-      label: d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        timeZone: "UTC",
-      }),
-    }));
-    const yt = y.ticks(5).map((v) => ({ y: y(v), label: String(v) }));
+    // ── Axis ticks ────────────────────────────────────────────────────────────
+    const yTicks = y.ticks(5).map((v) => ({ y: y(v), label: String(v) }));
 
-    const map = new Map<string, ProgressDay>();
-    for (const d of days) map.set(d.date, d);
+    // Show at most ~15 date labels to avoid crowding.
+    const labelEvery = Math.max(1, Math.ceil(days.length / 15));
 
-    return {
-      xScale: x,
-      xTicks: xt,
-      yTicks: yt,
-      rectSegments: rects,
-      daysByKey: map,
-      domainStart: start,
-      domainEnd: end,
-    };
+    const daysByKey = new Map<string, ProgressDay>();
+    for (const d of days) daysByKey.set(d.date, d);
+
+    return { yTicks, bars, barWidth, daysByKey, labelEvery };
   }, [days, innerW, innerH]);
 
+  // Snap mouse position to the nearest bar's date.
   function getDayKey(clientX: number): string | null {
-    if (!xScale) return null;
+    if (bars.length === 0) return null;
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return null;
     const relX = ((clientX - rect.left) / rect.width) * WIDTH - MARGIN.left;
-    const date = xScale.invert(relX);
-    return toIsoDay(date);
+    let nearest = bars[0]!;
+    let minDist = Math.abs(nearest.cx - relX);
+    for (const bar of bars) {
+      const dist = Math.abs(bar.cx - relX);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = bar;
+      }
+    }
+    return nearest.date;
   }
 
   function onMove(e: React.MouseEvent<SVGRectElement>) {
@@ -258,23 +216,23 @@ export function ProgressChart({
   const activeKey = pinnedKey ?? hoverKey;
   const hoveredDay = activeKey ? daysByKey.get(activeKey) : null;
 
-  // Band spans the full UTC day, clipped to the visible domain.
-  let bandX0 = 0;
-  let bandX1 = 0;
-  let bandVisible = false;
-  if (activeKey && xScale) {
-    const dayStart = utcDayStart(activeKey);
-    const dayEnd = new Date(dayStart.getTime() + DAY_MS);
-    const clampedStart = dayStart < domainStart ? domainStart : dayStart;
-    const clampedEnd = dayEnd > domainEnd ? domainEnd : dayEnd;
-    bandX0 = xScale(clampedStart);
-    bandX1 = xScale(clampedEnd);
-    bandVisible = bandX1 > bandX0;
-  }
-
+  // Position tooltip relative to the hovered bar's screen coords.
   const svgScale = layout.svgWidth > 0 ? layout.svgWidth / WIDTH : 0;
-  const bandLeftPx = layout.svgLeft + (MARGIN.left + bandX0) * svgScale;
-  const bandRightPx = layout.svgLeft + (MARGIN.left + bandX1) * svgScale;
+  let tooltipVisible = false;
+  let tooltipLeftPx = 0;
+  let tooltipRightPx = 0;
+  if (activeKey) {
+    const activeBar = bars.find((b) => b.date === activeKey);
+    if (activeBar) {
+      tooltipLeftPx =
+        layout.svgLeft +
+        (MARGIN.left + activeBar.cx - barWidth / 2) * svgScale;
+      tooltipRightPx =
+        layout.svgLeft +
+        (MARGIN.left + activeBar.cx + barWidth / 2) * svgScale;
+      tooltipVisible = true;
+    }
+  }
 
   return (
     <div
@@ -292,6 +250,7 @@ export function ProgressChart({
         aria-label="Cumulative understanding levels over time"
       >
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+          {/* Y-axis gridlines and labels */}
           {yTicks.map((t, i) => (
             <g key={i}>
               <line
@@ -315,57 +274,41 @@ export function ProgressChart({
             </g>
           ))}
 
-          {bandVisible && (
-            <rect
-              x={bandX0}
-              y={0}
-              width={bandX1 - bandX0}
-              height={innerH}
-              fill="#f4f4f5"
-              fillOpacity={0.06}
-              pointerEvents="none"
-            />
-          )}
+          {/* One stacked bar per day */}
+          {bars.map((bar, barIndex) => {
+            const isActive = bar.date === activeKey;
+            const showLabel =
+              barIndex % labelEvery === 0 || barIndex === bars.length - 1;
+            return (
+              <g key={bar.date}>
+                {bar.segments.map((seg, i) => (
+                  <rect
+                    key={i}
+                    x={bar.cx - barWidth / 2}
+                    y={seg.y}
+                    width={barWidth}
+                    height={seg.height}
+                    fill={seg.fill}
+                    opacity={isActive ? 0.65 : 1}
+                    shapeRendering="crispEdges"
+                  />
+                ))}
+                {showLabel && (
+                  <text
+                    x={bar.cx}
+                    y={innerH + 16}
+                    textAnchor="middle"
+                    fill={isActive ? "#d4d4d8" : "#52525b"}
+                    fontSize={10}
+                  >
+                    {formatBarLabel(bar.date)}
+                  </text>
+                )}
+              </g>
+            );
+          })}
 
-          {rectSegments.map((rect, i) => (
-            <rect
-              key={i}
-              x={rect.x}
-              y={rect.y}
-              width={rect.width}
-              height={rect.height}
-              fill={rect.fill}
-              shapeRendering="crispEdges"
-            />
-          ))}
-
-          {bandVisible && (
-            <rect
-              x={bandX0}
-              y={0}
-              width={bandX1 - bandX0}
-              height={innerH}
-              fill="none"
-              stroke="#f4f4f5"
-              strokeOpacity={0.25}
-              strokeWidth={1}
-              pointerEvents="none"
-            />
-          )}
-
-          {xTicks.map((t, i) => (
-            <text
-              key={i}
-              x={t.x}
-              y={innerH + 18}
-              textAnchor="middle"
-              fill="#71717a"
-              fontSize={11}
-            >
-              {t.label}
-            </text>
-          ))}
-
+          {/* Invisible overlay that catches mouse events */}
           <rect
             x={0}
             y={0}
@@ -390,11 +333,11 @@ export function ProgressChart({
         ))}
       </div>
 
-      {hoveredDay && bandVisible && (
+      {hoveredDay && tooltipVisible && (
         <DayTooltip
           day={hoveredDay}
-          bandLeftPx={bandLeftPx}
-          bandRightPx={bandRightPx}
+          bandLeftPx={tooltipLeftPx}
+          bandRightPx={tooltipRightPx}
           containerWidth={layout.containerWidth}
         />
       )}

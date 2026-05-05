@@ -64,7 +64,7 @@ export function buildProgressDays(
 
     day.changes.unshift(change);
 
-    if (change.to) counts[change.to] = Math.max(0, counts[change.to]! - 1);
+    if (change.to) counts[change.to] = Math.max(0, counts[change.to] - 1);
     if (change.from) counts[change.from]++;
   }
 

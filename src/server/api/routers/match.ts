@@ -19,16 +19,15 @@ export const matchRouter = createTRPCRouter({
   listPeersInSegment: protectedProcedure.query(async ({ ctx }) => {
     const viewer = await ctx.db.query.user.findFirst({
       where: (u, { eq }) => eq(u.id, ctx.session.user.id),
-      columns: { id: true, segment: true },
+      columns: { id: true },
     });
-    if (!viewer?.segment) {
-      return { segment: null, peers: [] as const };
+    if (!viewer) {
+      return { peers: [] as const };
     }
 
     const peers = await ctx.db.query.user.findMany({
       where: (u, { and, eq, ne }) =>
         and(
-          eq(u.segment, viewer.segment!),
           ne(u.id, viewer.id),
           eq(u.isNonUser, false),
           eq(u.isApproved, true),
@@ -75,7 +74,6 @@ export const matchRouter = createTRPCRouter({
     );
 
     return {
-      segment: viewer.segment,
       peers: peers.map((p) => {
         const relationship = relationshipsByPair.get(
           getMatchPairKey(viewer.id, p.id),
@@ -125,30 +123,14 @@ export const matchRouter = createTRPCRouter({
         });
       }
 
-      const [viewer, target] = await Promise.all([
-        ctx.db.query.user.findFirst({
-          where: (u, { eq }) => eq(u.id, fromUserId),
-          columns: { segment: true },
-        }),
-        ctx.db.query.user.findFirst({
-          where: (u, { eq }) => eq(u.id, input.toUserId),
-          columns: { segment: true, isNonUser: true, isApproved: true },
-        }),
-      ]);
-      if (!viewer?.segment) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You must be assigned to a segment first",
-        });
-      }
-      if (
-        target?.segment !== viewer.segment ||
-        target.isNonUser ||
-        !target.isApproved
-      ) {
+      const target = await ctx.db.query.user.findFirst({
+        where: (u, { eq }) => eq(u.id, input.toUserId),
+        columns: { isNonUser: true, isApproved: true },
+      });
+      if (target?.isNonUser || !target?.isApproved) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Peer not found in your segment",
+          message: "Peer not found",
         });
       }
 
