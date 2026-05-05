@@ -35,11 +35,18 @@ function GitHubLink() {
 }
 
 function OtterLink() {
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    if (isAndroid) return;
+
+    event.preventDefault();
+    window.open(OTTER_URL, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <a
       href={OTTER_URL}
-      target="_blank"
-      rel="noopener noreferrer"
+      onClick={handleClick}
       className={NAV_TAB_INACTIVE}
       title="Record transcript in Otter"
       aria-label="Record transcript in Otter"
