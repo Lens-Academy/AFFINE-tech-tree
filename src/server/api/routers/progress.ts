@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { isAdminUser } from "~/server/approvalPolicy";
+import { emptyUnderstandingLevelCounts } from "~/shared/understandingLevels";
 import { buildProgressDays, type ProgressChange } from "./progress.helpers";
 
 export const progressRouter = createTRPCRouter({
@@ -28,7 +29,7 @@ export const progressRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
       }
 
-      const [transitions, bookmarks, excited] = await Promise.all([
+      const [transitions, bookmarks, excited, statuses] = await Promise.all([
         ctx.db.query.levelTransition.findMany({
           where: (t, { eq }) => eq(t.userId, input.userId),
           orderBy: (t, { asc }) => asc(t.createdAt),
@@ -42,13 +43,18 @@ export const progressRouter = createTRPCRouter({
           where: (e, { eq }) => eq(e.userId, input.userId),
           columns: { topicId: true },
         }),
+        ctx.db.query.userTopicStatus.findMany({
+          where: (s, { eq }) => eq(s.userId, input.userId),
+          columns: { level: true },
+        }),
       ]);
 
       const bookmarkSet = new Set(bookmarks.map((b) => b.topicId));
       const excitedSet = new Set(excited.map((e) => e.topicId));
 
-      if (transitions.length === 0) {
-        return { user: targetUser, days: [] };
+      const currentCounts = emptyUnderstandingLevelCounts();
+      for (const status of statuses) {
+        currentCounts[status.level]++;
       }
 
       const changes: ProgressChange[] = transitions.map((t) => ({
@@ -61,6 +67,6 @@ export const progressRouter = createTRPCRouter({
         isExcited: excitedSet.has(t.topicId),
       }));
 
-      return { user: targetUser, days: buildProgressDays(changes) };
+      return { user: targetUser, days: buildProgressDays(changes, currentCounts) };
     }),
 });

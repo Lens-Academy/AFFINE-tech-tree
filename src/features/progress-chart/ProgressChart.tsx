@@ -135,43 +135,38 @@ export function ProgressChart({
     const start = utcDayStart(days[0]!.date);
     const now = new Date();
     const todayEnd = new Date(utcDayStart(toIsoDay(now)).getTime() + DAY_MS);
-    const latestChangeAt = new Date(
-      days[days.length - 1]!.changes[days[days.length - 1]!.changes.length - 1]!
-        .at,
-    );
-    const changes = days.flatMap((day) => day.changes);
+    const allChanges = days.flatMap((day) => day.changes);
+    const lastChange = allChanges[allChanges.length - 1];
     const end = new Date(
       Math.max(
         todayEnd.getTime(),
         now.getTime() + LIVE_LOOKAHEAD_MS,
-        latestChangeAt.getTime() + LIVE_LOOKAHEAD_MS,
+        lastChange ? new Date(lastChange.at).getTime() + LIVE_LOOKAHEAD_MS : 0,
       ),
     );
 
-    const points: Point[] = [];
-    const counts = emptyUnderstandingLevelCounts();
-    points.push({ at: start, counts: { ...counts } });
-
-    const changeGroups: Array<{ at: Date; changes: ProgressChange[] }> = [];
-    for (const change of changes) {
-      const at = new Date(change.at);
-      const lastGroup = changeGroups[changeGroups.length - 1];
-      if (lastGroup?.at.getTime() === at.getTime()) {
-        lastGroup.changes.push(change);
-      } else {
-        changeGroups.push({ at, changes: [change] });
-      }
+    // Build points at day granularity. `days[n].counts` is the end-of-day
+    // snapshot from the backend. Rewind day 0's changes to get the pre-history
+    // state, then step forward one point per day boundary.
+    const preCounts = { ...days[0]!.counts };
+    for (let index = days[0]!.changes.length - 1; index >= 0; index--) {
+      const change = days[0]!.changes[index]!;
+      if (change.to) preCounts[change.to] = Math.max(0, preCounts[change.to]! - 1);
+      if (change.from) preCounts[change.from]++;
     }
 
-    for (const group of changeGroups) {
-      for (const change of group.changes) {
-        if (change.from) counts[change.from]--;
-        if (change.to) counts[change.to]++;
-      }
-      points.push({ at: group.at, counts: { ...counts } });
+    const points: Point[] = [{ at: start, counts: preCounts }];
+
+    for (const day of days) {
+      points.push({
+        at: new Date(utcDayStart(day.date).getTime() + DAY_MS),
+        counts: day.counts,
+      });
     }
 
-    points.push({ at: end, counts: { ...counts } });
+    // Extend the final state to the domain end.
+    const lastCounts = days[days.length - 1]!.counts;
+    points.push({ at: end, counts: lastCounts });
 
     const maxStack = Math.max(
       1,

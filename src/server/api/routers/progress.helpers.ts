@@ -26,27 +26,46 @@ export function toIsoDay(date: Date): string {
 
 export function buildProgressDays(
   changes: readonly ProgressChange[],
+  currentCounts: UnderstandingLevelCounts,
 ): ProgressDay[] {
-  const daysByKey = new Map<string, ProgressDay>();
-  const counts = emptyUnderstandingLevelCounts();
+  if (changes.length === 0) {
+    const hasAnyCounts = Object.values(currentCounts).some((count) => count > 0);
+    if (!hasAnyCounts) return [];
+    return [
+      {
+        date: toIsoDay(new Date()),
+        counts: { ...currentCounts },
+        changes: [],
+      },
+    ];
+  }
 
-  for (const change of changes) {
-    if (change.from) counts[change.from]--;
-    if (change.to) counts[change.to]++;
+  const daysByKey = new Map<string, ProgressDay>();
+  const counts = { ...currentCounts };
+
+  for (let index = changes.length - 1; index >= 0; index--) {
+    const change = changes[index]!;
 
     const dayKey = toIsoDay(change.at);
     let day = daysByKey.get(dayKey);
     if (!day) {
       day = {
         date: dayKey,
-        counts: emptyUnderstandingLevelCounts(),
+        counts: {
+          unfamiliar: Math.max(0, counts.unfamiliar),
+          vague: Math.max(0, counts.vague),
+          can_teach: Math.max(0, counts.can_teach),
+          advanced_questions_welcome: Math.max(0, counts.advanced_questions_welcome),
+        },
         changes: [],
       };
       daysByKey.set(dayKey, day);
     }
 
-    day.changes.push(change);
-    day.counts = { ...counts };
+    day.changes.unshift(change);
+
+    if (change.to) counts[change.to] = Math.max(0, counts[change.to]! - 1);
+    if (change.from) counts[change.from]++;
   }
 
   return [...daysByKey.values()].sort((a, b) => a.date.localeCompare(b.date));
