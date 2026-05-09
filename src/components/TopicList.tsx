@@ -281,48 +281,49 @@ export function TopicList() {
           const displayLevel =
             setStatus.isPending && setStatus.variables?.topicId === t.id
               ? setStatus.variables.level
-              : removeStatus.isPending && removeStatus.variables?.topicId === t.id
+              : removeStatus.isPending &&
+                  removeStatus.variables?.topicId === t.id
                 ? undefined
                 : serverStatusByTopic.get(t.id);
           return (
-          <TopicCard
-            key={t.id}
-            topic={t}
-            currentLevel={displayLevel}
-            onLevelChange={(level) => {
-              if (level === undefined) {
-                removeStatus.mutate({ topicId: t.id });
-              } else {
-                setStatus.mutate({ topicId: t.id, level });
+            <TopicCard
+              key={t.id}
+              topic={t}
+              currentLevel={displayLevel}
+              onLevelChange={(level) => {
+                if (level === undefined) {
+                  removeStatus.mutate({ topicId: t.id });
+                } else {
+                  setStatus.mutate({ topicId: t.id, level });
+                }
+              }}
+              canEdit={!!viewerUser}
+              bookmarked={bookmarkedSet.has(t.id)}
+              onBookmarkToggle={() => {
+                if (bookmarkSet.isPending) return;
+                bookmarkSet.mutate({
+                  topicId: t.id,
+                  bookmarked: !bookmarkedSet.has(t.id),
+                });
+              }}
+              canBookmark={!!viewerUser}
+              bookmarkDisabled={
+                bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
               }
-            }}
-            canEdit={!!viewerUser}
-            bookmarked={bookmarkedSet.has(t.id)}
-            onBookmarkToggle={() => {
-              if (bookmarkSet.isPending) return;
-              bookmarkSet.mutate({
-                topicId: t.id,
-                bookmarked: !bookmarkedSet.has(t.id),
-              });
-            }}
-            canBookmark={!!viewerUser}
-            bookmarkDisabled={
-              bookmarkSet.isPending && bookmarkUpdatingTopicId === t.id
-            }
-            canMarkExcitedToTeach={isTeacherLevel(displayLevel)}
-            excitedToTeach={excitedToTeachSetIds.has(t.id)}
-            onExcitedToTeachToggle={() => {
-              if (excitedToTeachSet.isPending) return;
-              excitedToTeachSet.mutate({
-                topicId: t.id,
-                excited: !excitedToTeachSetIds.has(t.id),
-              });
-            }}
-            excitedToTeachDisabled={
-              excitedToTeachSet.isPending && excitedUpdatingTopicId === t.id
-            }
-            isActive={activeTopicId === t.id}
-          />
+              canMarkExcitedToTeach={isTeacherLevel(displayLevel)}
+              excitedToTeach={excitedToTeachSetIds.has(t.id)}
+              onExcitedToTeachToggle={() => {
+                if (excitedToTeachSet.isPending) return;
+                excitedToTeachSet.mutate({
+                  topicId: t.id,
+                  excited: !excitedToTeachSetIds.has(t.id),
+                });
+              }}
+              excitedToTeachDisabled={
+                excitedToTeachSet.isPending && excitedUpdatingTopicId === t.id
+              }
+              isActive={activeTopicId === t.id}
+            />
           );
         })}
       </ul>

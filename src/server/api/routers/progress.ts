@@ -67,6 +67,9 @@ export const progressRouter = createTRPCRouter({
         isExcited: excitedSet.has(t.topicId),
       }));
 
-      return { user: targetUser, days: buildProgressDays(changes, currentCounts) };
+      return {
+        user: targetUser,
+        days: buildProgressDays(changes, currentCounts),
+      };
     }),
 });

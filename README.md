@@ -37,7 +37,7 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Optional deletion mode to also purge teaching-status history.
 - Topic detail shows "Related Topics" section with prerequisites and dependents (below "Add resource").
 - Header includes a link to the GitHub repository.
-- Header includes a Record button for seminar transcripts, with a per-device profile toggle stored in localStorage.
+- Header includes a Record button (`/record`) that records seminar audio in-browser via `MediaRecorder`, streaming chunks every second to OPFS through a worker so a crash or battery loss only loses the last second.
 - Test/staging deployments show a "Test env" badge with deploy date, commit link, and production URL.
 - Prerequisite network graph (`/graph`): clicking a node opens a sticky preview column on the right with a slide-in reveal; the column follows the page as you scroll and tucks up above the footer. On tablet+ it caps at 60% of the viewport and the graph gets matching right-padding so SVG content can scroll out from under it; on phones the preview takes over the screen. Selection is reflected in the URL (`?topic=<id>`) so browser back/forward walks selection history. Selected (orange), hovered (neutral), and idle nodes/edges use distinct color tiers.
 - Progress pages (`/progress/{userId}`) show a cumulative stacked chart of understanding levels over time, with a hover/click tooltip listing that day's per-level totals and topic transitions. User profiles link to the corresponding progress page; admins can view other users' progress there too.
@@ -61,20 +61,15 @@ pnpm i
 pnpm dev
 ```
 
-### Android tablet Otter app links
+### In-browser audio recording (`/record`)
 
-The header Record button is a normal HTTPS link to `https://otter.ai/home`.
+The header Record button opens `/record`, an in-browser recorder built on `MediaRecorder` + the Origin Private File System (OPFS). A dedicated Web Worker holds a `FileSystemSyncAccessHandle` and `flush()`es every chunk, so each 1s slice is durable on disk; the tab can crash or the battery can die and only the last second is lost.
 
-Android App Links can open verified website URLs in an installed app on Android 6+; otherwise the URL opens on the web. Otter publishes `https://otter.ai/.well-known/assetlinks.json` for the Play Store package `com.aisense.otter`. Otter's `apple-app-site-association` lists `/home`, `/my-notes`, `/all-notes`, `/my-agenda`, and `/newrecording`.
+Container/codec is auto-picked from what the browser supports (`audio/webm;codecs=opus` on Chrome/Firefox, `audio/mp4` on Safari). A Screen Wake Lock keeps the screen on while recording.
 
-Setup for seminar tablets:
+When the user taps **Stop**, the file stays in OPFS until they tap **Download**, which copies it to the device's `Downloads/` folder. From there the user uploads it to Google Drive (or any other destination).
 
-1. Install Otter from Google Play and sign in.
-2. In Firefox for Android, open menu -> Settings -> Advanced -> Open links in apps.
-3. Select `Always` or `Ask before opening`. Mozilla documents this setting as disabled by default.
-4. Tap the Record button in AFFINE Tech Tree and confirm any prompt to open Otter.
-
-Sources: [Android App Links](https://developer.android.com/training/app-links/about), [Otter asset links](https://otter.ai/.well-known/assetlinks.json), [Otter Apple app links](https://otter.ai/.well-known/apple-app-site-association), [Firefox for Android](https://support.mozilla.org/en-US/kb/set-firefox-android-open-links-native-apps).
+Browser support: requires `MediaRecorder`, `getUserMedia`, OPFS, and `FileSystemSyncAccessHandle`. Up-to-date Chrome / Edge / Firefox on Android, plus desktop equivalents, are supported. Other browsers see an explicit "not supported" message instead of a degraded path.
 
 ### Environment variables
 

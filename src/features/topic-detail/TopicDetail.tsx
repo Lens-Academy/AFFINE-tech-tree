@@ -442,40 +442,38 @@ export function TopicDetail({
             </section>
           )}
 
-          {viewerUser &&
-            teachers &&
-            teachers.length > 0 && (
-              <section className="mb-8">
-                <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
-                  People who can help
-                </h2>
-                <ul className="space-y-2">
-                  {teachers.map((t) => (
-                    <li key={t.userId}>
-                      <div className="flex items-center gap-2 text-sm text-zinc-300">
-                        <span>{t.name ?? "Anonymous"}</span>
-                        {t.excitedToTeach && (
-                          <TopicAffordanceIcon
-                            variant="read-only"
-                            kind="star"
-                            filled
-                            title="Excited to teach"
-                          />
-                        )}
-                        <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                          {getLevelLabel(t.level)}
+          {viewerUser && teachers && teachers.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
+                People who can help
+              </h2>
+              <ul className="space-y-2">
+                {teachers.map((t) => (
+                  <li key={t.userId}>
+                    <div className="flex items-center gap-2 text-sm text-zinc-300">
+                      <span>{t.name ?? "Anonymous"}</span>
+                      {t.excitedToTeach && (
+                        <TopicAffordanceIcon
+                          variant="read-only"
+                          kind="star"
+                          filled
+                          title="Excited to teach"
+                        />
+                      )}
+                      <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                        {getLevelLabel(t.level)}
+                      </span>
+                      {t.available && (
+                        <span className="rounded bg-orange-500/20 px-2 py-0.5 text-xs text-orange-400">
+                          Available
                         </span>
-                        {t.available && (
-                          <span className="rounded bg-orange-500/20 px-2 py-0.5 text-xs text-orange-400">
-                            Available
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section className="mb-8">
             <h2 className="mb-3 bg-clip-text text-lg font-semibold text-zinc-100">
