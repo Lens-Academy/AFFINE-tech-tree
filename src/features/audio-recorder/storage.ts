@@ -17,18 +17,13 @@ export function checkSupport(): OpfsSupport {
   if (!("storage" in navigator) || !navigator.storage.getDirectory) {
     return { ok: false, reason: "OPFS (navigator.storage) not available" };
   }
-  if (
-    typeof FileSystemFileHandle === "undefined" ||
-    !("createSyncAccessHandle" in FileSystemFileHandle.prototype)
-  ) {
-    return {
-      ok: false,
-      reason: "FileSystemFileHandle.createSyncAccessHandle not available",
-    };
-  }
   if (typeof Worker === "undefined") {
     return { ok: false, reason: "Web Workers not available" };
   }
+  // We can't reliably probe FileSystemSyncAccessHandle on the main thread —
+  // Firefox only exposes createSyncAccessHandle inside Workers. start() opens
+  // a worker before prompting for the mic, so unsupported environments still
+  // fail without a stray microphone permission prompt.
   if (typeof MediaRecorder === "undefined") {
     return { ok: false, reason: "MediaRecorder not available" };
   }
