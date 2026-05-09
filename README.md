@@ -1,6 +1,6 @@
 # AFFINE tech tree
 
-WIP web app for https://affi.ne/ seminar participants to track understanding of AI Alignment foundation topics.
+Web app https://learn.affi.ne/ for seminar participants to track understanding of AI Alignment foundation topics.
 
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
 
