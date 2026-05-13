@@ -13,6 +13,10 @@ case "$1" in
     # Build and push to Vercel production. Run after check + format:write.
     pnpm run deploy
     ;;
+  deploy:preview)
+    # Build and push to Vercel preview (non-production). Prints a unique preview URL.
+    pnpm run deploy:preview
+    ;;
   migrate)
     # Apply pending Drizzle migrations to the DB (requires DATABASE_URL in env).
     # Run after pulling schema changes that include new migration files.
@@ -37,7 +41,8 @@ case "$1" in
     echo "Commands:"
     echo "  check    — TypeScript + ESLint. Run before deploying."
     echo "  format   — Auto-format with Prettier. Run before deploying."
-    echo "  deploy   — Build and push to Vercel production. Run after check + format."
+    echo "  deploy          — Build and push to Vercel production. Run after check + format."
+  echo "  deploy:preview  — Build and push to Vercel preview (non-production). Prints a unique URL."
     echo "  migrate  — Apply pending DB schema migrations. Run after pulling new migration files."
     echo "  dbsync   — Sync DB from Google Sheets. Run when spreadsheet content changes."
     exit 1

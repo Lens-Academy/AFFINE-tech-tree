@@ -331,10 +331,10 @@ export function TopicList() {
 }
 
 const LEVEL_SORT_WEIGHT: Record<UnderstandingLevel, number> = {
-  unfamiliar: 0,
-  vague: 1,
-  can_teach: 2,
-  advanced_questions_welcome: 3,
+  advanced_questions_welcome: 0,
+  can_teach: 1,
+  vague: 2,
+  unfamiliar: 3,
 };
 
 function sortTopicsByBookmarkAndUnderstanding<T extends { id: number }>(
@@ -349,10 +349,10 @@ function sortTopicsByBookmarkAndUnderstanding<T extends { id: number }>(
 
     const leftWeight = levelByTopic.has(left.id)
       ? LEVEL_SORT_WEIGHT[levelByTopic.get(left.id)!]
-      : Number.MAX_SAFE_INTEGER;
+      : -1;
     const rightWeight = levelByTopic.has(right.id)
       ? LEVEL_SORT_WEIGHT[levelByTopic.get(right.id)!]
-      : Number.MAX_SAFE_INTEGER;
+      : -1;
     if (leftWeight !== rightWeight) return leftWeight - rightWeight;
 
     // Keep backend/DB order for topics with equal sort priority.
