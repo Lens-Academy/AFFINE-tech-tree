@@ -140,9 +140,7 @@ function SuggestLink({ disabled }: { disabled: boolean }) {
   return (
     <a
       href={SUGGESTIONS_SHEET_URL}
-      {...(isDesktop
-        ? { target: "_blank", rel: "noopener noreferrer" }
-        : {})}
+      {...(isDesktop ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className={SUGGEST_BASE}
       title="Suggest edits google sheet"
     >
