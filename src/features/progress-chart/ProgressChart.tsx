@@ -14,7 +14,6 @@ import {
 import { type RouterOutputs } from "~/utils/api";
 
 type ProgressDay = RouterOutputs["progress"]["overTime"]["days"][number];
-type ProgressChange = ProgressDay["changes"][number];
 type BarDatum = {
   date: string;
   cx: number; // center x in SVG inner coords

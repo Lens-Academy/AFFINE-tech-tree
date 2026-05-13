@@ -1,5 +1,4 @@
 import {
-  emptyUnderstandingLevelCounts,
   type UnderstandingLevel,
   type UnderstandingLevelCounts,
 } from "~/shared/understandingLevels";
