@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { GITHUB_REPO } from "~/shared/constants";
 import { formatDate } from "~/shared/formatDate";
-const PRODUCTION_URL = "https://affi.ne";
+const PRODUCTION_URL = "https://learn.affi.ne";
 
 function isTestEnv() {
   if (typeof window === "undefined") return false;

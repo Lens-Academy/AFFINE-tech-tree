@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { AvailabilityCircle } from "~/components/AvailabilityCircle";
 import { AvailabilityToggle } from "~/components/AvailabilityToggle";
-import { OtterLinkToggle } from "~/components/OtterLinkToggle";
 import { PageLayout } from "~/components/PageLayout";
 import { StarIcon } from "~/components/StarIcon";
 import { INFO_PANE_VERSIONS } from "~/shared/infoPane";
@@ -428,7 +427,6 @@ export default function UserProfilePage() {
                 {viewingSelf && (
                   <>
                     <AvailabilityToggle />
-                    <OtterLinkToggle />
                     <button
                       type="button"
                       onClick={() => void signOut()}

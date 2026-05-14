@@ -3,20 +3,18 @@ import Link from "next/link";
 import { AvailabilityCircle } from "~/components/AvailabilityCircle";
 import {
   NavTab,
+  NAV_TAB_ACTIVE,
   NAV_TAB_INACTIVE,
+  NAV_TAB_TEXT_ACTIVE,
   NAV_TAB_TEXT_INACTIVE,
 } from "~/components/NavTab";
 import { NotificationBell } from "~/components/NotificationBell";
 import { TestEnvBadge } from "~/components/TestEnvBadge";
-import { useLocalStorageBoolean } from "~/hooks/useLocalStorageBoolean";
 import { useActivePath } from "~/hooks/useActivePath";
 import { useSignOut } from "~/hooks/useSignOut";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
-import { OTTER_LINK_VISIBLE_STORAGE_KEY } from "~/shared/devicePreferences";
 import { GITHUB_REPO } from "~/shared/constants";
 import { api } from "~/utils/api";
-
-const OTTER_URL = "https://otter.ai/home";
 
 function GitHubLink() {
   return (
@@ -34,22 +32,14 @@ function GitHubLink() {
   );
 }
 
-function OtterLink() {
-  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) return;
-
-    event.preventDefault();
-    window.open(OTTER_URL, "_blank", "noopener,noreferrer");
-  };
-
+function RecordLink({ isActive }: { isActive: boolean }) {
   return (
-    <a
-      href={OTTER_URL}
-      onClick={handleClick}
-      className={NAV_TAB_INACTIVE}
-      title="Record transcript in Otter"
-      aria-label="Record transcript in Otter"
+    <Link
+      href="/record"
+      className={isActive ? NAV_TAB_ACTIVE : NAV_TAB_INACTIVE}
+      aria-current={isActive ? "page" : undefined}
+      title="Record seminar audio in this browser"
+      aria-label="Record seminar audio"
     >
       <span className="flex items-center gap-1.5">
         <svg
@@ -67,11 +57,13 @@ function OtterLink() {
           <path d="M10 14.5V17.5" />
           <path d="M7 17.5h6" />
         </svg>
-        <span className={`${NAV_TAB_TEXT_INACTIVE} hidden sm:inline`}>
+        <span
+          className={`${isActive ? NAV_TAB_TEXT_ACTIVE : NAV_TAB_TEXT_INACTIVE} hidden sm:inline`}
+        >
           Record
         </span>
       </span>
-    </a>
+    </Link>
   );
 }
 
@@ -80,10 +72,6 @@ export function AuthHeader() {
   const { rawUser, viewerUser, isPending, isPendingApproval, isAdmin } =
     useViewerAccess();
   const signOut = useSignOut();
-  const [showOtterLink, , otterPreferenceLoaded] = useLocalStorageBoolean(
-    OTTER_LINK_VISIBLE_STORAGE_KEY,
-    true,
-  );
   const availability = api.availability.getMyStatus.useQuery(undefined, {
     enabled: !!viewerUser,
   });
@@ -95,13 +83,14 @@ export function AuthHeader() {
   if (viewerUser) {
     const isOwnProfile = activePath === `/user/${viewerUser.id}`;
     const isAdminRoute = activePath.startsWith("/admin");
+    const isRecordRoute = activePath === "/record";
     return (
       <div className="ml-auto flex flex-nowrap items-center">
         <TestEnvBadge />
         <GitHubLink />
         <NotificationBell />
         <div className="ml-2 flex *:-ml-px *:first:ml-0 *:first:rounded-l-lg *:last:rounded-r-lg">
-          {otterPreferenceLoaded && showOtterLink && <OtterLink />}
+          <RecordLink isActive={isRecordRoute} />
           {isAdmin && (
             <NavTab href="/admin" isActive={isAdminRoute}>
               Admin
