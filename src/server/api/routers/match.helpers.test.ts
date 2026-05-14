@@ -78,8 +78,8 @@ describe("compareMatchEntries", () => {
 
     expect(sorted).toEqual([
       "advanced can-teach both excited",
-      "bookmarked",
       "both starred",
+      "bookmarked",
       "teacher starred",
       "learner starred",
       "advanced",

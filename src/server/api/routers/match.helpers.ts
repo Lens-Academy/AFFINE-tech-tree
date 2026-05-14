@@ -58,6 +58,12 @@ export function compareMatchEntries(
     return advancedCanTeachRankA - advancedCanTeachRankB;
   }
 
+  const aBothStarred = a.teacherStarred && a.learnerStarred;
+  const bBothStarred = b.teacherStarred && b.learnerStarred;
+  if (aBothStarred !== bBothStarred) {
+    return aBothStarred ? -1 : 1;
+  }
+
   if (a.learnerBookmarked !== b.learnerBookmarked) {
     return a.learnerBookmarked ? -1 : 1;
   }
