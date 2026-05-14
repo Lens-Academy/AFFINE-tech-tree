@@ -187,6 +187,11 @@ export function TopicDetail({
       { topicId: id, level: currentLevel ?? null },
       { enabled: hasResolvedViewerStatus && !Number.isNaN(id) },
     );
+  const { data: latestResourceFeedback } =
+    api.feedback.getLatestResourceFeedbackByTopic.useQuery(
+      { topicId: id },
+      { enabled: hasResolvedViewerStatus && !Number.isNaN(id) },
+    );
   const ensureManualTransition = useAppMutation(
     (
       opts: Exclude<
@@ -219,9 +224,13 @@ export function TopicDetail({
           topicId: input.topicId,
           level: currentLevel ?? null,
         };
+        const latestResourceFeedbackInput = { topicId: input.topicId };
         await Promise.all([
           utils.topic.getById.cancel({ id: input.topicId }),
           utils.feedback.getManualFeedbackByTopic.cancel(manualFeedbackInput),
+          utils.feedback.getLatestResourceFeedbackByTopic.cancel(
+            latestResourceFeedbackInput,
+          ),
         ]);
 
         const previousTopic = utils.topic.getById.getData({
@@ -229,8 +238,12 @@ export function TopicDetail({
         });
         const previousManualFeedback =
           utils.feedback.getManualFeedbackByTopic.getData(manualFeedbackInput);
+        const previousLatestResourceFeedback =
+          utils.feedback.getLatestResourceFeedbackByTopic.getData(
+            latestResourceFeedbackInput,
+          );
         const previousRating =
-          previousManualFeedback?.feedbackItems.find(
+          previousLatestResourceFeedback?.find(
             (item) =>
               item.type === "resource" &&
               item.topicLinkId === input.topicLinkId,
@@ -257,6 +270,42 @@ export function TopicDetail({
           } satisfies TopicDetailData;
         });
 
+        if (previousLatestResourceFeedback) {
+          utils.feedback.getLatestResourceFeedbackByTopic.setData(
+            latestResourceFeedbackInput,
+            (old) => {
+              if (!old) return old;
+              const existing = old.find(
+                (item) =>
+                  item.type === "resource" &&
+                  item.topicLinkId === input.topicLinkId,
+              );
+              if (existing) {
+                return old.map((item) =>
+                  item.type === "resource" &&
+                  item.topicLinkId === input.topicLinkId
+                    ? {
+                        ...item,
+                        helpfulnessRating: input.helpfulnessRating ?? null,
+                      }
+                    : item,
+                );
+              }
+              if (input.helpfulnessRating == null) return old;
+              return [
+                ...old,
+                {
+                  id: input.id ?? -input.topicLinkId,
+                  type: "resource" as const,
+                  topicLinkId: input.topicLinkId,
+                  helpfulnessRating: input.helpfulnessRating,
+                  comment: null,
+                },
+              ];
+            },
+          );
+        }
+
         if (previousManualFeedback) {
           utils.feedback.getManualFeedbackByTopic.setData(
             manualFeedbackInput,
@@ -281,8 +330,10 @@ export function TopicDetail({
 
         return {
           manualFeedbackInput,
+          latestResourceFeedbackInput,
           previousTopic,
           previousManualFeedback,
+          previousLatestResourceFeedback,
         };
       },
       onError: (error, _vars, ctx) => {
@@ -292,8 +343,10 @@ export function TopicDetail({
                 topicId: number;
                 level: UnderstandingLevel | null;
               };
+              latestResourceFeedbackInput: { topicId: number };
               previousTopic?: TopicDetailData;
               previousManualFeedback?: ManualFeedbackData;
+              previousLatestResourceFeedback?: LatestResourceFeedbackData;
             }
           | undefined;
         if (context) {
@@ -305,17 +358,25 @@ export function TopicDetail({
             context.manualFeedbackInput,
             context.previousManualFeedback,
           );
+          utils.feedback.getLatestResourceFeedbackByTopic.setData(
+            context.latestResourceFeedbackInput,
+            context.previousLatestResourceFeedback,
+          );
         }
         showGlobalErrorToast(
           getErrorMessage(error, "Failed to save resource feedback."),
         );
       },
-      refresh: [() => utils.feedback.getManualFeedbackByTopic.invalidate()],
+      refresh: [
+        () => utils.feedback.getManualFeedbackByTopic.invalidate(),
+        () => utils.feedback.getLatestResourceFeedbackByTopic.invalidate(),
+      ],
     },
   );
   const canRateResources =
     hasResolvedViewerStatus &&
     manualFeedback !== undefined &&
+    latestResourceFeedback !== undefined &&
     !ensureManualTransition.isPending &&
     !upsertManualFeedback.isPending;
   const showResourceFeedbackControls = !!viewerUser;
@@ -483,6 +544,7 @@ export function TopicDetail({
                       canRate={canRateResources}
                       showCommentControl={showResourceFeedbackControls}
                       manualFeedbackItems={manualFeedback?.feedbackItems ?? []}
+                      latestResourceFeedbackItems={latestResourceFeedback ?? []}
                       onUpsert={async (input) => {
                         let transitionId = manualFeedback?.transitionId ?? null;
                         if (transitionId == null) {
@@ -672,6 +734,8 @@ function RelatedTopicChip({
 type ManualFeedbackItem =
   RouterOutputs["feedback"]["getManualFeedbackByTopic"]["feedbackItems"][number];
 type ManualFeedbackData = RouterOutputs["feedback"]["getManualFeedbackByTopic"];
+type LatestResourceFeedbackData =
+  RouterOutputs["feedback"]["getLatestResourceFeedbackByTopic"];
 type TopicDetailData = NonNullable<RouterOutputs["topic"]["getById"]>;
 
 type ManualResourceUpsertInput = {
@@ -689,6 +753,7 @@ function InlineRateableResource({
   canRate,
   showCommentControl,
   manualFeedbackItems,
+  latestResourceFeedbackItems,
   onUpsert,
 }: {
   link: {
@@ -701,19 +766,23 @@ function InlineRateableResource({
   canRate: boolean;
   showCommentControl: boolean;
   manualFeedbackItems: ManualFeedbackItem[];
+  latestResourceFeedbackItems: LatestResourceFeedbackData;
   onUpsert: (
     input: Omit<ManualResourceUpsertInput, "topicId" | "transitionId">,
   ) => Promise<void>;
 }) {
-  const existing = manualFeedbackItems.find(
+  const manualExisting = manualFeedbackItems.find(
+    (fi) => fi.type === "resource" && fi.topicLinkId === link.id,
+  );
+  const latestExisting = latestResourceFeedbackItems.find(
     (fi) => fi.type === "resource" && fi.topicLinkId === link.id,
   );
   const [showComment, setShowComment] = useState(false);
   const [rating, setRating] = useState<HelpfulnessRating | null>(null);
   const [comment, setComment] = useState("");
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
-  const existingRating = existing?.helpfulnessRating ?? null;
-  const existingComment = existing?.comment ?? "";
+  const existingRating = latestExisting?.helpfulnessRating ?? null;
+  const existingComment = latestExisting?.comment ?? "";
 
   useEffect(() => {
     if (hasLocalEdits) return;
@@ -738,7 +807,7 @@ function InlineRateableResource({
     comment?: string | null;
   }) => {
     await onUpsert({
-      id: existing?.id,
+      id: manualExisting?.id,
       type: "resource",
       topicLinkId: link.id,
       ...patch,

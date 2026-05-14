@@ -31,6 +31,7 @@ export type ResourceVoteRow = {
   userId: string;
   topicLinkId: number | null;
   rating: HelpfulnessRating | null;
+  comment?: string | null;
   createdAt: Date;
   updatedAt: Date | null;
 };
@@ -42,6 +43,7 @@ export function selectLatestResourceVotes(rows: ResourceVoteRow[]) {
       id: number;
       topicLinkId: number;
       rating: HelpfulnessRating | null;
+      comment: string | null;
       timestamp: number;
     }
   >();
@@ -62,6 +64,7 @@ export function selectLatestResourceVotes(rows: ResourceVoteRow[]) {
       id: row.id,
       topicLinkId: row.topicLinkId,
       rating: row.rating,
+      comment: row.comment ?? null,
       timestamp,
     });
   }
