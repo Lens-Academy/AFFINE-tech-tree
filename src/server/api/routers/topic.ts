@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { TEACHER_LEVELS } from "~/shared/understandingLevels";
-import { compareTeachers } from "./topic.helpers";
+import { compareTeachers, selectLatestResourceVotes } from "./topic.helpers";
 import {
   HELPFULNESS_RATINGS,
   type HelpfulnessRating,
@@ -96,12 +96,16 @@ export const topicRouter = createTRPCRouter({
       const countsByLink = new Map<number, RatingCounts>();
       if (linkIds.length > 0) {
         // One vote per (user, topicLink). A user may have rated the same link
-        // across multiple level transitions — keep the latest row by id.
+        // across multiple level transitions. Updates to an existing row are also
+        // new votes, so recency must use timestamps before falling back to id.
         const rows = await ctx.db
           .select({
+            id: feedbackItem.id,
             topicLinkId: feedbackItem.topicLinkId,
             userId: feedbackItem.userId,
             rating: feedbackItem.helpfulnessRating,
+            createdAt: feedbackItem.createdAt,
+            updatedAt: feedbackItem.updatedAt,
           })
           .from(feedbackItem)
           .where(
@@ -109,20 +113,8 @@ export const topicRouter = createTRPCRouter({
               eq(feedbackItem.type, "resource"),
               inArray(feedbackItem.topicLinkId, linkIds),
             ),
-          )
-          .orderBy(feedbackItem.id);
-        const latestVote = new Map<
-          string,
-          { topicLinkId: number; rating: HelpfulnessRating | null }
-        >();
-        for (const row of rows) {
-          if (row.topicLinkId == null) continue;
-          latestVote.set(`${row.userId}:${row.topicLinkId}`, {
-            topicLinkId: row.topicLinkId,
-            rating: row.rating,
-          });
-        }
-        for (const { topicLinkId, rating } of latestVote.values()) {
+          );
+        for (const { topicLinkId, rating } of selectLatestResourceVotes(rows)) {
           if (rating == null) continue;
           let counts = countsByLink.get(topicLinkId);
           if (!counts) {

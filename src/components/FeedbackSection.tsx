@@ -559,7 +559,7 @@ function UnifiedItemRow({
               onClick={() => setShowComment((v) => !v)}
               className={`w-6 shrink-0 rounded p-1 transition ${
                 hasComment
-                  ? "text-orange-300 hover:bg-zinc-700/60"
+                  ? "text-orange-500 hover:bg-zinc-700/60"
                   : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
               }`}
               title={commentTooltip}

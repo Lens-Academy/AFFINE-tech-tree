@@ -5,13 +5,13 @@ import { CommentIcon } from "~/components/CommentIcon";
 import {
   DebouncedTextarea,
   FeedbackSection,
-  HelpfulnessSelect,
 } from "~/components/FeedbackSection";
 import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import { UnderstandingLevelCheckboxes } from "~/components/UnderstandingLevelCheckboxes";
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
+import { getErrorMessage, showGlobalErrorToast } from "~/lib/globalErrorToast";
 import type { HelpfulnessRating } from "~/shared/feedbackTypes";
 import { HELPFULNESS_RATINGS } from "~/shared/feedbackTypes";
 import type { UnderstandingLevel } from "~/shared/understandingLevels";
@@ -142,9 +142,12 @@ export function TopicDetail({
     { topicId: id },
     { enabled: !!viewerUser && !Number.isNaN(id) },
   );
-  const [rateMode, setRateMode] = useState(false);
-  const [manualRateLevel, setManualRateLevel] =
-    useState<UnderstandingLevel | null>(null);
+  const serverLevel =
+    topic && statuses
+      ? statuses.find((s) => s.topicId === topic.id)?.level
+      : undefined;
+  const currentLevel = serverLevel;
+  const hasResolvedViewerStatus = !!viewerUser && !!statuses;
   const [resourceSuggestionInput, setResourceSuggestionInput] = useState("");
   const [resourceSuggestionMessage, setResourceSuggestionMessage] = useState<{
     type: "success" | "error";
@@ -181,8 +184,8 @@ export function TopicDetail({
   );
   const { data: manualFeedback } =
     api.feedback.getManualFeedbackByTopic.useQuery(
-      { topicId: id, level: manualRateLevel },
-      { enabled: !!viewerUser && !Number.isNaN(id) && rateMode },
+      { topicId: id, level: currentLevel ?? null },
+      { enabled: hasResolvedViewerStatus && !Number.isNaN(id) },
     );
   const ensureManualTransition = useAppMutation(
     (
@@ -193,9 +196,7 @@ export function TopicDetail({
         undefined
       >,
     ) => api.feedback.ensureManualFeedbackTransition.useMutation(opts),
-    {
-      refresh: [() => utils.feedback.getManualFeedbackByTopic.invalidate()],
-    },
+    {},
   );
   const upsertManualFeedback = useAppMutation(
     (
@@ -205,24 +206,124 @@ export function TopicDetail({
       >,
     ) => api.feedback.upsertFeedbackItem.useMutation(opts),
     {
-      refresh: [
-        () => utils.feedback.getManualFeedbackByTopic.invalidate(),
-        () => utils.feedback.getTransitionsByTopic.invalidate({ topicId: id }),
-        () => utils.feedback.getRecentTransitions.invalidate(),
-        () => utils.topic.getById.invalidate({ id }),
-      ],
+      onMutate: async (vars) => {
+        const input = vars as ManualResourceUpsertInput;
+        if (
+          input.type !== "resource" ||
+          input.helpfulnessRating === undefined
+        ) {
+          return;
+        }
+
+        const manualFeedbackInput = {
+          topicId: input.topicId,
+          level: currentLevel ?? null,
+        };
+        await Promise.all([
+          utils.topic.getById.cancel({ id: input.topicId }),
+          utils.feedback.getManualFeedbackByTopic.cancel(manualFeedbackInput),
+        ]);
+
+        const previousTopic = utils.topic.getById.getData({
+          id: input.topicId,
+        });
+        const previousManualFeedback =
+          utils.feedback.getManualFeedbackByTopic.getData(manualFeedbackInput);
+        const previousRating =
+          previousManualFeedback?.feedbackItems.find(
+            (item) =>
+              item.type === "resource" &&
+              item.topicLinkId === input.topicLinkId,
+          )?.helpfulnessRating ?? null;
+
+        utils.topic.getById.setData({ id: input.topicId }, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            topicLinks: old.topicLinks.map((link) => {
+              if (link.id !== input.topicLinkId) return link;
+              const ratingCounts = { ...link.ratingCounts };
+              if (previousRating) {
+                ratingCounts[previousRating] = Math.max(
+                  0,
+                  ratingCounts[previousRating] - 1,
+                );
+              }
+              if (input.helpfulnessRating) {
+                ratingCounts[input.helpfulnessRating] += 1;
+              }
+              return { ...link, ratingCounts };
+            }),
+          } satisfies TopicDetailData;
+        });
+
+        if (previousManualFeedback) {
+          utils.feedback.getManualFeedbackByTopic.setData(
+            manualFeedbackInput,
+            (old) => {
+              if (!old) return old;
+              if (old.transitionId === null) return old;
+              return {
+                ...old,
+                feedbackItems: old.feedbackItems.map((item) =>
+                  item.type === "resource" &&
+                  item.topicLinkId === input.topicLinkId
+                    ? {
+                        ...item,
+                        helpfulnessRating: input.helpfulnessRating ?? null,
+                      }
+                    : item,
+                ),
+              };
+            },
+          );
+        }
+
+        return {
+          manualFeedbackInput,
+          previousTopic,
+          previousManualFeedback,
+        };
+      },
+      onError: (error, _vars, ctx) => {
+        const context = ctx as
+          | {
+              manualFeedbackInput: {
+                topicId: number;
+                level: UnderstandingLevel | null;
+              };
+              previousTopic?: TopicDetailData;
+              previousManualFeedback?: ManualFeedbackData;
+            }
+          | undefined;
+        if (context) {
+          utils.topic.getById.setData(
+            { id: context.manualFeedbackInput.topicId },
+            context.previousTopic,
+          );
+          utils.feedback.getManualFeedbackByTopic.setData(
+            context.manualFeedbackInput,
+            context.previousManualFeedback,
+          );
+        }
+        showGlobalErrorToast(
+          getErrorMessage(error, "Failed to save resource feedback."),
+        );
+      },
+      refresh: [() => utils.feedback.getManualFeedbackByTopic.invalidate()],
     },
   );
+  const canRateResources =
+    hasResolvedViewerStatus &&
+    manualFeedback !== undefined &&
+    !ensureManualTransition.isPending &&
+    !upsertManualFeedback.isPending;
+  const showResourceFeedbackControls = !!viewerUser;
   const isBookmarked = topic ? (bookmarkedIds ?? []).includes(topic.id) : false;
   const isExcitedToTeach = topic
     ? (excitedToTeachIds ?? []).includes(topic.id)
     : false;
 
-  const serverLevel =
-    topic && statuses
-      ? statuses.find((s) => s.topicId === topic.id)?.level
-      : undefined;
-  const currentLevel = serverLevel;
   // Un-starring is always allowed (cleans up stale records after a level downgrade);
   // only new excited-to-teach marks require a teacher level.
   const starDisabledReason =
@@ -232,19 +333,8 @@ export function TopicDetail({
   const isTopicLoading = !Number.isNaN(id) && isLoading;
   const isTopicMissing = !isTopicLoading && !topic;
 
-  useEffect(() => {
-    if (!rateMode) return;
-    const normalizedCurrentLevel = currentLevel ?? null;
-    if (normalizedCurrentLevel !== manualRateLevel) {
-      setRateMode(false);
-      setManualRateLevel(null);
-    }
-  }, [rateMode, currentLevel, manualRateLevel]);
-
   // Reset transient UI when navigating between topics (e.g. inside preview pane).
   useEffect(() => {
-    setRateMode(false);
-    setManualRateLevel(null);
     setResourceSuggestionInput("");
     setResourceSuggestionMessage(null);
   }, [topicId]);
@@ -366,48 +456,21 @@ export function TopicDetail({
                 <h2 className="bg-clip-text text-lg font-semibold text-zinc-100">
                   Resources
                 </h2>
-                {viewerUser && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRateMode((v) => {
-                        const next = !v;
-                        if (next) {
-                          setManualRateLevel(currentLevel ?? null);
-                        }
-                        return next;
-                      });
-                    }}
-                    className={`rounded p-1 transition ${
-                      rateMode
-                        ? "text-orange-400 hover:bg-zinc-800"
-                        : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                    }`}
-                    title={rateMode ? "Exit rating mode" : "Rate resources"}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="h-4 w-4"
-                    >
-                      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-                    </svg>
-                  </button>
-                )}
                 <div className="flex-1" />
-                {!rateMode && (
-                  <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
-                    {HELPFULNESS_RATINGS.map((r) => (
-                      <span
-                        key={r}
-                        className="w-4 text-center"
-                        title={HELPFULNESS_RATING_HEADER_TITLES[r]}
-                      >
-                        {HELPFULNESS_RATING_GLYPHS[r]}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <div className="flex shrink-0 items-center gap-0.5 font-mono text-xs text-zinc-500">
+                  {HELPFULNESS_RATINGS.map((r) => (
+                    <span
+                      key={r}
+                      className="h-4 w-4 text-center leading-4"
+                      title={HELPFULNESS_RATING_HEADER_TITLES[r]}
+                    >
+                      {HELPFULNESS_RATING_GLYPHS[r]}
+                    </span>
+                  ))}
+                  {showResourceFeedbackControls && (
+                    <span className="h-4 w-6" aria-hidden="true" />
+                  )}
+                </div>
               </div>
               {topic.guidance && (
                 <p className="mb-3 text-sm text-zinc-400">{topic.guidance}</p>
@@ -417,7 +480,8 @@ export function TopicDetail({
                   <li key={link.id}>
                     <InlineRateableResource
                       link={link}
-                      rateMode={rateMode}
+                      canRate={canRateResources}
+                      showCommentControl={showResourceFeedbackControls}
                       manualFeedbackItems={manualFeedback?.feedbackItems ?? []}
                       onUpsert={async (input) => {
                         let transitionId = manualFeedback?.transitionId ?? null;
@@ -425,7 +489,7 @@ export function TopicDetail({
                           const created =
                             await ensureManualTransition.mutateAsync({
                               topicId: id,
-                              level: manualRateLevel,
+                              level: currentLevel ?? null,
                             });
                           transitionId = created.transitionId;
                         }
@@ -607,6 +671,8 @@ function RelatedTopicChip({
 
 type ManualFeedbackItem =
   RouterOutputs["feedback"]["getManualFeedbackByTopic"]["feedbackItems"][number];
+type ManualFeedbackData = RouterOutputs["feedback"]["getManualFeedbackByTopic"];
+type TopicDetailData = NonNullable<RouterOutputs["topic"]["getById"]>;
 
 type ManualResourceUpsertInput = {
   topicId: number;
@@ -620,7 +686,8 @@ type ManualResourceUpsertInput = {
 
 function InlineRateableResource({
   link,
-  rateMode,
+  canRate,
+  showCommentControl,
   manualFeedbackItems,
   onUpsert,
 }: {
@@ -631,7 +698,8 @@ function InlineRateableResource({
     comment: string | null;
     ratingCounts: Record<HelpfulnessRating, number>;
   };
-  rateMode: boolean;
+  canRate: boolean;
+  showCommentControl: boolean;
   manualFeedbackItems: ManualFeedbackItem[];
   onUpsert: (
     input: Omit<ManualResourceUpsertInput, "topicId" | "transitionId">,
@@ -644,19 +712,24 @@ function InlineRateableResource({
   const [rating, setRating] = useState<HelpfulnessRating | null>(null);
   const [comment, setComment] = useState("");
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
+  const existingRating = existing?.helpfulnessRating ?? null;
+  const existingComment = existing?.comment ?? "";
 
   useEffect(() => {
     if (hasLocalEdits) return;
-    setRating(existing?.helpfulnessRating ?? null);
-    setComment(existing?.comment ?? "");
-    setShowComment(!!existing?.comment);
-  }, [existing, hasLocalEdits]);
+    setRating(existingRating);
+    setComment(existingComment);
+  }, [existingRating, existingComment, hasLocalEdits]);
 
   useEffect(() => {
-    if (!rateMode) {
+    if (
+      hasLocalEdits &&
+      rating === existingRating &&
+      comment === existingComment
+    ) {
       setHasLocalEdits(false);
     }
-  }, [rateMode]);
+  }, [comment, existingComment, existingRating, hasLocalEdits, rating]);
 
   const hasComment = comment.trim().length > 0;
 
@@ -685,62 +758,87 @@ function InlineRateableResource({
     <span className="leading-relaxed text-zinc-300">{link.title}</span>
   );
 
-  if (!rateMode) {
-    return (
-      <div className="space-y-0.5">
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">{linkEl}</div>
-          <div className="flex shrink-0 items-center font-mono text-xs text-zinc-500">
-            {HELPFULNESS_RATINGS.map((r) => {
-              const count = link.ratingCounts[r];
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{linkEl}</div>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 font-mono text-xs">
+          {HELPFULNESS_RATINGS.map((r) => {
+            const count = link.ratingCounts[r];
+            const isSelected = rating === r;
+            const baseClass =
+              "h-4 w-4 rounded border bg-transparent text-center leading-3.5 tabular-nums transition";
+            const selectedClass = "border-orange-500 text-orange-300";
+            const countClass =
+              count === 0
+                ? "border-transparent text-zinc-700"
+                : "border-transparent text-zinc-500";
+            const interactiveClass =
+              "hover:border-zinc-700 hover:text-zinc-300 focus-visible:border-zinc-700 focus-visible:ring-1 focus-visible:ring-orange-500/40 focus-visible:outline-none";
+            const className = `${baseClass} ${
+              isSelected
+                ? selectedClass
+                : canRate
+                  ? `${countClass} ${interactiveClass}`
+                  : countClass
+            }`;
+
+            if (!canRate) {
               return (
                 <span
                   key={r}
-                  className={`w-4 text-center tabular-nums ${
-                    count === 0 ? "text-zinc-700" : ""
-                  }`}
+                  className={className}
                   title={HELPFULNESS_RATING_HEADER_TITLES[r]}
                 >
                   {count}
                 </span>
               );
-            })}
-          </div>
-        </div>
-        {link.comment && (
-          <p className="text-xs text-zinc-500 italic">{link.comment}</p>
-        )}
-      </div>
-    );
-  }
+            }
 
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex-1 truncate">{linkEl}</div>
-        <div className="ml-auto flex items-center gap-1">
-          <HelpfulnessSelect
-            value={rating}
-            onChange={(next) => {
-              setHasLocalEdits(true);
-              setRating(next);
-              void doUpsert({ helpfulnessRating: next });
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => setShowComment((v) => !v)}
-            className={`w-6 shrink-0 rounded p-1 transition ${
-              hasComment
-                ? "text-orange-300 hover:bg-zinc-700/60"
-                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-            }`}
-            title={hasComment ? "Show comment" : "Add comment"}
-          >
-            <CommentIcon filled={hasComment} />
-          </button>
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => {
+                  const next = isSelected ? null : r;
+                  setHasLocalEdits(true);
+                  setRating(next);
+                  void doUpsert({ helpfulnessRating: next });
+                }}
+                className={className}
+                title={HELPFULNESS_RATING_HEADER_TITLES[r]}
+                aria-label={`Set resource rating: ${HELPFULNESS_RATING_HEADER_TITLES[r]}`}
+                aria-pressed={isSelected}
+              >
+                {count}
+              </button>
+            );
+          })}
+          {showCommentControl && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!canRate) return;
+                setShowComment((v) => !v);
+              }}
+              className={`w-6 shrink-0 rounded p-1 transition focus-visible:ring-1 focus-visible:ring-orange-500/40 focus-visible:outline-none ${
+                hasComment
+                  ? "text-orange-500 hover:bg-zinc-700/60"
+                  : canRate
+                    ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                    : "text-zinc-500"
+              }`}
+              title={hasComment ? "Show comment" : "Add comment"}
+              aria-disabled={!canRate}
+            >
+              <CommentIcon filled={hasComment} />
+            </button>
+          )}
         </div>
       </div>
+      {link.comment && (
+        <p className="text-xs text-zinc-500 italic">{link.comment}</p>
+      )}
       {showComment && (
         <DebouncedTextarea
           initialValue={comment}
