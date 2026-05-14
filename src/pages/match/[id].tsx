@@ -131,6 +131,12 @@ export default function MatchPage() {
                       const learnerLevelLabel = e.learnerLevel
                         ? getLevelShortLabel(e.learnerLevel)
                         : "No level set";
+                      const starTitle =
+                        e.teacherStarred && e.learnerStarred
+                          ? "Both are excited to teach"
+                          : e.teacherStarred
+                            ? `${e.teacherName} is excited to teach`
+                            : `${e.learnerName} is excited to teach`;
                       return (
                         <li key={e.topicId}>
                           <button
@@ -156,12 +162,12 @@ export default function MatchPage() {
                                 {e.name}
                               </span>
                               <div className="flex items-center gap-1">
-                                {e.teacherStarred && (
+                                {(e.teacherStarred || e.learnerStarred) && (
                                   <TopicAffordanceIcon
                                     variant="read-only"
                                     kind="star"
                                     filled
-                                    title={`${e.teacherName} is excited to teach`}
+                                    title={starTitle}
                                     className="rounded-lg p-1"
                                     groupHover
                                     active={isActive}

@@ -4,10 +4,8 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { matchRequest } from "~/server/db/schema";
-import {
-  isTeacherLevel,
-  type UnderstandingLevel,
-} from "~/shared/understandingLevels";
+import { type UnderstandingLevel } from "~/shared/understandingLevels";
+import { compareMatchEntries, getTeachingDirection } from "./match.helpers";
 
 function getMatchPairKey(leftUserId: string, rightUserId: string): string {
   return leftUserId < rightUserId
@@ -363,7 +361,9 @@ export const matchRouter = createTRPCRouter({
         learnerLevel: UnderstandingLevel | null;
         learnerBookmarked: boolean;
         teacherStarred: boolean;
+        learnerStarred: boolean;
         teacherAdvanced: boolean;
+        learnerCanTeach: boolean;
         importance: number;
         spreadsheetRow: number | null;
       };
@@ -375,15 +375,14 @@ export const matchRouter = createTRPCRouter({
       for (const t of topicsById.values()) {
         const viewerLevel = t.levels[viewerId];
         const otherLevel = t.levels[otherId];
-        const viewerTeacher = isTeacherLevel(viewerLevel);
-        const otherTeacher = isTeacherLevel(otherLevel);
-        // Must be exactly one teacher side.
-        if (viewerTeacher === otherTeacher) continue;
+        const teachingDirection = getTeachingDirection(viewerLevel, otherLevel);
+        if (!teachingDirection) continue;
 
-        const teacherId = viewerTeacher ? viewerId : otherId;
-        const learnerId = viewerTeacher ? otherId : viewerId;
-        const teacherLevel = (viewerTeacher ? viewerLevel : otherLevel)!;
-        const learnerLevel = (viewerTeacher ? otherLevel : viewerLevel) ?? null;
+        const viewerTeaches = teachingDirection === "left_teaches";
+        const teacherId = viewerTeaches ? viewerId : otherId;
+        const learnerId = viewerTeaches ? otherId : viewerId;
+        const teacherLevel = (viewerTeaches ? viewerLevel : otherLevel)!;
+        const learnerLevel = (viewerTeaches ? otherLevel : viewerLevel) ?? null;
 
         entries.push({
           topicId: t.topicId,
@@ -400,28 +399,15 @@ export const matchRouter = createTRPCRouter({
           learnerLevel,
           learnerBookmarked: bookmarkedBy.has(`${learnerId}:${t.topicId}`),
           teacherStarred: starredBy.has(`${teacherId}:${t.topicId}`),
+          learnerStarred: starredBy.has(`${learnerId}:${t.topicId}`),
           teacherAdvanced: teacherLevel === "advanced_questions_welcome",
+          learnerCanTeach: learnerLevel === "can_teach",
           importance: t.importance,
           spreadsheetRow: t.spreadsheetRow,
         });
       }
 
-      entries.sort((a, b) => {
-        if (a.learnerBookmarked !== b.learnerBookmarked) {
-          return a.learnerBookmarked ? -1 : 1;
-        }
-        if (a.teacherStarred !== b.teacherStarred) {
-          return a.teacherStarred ? -1 : 1;
-        }
-        if (a.teacherAdvanced !== b.teacherAdvanced) {
-          return a.teacherAdvanced ? -1 : 1;
-        }
-        if (a.importance !== b.importance) return b.importance - a.importance;
-        const ar = a.spreadsheetRow ?? Number.MAX_SAFE_INTEGER;
-        const br = b.spreadsheetRow ?? Number.MAX_SAFE_INTEGER;
-        if (ar !== br) return ar - br;
-        return a.name.localeCompare(b.name);
-      });
+      entries.sort(compareMatchEntries);
 
       const meetingPoint =
         match.meetX !== null && match.meetY !== null

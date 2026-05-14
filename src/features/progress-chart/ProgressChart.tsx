@@ -224,11 +224,9 @@ export function ProgressChart({
     const activeBar = bars.find((b) => b.date === activeKey);
     if (activeBar) {
       tooltipLeftPx =
-        layout.svgLeft +
-        (MARGIN.left + activeBar.cx - barWidth / 2) * svgScale;
+        layout.svgLeft + (MARGIN.left + activeBar.cx - barWidth / 2) * svgScale;
       tooltipRightPx =
-        layout.svgLeft +
-        (MARGIN.left + activeBar.cx + barWidth / 2) * svgScale;
+        layout.svgLeft + (MARGIN.left + activeBar.cx + barWidth / 2) * svgScale;
       tooltipVisible = true;
     }
   }
