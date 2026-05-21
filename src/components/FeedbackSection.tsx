@@ -13,6 +13,9 @@ import { api, type RouterOutputs } from "~/utils/api";
 import { CommentIcon } from "~/components/CommentIcon";
 
 type Transition = RouterOutputs["feedback"]["getTransitionsByTopic"][number];
+type LatestResourceFeedbackData =
+  RouterOutputs["feedback"]["getLatestResourceFeedbackByTopic"];
+type TopicDetailData = NonNullable<RouterOutputs["topic"]["getById"]>;
 
 type ExistingFeedbackItem = Transition["feedbackItems"][number];
 type UpsertFeedbackMutationOptions = Exclude<
@@ -78,7 +81,12 @@ export function FeedbackSection({
   );
 
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const expandedIdsRef = useRef(expandedIds);
   const seenTransitionIdsRef = useRef<Set<number> | null>(null);
+
+  useEffect(() => {
+    expandedIdsRef.current = expandedIds;
+  }, [expandedIds]);
 
   useEffect(() => {
     seenTransitionIdsRef.current = null;
@@ -114,16 +122,136 @@ export function FeedbackSection({
     (opts: UpsertFeedbackMutationOptions) =>
       api.feedback.upsertFeedbackItem.useMutation(opts),
     {
+      onMutate: async (vars) => {
+        const input = vars as {
+          topicId: number;
+          type: "resource" | "user" | "free_text";
+          topicLinkId?: number | null;
+          helpfulnessRating?: HelpfulnessRating | null;
+        };
+        if (
+          input.type !== "resource" ||
+          input.topicLinkId == null ||
+          input.helpfulnessRating === undefined
+        ) {
+          return;
+        }
+        const topicLinkId = input.topicLinkId;
+        const helpfulnessRating = input.helpfulnessRating;
+
+        const latestResourceFeedbackInput = { topicId: input.topicId };
+        await Promise.all([
+          utils.topic.getById.cancel({ id: input.topicId }),
+          utils.feedback.getLatestResourceFeedbackByTopic.cancel(
+            latestResourceFeedbackInput,
+          ),
+        ]);
+
+        const previousTopic = utils.topic.getById.getData({
+          id: input.topicId,
+        });
+        const previousLatestResourceFeedback =
+          utils.feedback.getLatestResourceFeedbackByTopic.getData(
+            latestResourceFeedbackInput,
+          );
+        const previousRating =
+          previousLatestResourceFeedback?.find(
+            (item) =>
+              item.type === "resource" && item.topicLinkId === topicLinkId,
+          )?.helpfulnessRating ?? null;
+
+        utils.topic.getById.setData({ id: input.topicId }, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            topicLinks: old.topicLinks.map((link) => {
+              if (link.id !== topicLinkId) return link;
+              const ratingCounts = { ...link.ratingCounts };
+              if (previousRating) {
+                ratingCounts[previousRating] = Math.max(
+                  0,
+                  ratingCounts[previousRating] - 1,
+                );
+              }
+              if (helpfulnessRating) {
+                ratingCounts[helpfulnessRating] += 1;
+              }
+              return { ...link, ratingCounts };
+            }),
+          } satisfies TopicDetailData;
+        });
+
+        if (previousLatestResourceFeedback) {
+          utils.feedback.getLatestResourceFeedbackByTopic.setData(
+            latestResourceFeedbackInput,
+            (old) => {
+              if (!old) return old;
+              const existing = old.find(
+                (item) =>
+                  item.type === "resource" && item.topicLinkId === topicLinkId,
+              );
+              if (existing) {
+                return old.map((item) =>
+                  item.type === "resource" && item.topicLinkId === topicLinkId
+                    ? {
+                        ...item,
+                        helpfulnessRating,
+                      }
+                    : item,
+                );
+              }
+              if (helpfulnessRating == null) return old;
+              return [
+                ...old,
+                {
+                  id: topicLinkId * -1,
+                  type: "resource" as const,
+                  topicLinkId,
+                  helpfulnessRating,
+                  comment: null,
+                },
+              ];
+            },
+          );
+        }
+
+        return {
+          latestResourceFeedbackInput,
+          previousTopic,
+          previousLatestResourceFeedback,
+        };
+      },
       onSuccess: () => {
         setFeedbackError(null);
       },
-      onError: (error) => {
+      onError: (error, _vars, ctx) => {
+        const context = ctx as
+          | {
+              latestResourceFeedbackInput: { topicId: number };
+              previousTopic?: TopicDetailData;
+              previousLatestResourceFeedback?: LatestResourceFeedbackData;
+            }
+          | undefined;
+        if (context) {
+          utils.topic.getById.setData(
+            { id: context.latestResourceFeedbackInput.topicId },
+            context.previousTopic,
+          );
+          utils.feedback.getLatestResourceFeedbackByTopic.setData(
+            context.latestResourceFeedbackInput,
+            context.previousLatestResourceFeedback,
+          );
+        }
         setFeedbackError(
           getMutationErrorMessage(error, "Failed to save feedback item."),
         );
       },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () =>
+          utils.feedback.getLatestResourceFeedbackByTopic.invalidate({
+            topicId,
+          }),
         () => utils.feedback.getRecentTransitions.invalidate(),
         () => utils.topic.getById.invalidate({ id: topicId }),
       ],
@@ -144,6 +272,10 @@ export function FeedbackSection({
       },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () =>
+          utils.feedback.getLatestResourceFeedbackByTopic.invalidate({
+            topicId,
+          }),
         () => utils.feedback.getRecentTransitions.invalidate(),
         () => utils.topic.getById.invalidate({ id: topicId }),
       ],
@@ -166,6 +298,10 @@ export function FeedbackSection({
       },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () =>
+          utils.feedback.getLatestResourceFeedbackByTopic.invalidate({
+            topicId,
+          }),
         () => utils.feedback.getRecentTransitions.invalidate(),
         () => utils.topic.getById.invalidate({ id: topicId }),
       ],
@@ -175,16 +311,43 @@ export function FeedbackSection({
     (opts: SkipTransitionFeedbackMutationOptions) =>
       api.feedback.skipTransitionFeedback.useMutation(opts),
     {
+      onMutate: (vars) => {
+        const input = vars as { transitionId: number };
+        const wasExpanded = expandedIdsRef.current.has(input.transitionId);
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(input.transitionId);
+          expandedIdsRef.current = next;
+          return next;
+        });
+        setFeedbackError(null);
+        return { transitionId: input.transitionId, wasExpanded };
+      },
       onSuccess: () => {
         setFeedbackError(null);
       },
-      onError: (error) => {
+      onError: (error, _vars, ctx) => {
+        const context = ctx as
+          | { transitionId: number; wasExpanded: boolean }
+          | undefined;
+        if (context?.wasExpanded) {
+          setExpandedIds((prev) => {
+            const next = new Set(prev);
+            next.add(context.transitionId);
+            expandedIdsRef.current = next;
+            return next;
+          });
+        }
         setFeedbackError(
           getMutationErrorMessage(error, "Failed to skip feedback."),
         );
       },
       refresh: [
         () => utils.feedback.getTransitionsByTopic.invalidate({ topicId }),
+        () =>
+          utils.feedback.getLatestResourceFeedbackByTopic.invalidate({
+            topicId,
+          }),
         () => utils.feedback.getRecentTransitions.invalidate(),
         () => utils.topic.getById.invalidate({ id: topicId }),
       ],
@@ -559,7 +722,7 @@ function UnifiedItemRow({
               onClick={() => setShowComment((v) => !v)}
               className={`w-6 shrink-0 rounded p-1 transition ${
                 hasComment
-                  ? "text-orange-300 hover:bg-zinc-700/60"
+                  ? "text-orange-500 hover:bg-zinc-700/60"
                   : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
               }`}
               title={commentTooltip}

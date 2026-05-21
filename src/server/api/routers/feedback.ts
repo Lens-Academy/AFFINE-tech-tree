@@ -8,6 +8,7 @@ import {
   helpfulnessRatingSchema,
   SKIP_FEEDBACK_SENTINEL,
 } from "~/shared/feedbackTypes";
+import { selectLatestResourceVotes } from "~/server/api/routers/topic.helpers";
 import {
   understandingLevelSchema,
   type UnderstandingLevel,
@@ -146,6 +147,43 @@ async function findLatestSameStateTransition(args: {
 }
 
 export const feedbackRouter = createTRPCRouter({
+  getLatestResourceFeedbackByTopic: protectedProcedure
+    .input(z.object({ topicId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db.query.feedbackItem.findMany({
+        where: (fi, { and, eq }) =>
+          and(
+            eq(fi.userId, ctx.session.user.id),
+            eq(fi.topicId, input.topicId),
+            eq(fi.type, "resource"),
+          ),
+        columns: {
+          id: true,
+          userId: true,
+          topicLinkId: true,
+          helpfulnessRating: true,
+          comment: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return [
+        ...selectLatestResourceVotes(
+          rows.map((row) => ({
+            ...row,
+            rating: row.helpfulnessRating,
+          })),
+        ),
+      ].map((item) => ({
+        id: item.id,
+        type: "resource" as const,
+        topicLinkId: item.topicLinkId,
+        helpfulnessRating: item.rating,
+        comment: item.comment,
+      }));
+    }),
+
   getManualFeedbackByTopic: protectedProcedure
     .input(
       z.object({
