@@ -37,7 +37,7 @@ export function TopicList() {
   const [excitedUpdatingTopicId, setExcitedUpdatingTopicId] = useState<
     number | null
   >(null);
-  const { viewerUser } = useViewerAccess();
+  const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
   const { data: tags, isPending: tagsPending } = api.topic.listTags.useQuery();
   const {
@@ -168,6 +168,7 @@ export function TopicList() {
   );
   const initialSortReady =
     !isLoading &&
+    !viewerPending &&
     (!viewerUser ||
       (statusesFetched && bookmarksFetched && excitedToTeachFetched));
   useEffect(() => {
@@ -195,10 +196,19 @@ export function TopicList() {
     currentSortKey,
   ]);
   const sortDirty = initialSortApplied && currentSortKey !== lastAppliedSortKey;
+  const isInitialOrderStable = !viewerUser || initialSortApplied;
   const shouldHoldForInitialRender =
-    isLoading || !isStoredTagLoaded || tagsPending;
+    isLoading ||
+    viewerPending ||
+    !isStoredTagLoaded ||
+    tagsPending ||
+    !initialSortReady ||
+    !isInitialOrderStable;
   const isListRendered = !shouldHoldForInitialRender;
-  useInitialActiveTopicScroll(activeTopicId, isListRendered);
+  useInitialActiveTopicScroll(
+    activeTopicId,
+    isListRendered && isInitialOrderStable,
+  );
   const topicsById = useMemo(
     () => new Map(allTopicsList.map((topic) => [topic.id, topic])),
     [allTopicsList],

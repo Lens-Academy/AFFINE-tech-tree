@@ -147,7 +147,9 @@ for (const [discordId, devUserId] of devDiscordToUserId) {
   }
 }
 
-console.log(`Mapped ${devToLive.size} users (${unmatched} still unmatched — no Discord account in dump).\n`);
+console.log(
+  `Mapped ${devToLive.size} users (${unmatched} still unmatched — no Discord account in dump).\n`,
+);
 if (devToLive.size === 0) {
   console.log("Nothing to migrate.");
   process.exit(0);
@@ -159,15 +161,19 @@ if (devToLive.size === 0) {
 console.log("Validating topic and topic_link IDs…");
 
 const liveTopicRows = await live.execute("SELECT id FROM topic");
-const liveTopicIds = new Set<number>(liveTopicRows.rows.map((r) => r.id as number));
+const liveTopicIds = new Set<number>(
+  liveTopicRows.rows.map((r) => r.id as number),
+);
 
 const liveTopicLinkRows = await live.execute("SELECT id FROM topic_link");
-const liveTopicLinkIds = new Set<number>(liveTopicLinkRows.rows.map((r) => r.id as number));
+const liveTopicLinkIds = new Set<number>(
+  liveTopicLinkRows.rows.map((r) => r.id as number),
+);
 
 const devTopicIds = new Set<number>(
-  srcAll("SELECT DISTINCT topicId FROM user_topic_status UNION SELECT DISTINCT topicId FROM bookmark UNION SELECT DISTINCT topicId FROM level_transition UNION SELECT DISTINCT topicId FROM feedback_item").map(
-    (r) => r.topicId as number,
-  ),
+  srcAll(
+    "SELECT DISTINCT topicId FROM user_topic_status UNION SELECT DISTINCT topicId FROM bookmark UNION SELECT DISTINCT topicId FROM level_transition UNION SELECT DISTINCT topicId FROM feedback_item",
+  ).map((r) => r.topicId as number),
 );
 const missingTopicIds = [...devTopicIds].filter((id) => !liveTopicIds.has(id));
 if (missingTopicIds.length > 0) {
@@ -180,11 +186,13 @@ if (missingTopicIds.length > 0) {
 }
 
 const devTopicLinkIds = new Set<number>(
-  srcAll("SELECT DISTINCT topicLinkId FROM feedback_item WHERE topicLinkId IS NOT NULL").map(
-    (r) => r.topicLinkId as number,
-  ),
+  srcAll(
+    "SELECT DISTINCT topicLinkId FROM feedback_item WHERE topicLinkId IS NOT NULL",
+  ).map((r) => r.topicLinkId as number),
 );
-const missingTopicLinkIds = [...devTopicLinkIds].filter((id) => !liveTopicLinkIds.has(id));
+const missingTopicLinkIds = [...devTopicLinkIds].filter(
+  (id) => !liveTopicLinkIds.has(id),
+);
 if (missingTopicLinkIds.length > 0) {
   console.warn(
     `  WARNING: ${missingTopicLinkIds.length} topic_link IDs in the dump are missing from the live DB: ${missingTopicLinkIds.join(", ")}`,
@@ -213,7 +221,9 @@ async function liveExecute(query: string, args: unknown[] = []) {
 // 1. user_topic_status
 // ---------------------------------------------------------------------------
 console.log("Migrating user_topic_status…");
-const devStatuses = srcAll("SELECT userId, topicId, level FROM user_topic_status");
+const devStatuses = srcAll(
+  "SELECT userId, topicId, level FROM user_topic_status",
+);
 
 // Fetch live statuses for matched users
 const liveUserIds = [...devToLive.values()];
@@ -222,7 +232,10 @@ const liveStatusRows = await live.execute({
   args: liveUserIds,
 });
 const liveStatusMap = new Map<string, string>(
-  liveStatusRows.rows.map((r) => [`${r.userId as string}:${r.topicId as number}`, r.level as string]),
+  liveStatusRows.rows.map((r) => [
+    `${r.userId as string}:${r.topicId as number}`,
+    r.level as string,
+  ]),
 );
 
 let statusInserted = 0;
@@ -232,7 +245,10 @@ let statusSkipped = 0;
 for (const row of devStatuses) {
   const liveUserId = mapUserId(row.userId as string);
   if (!liveUserId) continue;
-  if (missingTopicIdSet.has(row.topicId as number)) { statusSkipped++; continue; }
+  if (missingTopicIdSet.has(row.topicId as number)) {
+    statusSkipped++;
+    continue;
+  }
 
   const key = `${liveUserId}:${row.topicId}`;
   const existingLevel = liveStatusMap.get(key);
@@ -313,11 +329,23 @@ let transitionSkipped = 0;
 
 for (const row of devTransitions) {
   const liveUserId = mapUserId(row.userId as string);
-  if (!liveUserId) { transitionSkipped++; continue; }
-  if (missingTopicIdSet.has(row.topicId as number)) { transitionSkipped++; continue; }
+  if (!liveUserId) {
+    transitionSkipped++;
+    continue;
+  }
+  if (missingTopicIdSet.has(row.topicId as number)) {
+    transitionSkipped++;
+    continue;
+  }
   const result = await liveExecute(
     "INSERT INTO level_transition (userId, topicId, fromLevel, toLevel, createdAt) VALUES (?, ?, ?, ?, ?)",
-    [liveUserId, row.topicId, row.fromLevel ?? null, row.toLevel ?? null, row.createdAt],
+    [
+      liveUserId,
+      row.topicId,
+      row.fromLevel ?? null,
+      row.toLevel ?? null,
+      row.createdAt,
+    ],
   );
   devTransitionIdToLive.set(
     row.id as number,
@@ -339,8 +367,14 @@ let feedbackSkipped = 0;
 
 for (const row of devFeedback) {
   const liveUserId = mapUserId(row.userId as string);
-  if (!liveUserId) { feedbackSkipped++; continue; }
-  if (missingTopicIdSet.has(row.topicId as number)) { feedbackSkipped++; continue; }
+  if (!liveUserId) {
+    feedbackSkipped++;
+    continue;
+  }
+  if (missingTopicIdSet.has(row.topicId as number)) {
+    feedbackSkipped++;
+    continue;
+  }
 
   // Translate transitionId
   const devTransId = row.transitionId as number | null;
