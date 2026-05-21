@@ -1,4 +1,5 @@
 import {
+  emptyUnderstandingLevelCounts,
   type UnderstandingLevel,
   type UnderstandingLevelCounts,
 } from "~/shared/understandingLevels";
@@ -28,9 +29,7 @@ export function buildProgressDays(
   currentCounts: UnderstandingLevelCounts,
 ): ProgressDay[] {
   if (changes.length === 0) {
-    const hasAnyCounts = Object.values(currentCounts).some(
-      (count) => count > 0,
-    );
+    const hasAnyCounts = Object.values(currentCounts).some((count) => count > 0);
     if (!hasAnyCounts) return [];
     return [
       {
@@ -56,10 +55,7 @@ export function buildProgressDays(
           unfamiliar: Math.max(0, counts.unfamiliar),
           vague: Math.max(0, counts.vague),
           can_teach: Math.max(0, counts.can_teach),
-          advanced_questions_welcome: Math.max(
-            0,
-            counts.advanced_questions_welcome,
-          ),
+          advanced_questions_welcome: Math.max(0, counts.advanced_questions_welcome),
         },
         changes: [],
       };
