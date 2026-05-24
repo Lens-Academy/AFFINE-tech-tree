@@ -59,6 +59,7 @@ export function useTopicStatusMutations() {
         () => utils.feedback.getRecentTransitions.invalidate(),
         () => utils.feedback.getTransitionsByTopic.invalidate(),
         () => utils.match.invalidate(),
+        () => utils.topic.levelCountsAll.invalidate(),
       ],
     },
   );
@@ -86,6 +87,7 @@ export function useTopicStatusMutations() {
         () => utils.feedback.getRecentTransitions.invalidate(),
         () => utils.feedback.getTransitionsByTopic.invalidate(),
         () => utils.match.invalidate(),
+        () => utils.topic.levelCountsAll.invalidate(),
       ],
     },
   );

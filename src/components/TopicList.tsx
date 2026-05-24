@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 
 import { useAppMutation } from "~/hooks/useAppMutation";
 import { useInitialActiveTopicScroll } from "~/hooks/useInitialActiveTopicScroll";
+import { useLevelCounts } from "~/hooks/useLevelCounts";
 import { useTopicListFilters } from "~/hooks/useTopicListFilters";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
@@ -40,6 +41,7 @@ export function TopicList() {
   const { viewerUser, isPending: viewerPending } = useViewerAccess();
   const { data: allTopics, isLoading } = api.topic.list.useQuery();
   const { data: tags, isPending: tagsPending } = api.topic.listTags.useQuery();
+  const { byTopic: levelCountsByTopic, totalRespondents } = useLevelCounts();
   const {
     searchQuery,
     tagFilter,
@@ -333,6 +335,8 @@ export function TopicList() {
                 excitedToTeachSet.isPending && excitedUpdatingTopicId === t.id
               }
               isActive={activeTopicId === t.id}
+              levelCounts={levelCountsByTopic.get(t.id)}
+              totalRespondents={totalRespondents}
             />
           );
         })}

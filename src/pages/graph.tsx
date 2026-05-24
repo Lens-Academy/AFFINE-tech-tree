@@ -2,9 +2,11 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { LevelDonut } from "~/components/LevelDonut";
 import { PageShell } from "~/components/PageShell";
 import { FloatingTopicPreview } from "~/features/topic-detail/FloatingTopicPreview";
 import { computePaneWidth } from "~/features/topic-detail/paneLayout";
+import { useLevelCounts } from "~/hooks/useLevelCounts";
 import {
   assignManualPositions,
   edgePath,
@@ -15,7 +17,21 @@ import {
   type GraphTopic,
   type PositionedNode,
 } from "~/features/prerequisite-graph/layout";
+import {
+  emptyUnderstandingLevelCounts,
+  type UnderstandingLevelCounts,
+} from "~/shared/understandingLevels";
 import { api } from "~/utils/api";
+
+// 20 px donut hugs the right edge (4 px inset); vertically centred inside the
+// 30 px node. The title is centered at x=80 — independent of NODE_W so the
+// donut growing/shrinking on the right doesn't shift the visible title left.
+const DONUT_SIZE = 20;
+const DONUT_INSET_Y = (NODE_H - DONUT_SIZE) / 2;
+const DONUT_INSET_X = 4;
+const DONUT_X_OFFSET = NODE_W - DONUT_INSET_X - DONUT_SIZE;
+const TITLE_CENTER_X = 80;
+const EMPTY_COUNTS = emptyUnderstandingLevelCounts();
 
 const NODE_STYLES = {
   idle: {
@@ -49,11 +65,15 @@ export function PrerequisiteGraphView({
   edges,
   activeNodeId,
   onSelectNode,
+  countsByTopic,
+  totalRespondents,
 }: {
   topics: GraphTopic[];
   edges: Edge[];
   activeNodeId: number | null;
   onSelectNode: (id: number) => void;
+  countsByTopic: Map<number, UnderstandingLevelCounts>;
+  totalRespondents: number;
 }) {
   const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
@@ -119,6 +139,7 @@ export function PrerequisiteGraphView({
         const style = NODE_STYLES[state];
         const label =
           node.name.length > 22 ? `${node.name.slice(0, 20)}...` : node.name;
+        const counts = countsByTopic.get(node.id) ?? EMPTY_COUNTS;
         return (
           <g
             key={node.id}
@@ -147,7 +168,7 @@ export function PrerequisiteGraphView({
               strokeWidth={style.strokeWidth}
             />
             <text
-              x={node.x + NODE_W / 2}
+              x={node.x + TITLE_CENTER_X}
               y={node.y + NODE_H / 2 + 1}
               textAnchor="middle"
               dominantBaseline="middle"
@@ -157,6 +178,13 @@ export function PrerequisiteGraphView({
             >
               {label}
             </text>
+            <LevelDonut
+              counts={counts}
+              totalRespondents={totalRespondents}
+              size={DONUT_SIZE}
+              x={node.x + DONUT_X_OFFSET}
+              y={node.y + DONUT_INSET_Y}
+            />
           </g>
         );
       })}
@@ -233,6 +261,9 @@ function EdgeGroup({
 
 export default function PrerequisiteGraphPage() {
   const { data: graph, isLoading } = api.topic.prerequisiteGraph.useQuery();
+  // Donut data is a separate query so it doesn't block the graph structure
+  // and so it can be reused (tRPC-cached) by the list, match, and preview.
+  const { byTopic: countsByTopic, totalRespondents } = useLevelCounts();
   const router = useRouter();
   const selectedTopicId = parseTopicParam(router.query.topic);
   const graphSectionRef = useRef<HTMLDivElement>(null);
@@ -311,6 +342,8 @@ export default function PrerequisiteGraphPage() {
               onSelectNode={(id) =>
                 setSelectedTopicId(selectedTopicId === id ? null : id)
               }
+              countsByTopic={countsByTopic}
+              totalRespondents={totalRespondents}
             />
           )}
         </div>

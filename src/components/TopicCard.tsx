@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 
-import { type UnderstandingLevel } from "~/shared/understandingLevels";
+import {
+  type UnderstandingLevel,
+  type UnderstandingLevelCounts,
+} from "~/shared/understandingLevels";
 import { type RouterOutputs } from "~/utils/api";
+import { LevelDonut } from "./LevelDonut";
 import { TopicAffordanceIcon } from "./TopicAffordanceIcon";
 import { UnderstandingLevelCheckboxes } from "./UnderstandingLevelCheckboxes";
 
@@ -22,6 +26,8 @@ export function TopicCard({
   excitedToTeachDisabled,
   canMarkExcitedToTeach,
   isActive,
+  levelCounts,
+  totalRespondents = 0,
 }: {
   topic: Topic;
   currentLevel?: UnderstandingLevel;
@@ -36,6 +42,8 @@ export function TopicCard({
   excitedToTeachDisabled?: boolean;
   canMarkExcitedToTeach?: boolean;
   isActive?: boolean;
+  levelCounts?: UnderstandingLevelCounts;
+  totalRespondents?: number;
 }) {
   const router = useRouter();
   const isTopicRoute = router.pathname === "/topic/[id]";
@@ -72,26 +80,26 @@ export function TopicCard({
             </p>
           )}
         </Link>
-        {canBookmark && (
-          <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
-            {canMarkExcitedToTeach && (
-              <TopicAffordanceIcon
-                variant="interactive"
-                kind="star"
-                filled={!!excitedToTeach}
-                onClick={onExcitedToTeachToggle}
-                disabled={excitedToTeachDisabled}
-                ariaLabel={
-                  excitedToTeach
-                    ? "Remove excited to teach"
-                    : "Mark excited to teach"
-                }
-                ariaPressed={!!excitedToTeach}
-                title="Excited to teach"
-                groupHover
-                active={!!excitedToTeach && !!isActive}
-              />
-            )}
+        <div className="-mt-1 flex shrink-0 items-center gap-1">
+          {canBookmark && canMarkExcitedToTeach && (
+            <TopicAffordanceIcon
+              variant="interactive"
+              kind="star"
+              filled={!!excitedToTeach}
+              onClick={onExcitedToTeachToggle}
+              disabled={excitedToTeachDisabled}
+              ariaLabel={
+                excitedToTeach
+                  ? "Remove excited to teach"
+                  : "Mark excited to teach"
+              }
+              ariaPressed={!!excitedToTeach}
+              title="Excited to teach"
+              groupHover
+              active={!!excitedToTeach && !!isActive}
+            />
+          )}
+          {canBookmark && (
             <TopicAffordanceIcon
               variant="interactive"
               kind="bookmark"
@@ -106,8 +114,16 @@ export function TopicCard({
               groupHover
               active={!!bookmarked && !!isActive}
             />
-          </div>
-        )}
+          )}
+          {levelCounts && (
+            <LevelDonut
+              counts={levelCounts}
+              totalRespondents={totalRespondents}
+              size={20}
+              className="ml-0.5 shrink-0"
+            />
+          )}
+        </div>
       </div>
       {canEdit && (
         <div className="mt-4">
@@ -115,6 +131,7 @@ export function TopicCard({
             currentLevel={currentLevel}
             isActive={isActive}
             onLevelChange={onLevelChange}
+            counts={levelCounts}
           />
         </div>
       )}

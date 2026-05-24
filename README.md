@@ -40,6 +40,7 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
 - Header includes a Record button (`/record`) that records seminar audio in-browser via `MediaRecorder`, streaming chunks every second to OPFS through a worker so a crash or battery loss only loses the last second.
 - Test/staging deployments show a "Test env" badge with deploy date, commit link, and production URL.
 - Prerequisite network graph (`/graph`): clicking a node opens a sticky preview column on the right with a slide-in reveal; the column follows the page as you scroll and tucks up above the footer. On tablet+ it caps at 60% of the viewport and the graph gets matching right-padding so SVG content can scroll out from under it; on phones the preview takes over the screen. Selection is reflected in the URL (`?topic=<id>`) so browser back/forward walks selection history. Selected (orange), hovered (neutral), and idle nodes/edges use distinct color tiers.
+- Per-topic understanding distribution: a small SVG donut on every graph node, topic-list card, and tuition-match row shows how the approved class is split across the four levels (plus a real-black slice for "no status"); the donut shares one cached query across pages so it never blocks navigation. The level checkboxes inside topic cards and the topic preview also show the absolute count per level in the level's colour and use the level palette for the selected button's dot, border, and background tint.
 - Progress pages (`/progress/{userId}`) show a cumulative stacked chart of understanding levels over time, with a hover/click tooltip listing that day's per-level totals and topic transitions. User profiles link to the corresponding progress page; admins can view other users' progress there too.
 - User segments (SAS, Online SAS, BARYCENTER) and peer match system:
   - Admins assign each user to a segment from the user profile page.
@@ -47,7 +48,8 @@ This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3
   - Clicking a peer prompts to send a match request; the recipient can accept
     or decline.
   - Accepted matches open `/match/[id]`, with a venue wayfinding map at the top
-    where either user can click to set a shared "meet here" orange dot
+    (collapsible per-browser via a Hide/Show link) where either user can click
+    to set a shared "meet here" orange dot
     (stored on the match row), followed by a sorted list of tuition topics:
     topics where one person can help the other progress to a higher
     understanding level. Topics are sorted by learner interest, teacher

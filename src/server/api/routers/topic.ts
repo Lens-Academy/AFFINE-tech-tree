@@ -2,7 +2,11 @@ import { z } from "zod";
 
 import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { TEACHER_LEVELS } from "~/shared/understandingLevels";
+import {
+  emptyUnderstandingLevelCounts,
+  TEACHER_LEVELS,
+  type UnderstandingLevelCounts,
+} from "~/shared/understandingLevels";
 import { compareTeachers, selectLatestResourceVotes } from "./topic.helpers";
 import {
   HELPFULNESS_RATINGS,
@@ -183,6 +187,41 @@ export const topicRouter = createTRPCRouter({
         }))
         .sort(compareTeachers);
     }),
+
+  // Per-topic counts of how many users sit at each understanding level.
+  levelCountsAll: publicProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db
+      .select({
+        userId: userTopicStatus.userId,
+        topicId: userTopicStatus.topicId,
+        level: userTopicStatus.level,
+      })
+      .from(userTopicStatus)
+      .innerJoin(userTable, eq(userTopicStatus.userId, userTable.id))
+      .where(
+        and(eq(userTable.isApproved, true), eq(userTable.isNonUser, false)),
+      );
+
+    const byTopic = new Map<number, UnderstandingLevelCounts>();
+    const respondents = new Set<string>();
+    for (const row of rows) {
+      let counts = byTopic.get(row.topicId);
+      if (!counts) {
+        counts = emptyUnderstandingLevelCounts();
+        byTopic.set(row.topicId, counts);
+      }
+      counts[row.level] += 1;
+      respondents.add(row.userId);
+    }
+
+    return {
+      totalRespondents: respondents.size,
+      byTopic: Array.from(byTopic, ([topicId, counts]) => ({
+        topicId,
+        counts,
+      })),
+    };
+  }),
 
   prerequisiteGraph: publicProcedure.query(async ({ ctx }) => {
     const topics = await ctx.db.query.topic.findMany({
