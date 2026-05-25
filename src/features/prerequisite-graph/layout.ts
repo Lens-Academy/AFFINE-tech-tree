@@ -2,7 +2,7 @@ export type GraphTopic = { id: number; name: string };
 export type Edge = { from: number; to: number };
 export type PositionedNode = GraphTopic & { x: number; y: number };
 
-export const NODE_W = 160;
+export const NODE_W = 182;
 export const NODE_H = 30;
 export const PAD = 20;
 

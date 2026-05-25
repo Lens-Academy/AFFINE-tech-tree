@@ -19,12 +19,28 @@ export const UNDERSTANDING_LEVEL_LABELS: Record<UnderstandingLevel, string> = {
   advanced_questions_welcome: "Advanced Questions Welcome",
 };
 
-/** Hex colors for each level; used by the progress chart and legend. */
+/**
+ * Hex colors for each level. Used for *fills*: donut segments, the inner dot
+ * of a selected checkbox, the 10–20% background tint on a selected button.
+ * Unfamiliar is deliberately near-null dark so an "almost untouched" topic
+ * reads as almost-null in the donut.
+ */
 export const LEVEL_COLORS: Record<UnderstandingLevel, string> = {
-  unfamiliar: "#52525b", // zinc-600
+  unfamiliar: "#3f3f46", // zinc-700
   vague: "#eab308", // yellow-500
   can_teach: "#f97316", // orange-500
   advanced_questions_welcome: "#a3e635", // lime-400
+};
+
+/**
+ * Contrast-safe "ink" shade for each level, used where the colour carries
+ * meaning on a dark background — text (count numbers) and stroke (selected
+ * button borders). For vivid levels the ink equals the fill; only unfamiliar
+ * needs a lighter shade so it stays legible.
+ */
+export const LEVEL_INK_COLORS: Record<UnderstandingLevel, string> = {
+  ...LEVEL_COLORS,
+  unfamiliar: "#a1a1aa", // zinc-400
 };
 
 export function emptyUnderstandingLevelCounts(): UnderstandingLevelCounts {

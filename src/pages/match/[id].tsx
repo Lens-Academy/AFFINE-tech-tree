@@ -2,11 +2,14 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef } from "react";
 
+import { LevelDonut } from "~/components/LevelDonut";
 import { LevelDot } from "~/components/LevelDot";
 import { MatchMap, type MeetPoint } from "~/components/MatchMap";
 import { PageShell } from "~/components/PageShell";
 import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import { FloatingTopicPreview } from "~/features/topic-detail/FloatingTopicPreview";
+import { useLevelCounts } from "~/hooks/useLevelCounts";
+import { useLocalStorageBoolean } from "~/hooks/useLocalStorageBoolean";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { getLevelShortLabel } from "~/shared/understandingLevels";
 import { api } from "~/utils/api";
@@ -25,6 +28,11 @@ export default function MatchPage() {
       enabled: !!viewerUser && validId,
       refetchOnWindowFocus: true,
     },
+  );
+  const { byTopic: levelCountsByTopic, totalRespondents } = useLevelCounts();
+  const [mapHidden, setMapHidden] = useLocalStorageBoolean(
+    "match:mapHidden",
+    false,
   );
 
   const setMeetingPoint = api.match.setMeetingPoint.useMutation({
@@ -91,14 +99,25 @@ export default function MatchPage() {
               <h1 className="text-3xl font-bold text-zinc-100">
                 Match with {otherName}
               </h1>
-              <p className="text-sm text-zinc-500">
-                Click anywhere on the map to set a meeting point. Both of you
-                see and can move the orange dot.
-              </p>
-              <MatchMap
-                point={match.data.meetingPoint}
-                onChange={handleMeetChange}
-              />
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm text-zinc-500">
+                  Click anywhere on the map to set a meeting point. Both of you
+                  see and can move the orange dot.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMapHidden(!mapHidden)}
+                  className="shrink-0 px-1 py-1.5 text-xs text-orange-400 underline decoration-orange-400/40 underline-offset-2 transition hover:text-orange-300"
+                >
+                  {mapHidden ? "Show map" : "Hide map"}
+                </button>
+              </div>
+              {!mapHidden && (
+                <MatchMap
+                  point={match.data.meetingPoint}
+                  onChange={handleMeetChange}
+                />
+              )}
             </section>
 
             <section
@@ -137,6 +156,7 @@ export default function MatchPage() {
                           : e.teacherStarred
                             ? `${e.teacherName} is excited to teach`
                             : `${e.learnerName} is excited to teach`;
+                      const topicCounts = levelCountsByTopic.get(e.topicId);
                       return (
                         <li key={e.topicId}>
                           <button
@@ -186,6 +206,14 @@ export default function MatchPage() {
                                   groupHover
                                   active={isActive}
                                 />
+                                {topicCounts && (
+                                  <LevelDonut
+                                    counts={topicCounts}
+                                    totalRespondents={totalRespondents}
+                                    size={20}
+                                    className="ml-0.5 shrink-0"
+                                  />
+                                )}
                               </div>
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-500">

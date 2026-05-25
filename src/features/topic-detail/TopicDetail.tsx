@@ -9,6 +9,7 @@ import {
 import { TopicAffordanceIcon } from "~/components/TopicAffordanceIcon";
 import { UnderstandingLevelCheckboxes } from "~/components/UnderstandingLevelCheckboxes";
 import { useAppMutation } from "~/hooks/useAppMutation";
+import { useLevelCounts } from "~/hooks/useLevelCounts";
 import { useTopicStatusMutations } from "~/hooks/useTopicStatusMutations";
 import { useViewerAccess } from "~/hooks/useViewerAccess";
 import { getErrorMessage, showGlobalErrorToast } from "~/lib/globalErrorToast";
@@ -77,6 +78,7 @@ export function TopicDetail({
     undefined,
     { enabled: !!viewerUser },
   );
+  const topicLevelCounts = useLevelCounts().byTopic.get(id);
   const utils = api.useUtils();
   const bookmarkSet = useAppMutation(
     (opts: BookmarkMutationOptions) => api.bookmark.set.useMutation(opts),
@@ -494,6 +496,7 @@ export function TopicDetail({
                     setStatus.mutate({ topicId: topic.id, level });
                   }
                 }}
+                counts={topicLevelCounts}
               />
             </div>
           )}
@@ -507,7 +510,7 @@ export function TopicDetail({
           )}
 
           <div id="feedback" />
-          {viewerUser && !Number.isNaN(id) && (
+          {viewerUser && !Number.isNaN(id) && !isPreview && (
             <FeedbackSection topicId={id} topicLinks={topic.topicLinks ?? []} />
           )}
 

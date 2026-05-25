@@ -8,7 +8,7 @@ import {
   type GraphTopic,
 } from "./layout";
 
-const STEP = NODE_W + PAD; // 180
+const STEP = NODE_W + PAD;
 
 function byId(topics: GraphTopic[], edges: Edge[]) {
   const positioned = assignManualPositions(topics, edges);
