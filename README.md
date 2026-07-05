@@ -2,6 +2,8 @@
 
 Web app https://learn.affi.ne/ for seminar participants to track understanding of AI Alignment foundation topics.
 
+<img width="2763" height="1884" alt="image" src="https://github.com/user-attachments/assets/3eb5f888-1188-4d33-b332-858ee2caab42" />
+
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
 
 ## Current Product Features
